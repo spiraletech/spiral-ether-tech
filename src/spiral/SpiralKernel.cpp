@@ -1,5 +1,7 @@
 #include "spiral/SpiralKernel.hpp"
 
+#include <utility>
+
 namespace spiral {
 
 SpiralKernel::SpiralKernel()
@@ -51,16 +53,6 @@ CrystalGrid& SpiralKernel::crystalGrid() noexcept
     return crystalGrid_;
 }
 
-MindWheel& SpiralKernel::mindWheel() noexcept
-{
-    return mindWheel_;
-}
-
-CodingWheel& SpiralKernel::codingWheel() noexcept
-{
-    return codingWheel_;
-}
-
 const MindWheel& SpiralKernel::mindWheel() const noexcept
 {
     return mindWheel_;
@@ -79,14 +71,30 @@ WheelSnapshot SpiralKernel::wheelSnapshot() const noexcept
     };
 }
 
-bool SpiralKernel::selectMindPolicy(std::size_t notch)
+bool SpiralKernel::setMindNotchLabel(std::size_t notch, std::string label)
 {
-    return mindWheel_.select(notch);
+    return mindWheel_.setLabel(notch, std::move(label));
 }
 
-bool SpiralKernel::selectCodingAction(std::size_t notch)
+bool SpiralKernel::setCodingNotchLabel(std::size_t notch, std::string label)
 {
-    return codingWheel_.select(notch);
+    return codingWheel_.setLabel(notch, std::move(label));
+}
+
+bool SpiralKernel::requestMindPolicy(std::size_t notch, TimePoint now)
+{
+    if (notch >= kOctopusNotchCount) {
+        return false;
+    }
+    return beginTransition(makeWheelTransition("wheel.mind", notch), now);
+}
+
+bool SpiralKernel::requestCodingAction(std::size_t notch, TimePoint now)
+{
+    if (notch >= kOctopusNotchCount) {
+        return false;
+    }
+    return beginTransition(makeWheelTransition("wheel.coding", notch), now);
 }
 
 void SpiralKernel::setMayStopFromPolicy(bool mayStop)
@@ -107,11 +115,43 @@ bool SpiralKernel::beginTransition(const Signal& transitionSignal, TimePoint now
 std::optional<Signal> SpiralKernel::disembarkTransition()
 {
     auto signal = etherBus_.disembark();
-    if (signal) {
-        // Disembark is where the transition re-enters the live Router Bus.
-        pressureRail_.send(*signal);
+    if (!signal) {
+        return std::nullopt;
     }
+
+    applyTransition(*signal);
+
+    // Only after explicit Disembark does the transition re-enter the live rail.
+    pressureRail_.send(*signal);
     return signal;
+}
+
+Signal SpiralKernel::makeWheelTransition(const char* topic, std::size_t notch) const
+{
+    Signal signal;
+    signal.kind = SignalKind::State;
+    signal.source = "spiral.interface";
+    signal.destination = "spiral.core";
+    signal.topic = topic;
+    signal.notch = notch;
+    signal.timestamp = Clock::now();
+    return signal;
+}
+
+void SpiralKernel::applyTransition(const Signal& signal)
+{
+    if (!signal.notch || *signal.notch >= kOctopusNotchCount) {
+        return;
+    }
+
+    if (signal.topic == "wheel.mind") {
+        mindWheel_.select(*signal.notch);
+        return;
+    }
+
+    if (signal.topic == "wheel.coding") {
+        codingWheel_.select(*signal.notch);
+    }
 }
 
 } // namespace spiral
