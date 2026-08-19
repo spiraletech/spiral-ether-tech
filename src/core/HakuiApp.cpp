@@ -1,10 +1,11 @@
 #include "core/HakuiApp.hpp"
 
 #include <algorithm>
+#include <cmath>
 
 bool HakuiApp::boot()
 {
-    SDL_Log("[HAKUI] booting native client v0.2");
+    SDL_Log("[HAKUI] booting native client v0.3");
 
     if (!initPlatform() || !initGPU()) {
         return false;
@@ -20,6 +21,7 @@ bool HakuiApp::boot()
     }
 
     SDL_Log("[HAKUI] avatar rig ready // %zu bones", avatarSkeleton_.boneCount());
+    SDL_Log("[HAKUI] controls // WASD move // SHIFT sprint // 1-4 locomotion modes");
     return true;
 }
 
@@ -31,7 +33,7 @@ bool HakuiApp::initPlatform()
     }
 
     window_ = SDL_CreateWindow(
-        "PROJECT HAKUI // DATA GRUNGE",
+        "PROJECT HAKUI // DATA GRUNGE // v0.3",
         1280,
         720,
         SDL_WINDOW_RESIZABLE | SDL_WINDOW_HIGH_PIXEL_DENSITY
@@ -65,6 +67,12 @@ bool HakuiApp::initGPU()
     }
 
     SDL_Log("[HAKUI] renderer backend: %s", SDL_GetGPUDeviceDriver(gpu_));
+
+    if (!debugRenderer_.init(gpu_, window_)) {
+        SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "[HAKUI] renderer initialization failed: %s", SDL_GetError());
+        return false;
+    }
+
     return true;
 }
 
@@ -94,6 +102,8 @@ SDL_AppResult HakuiApp::tick()
     const Uint64 frequency = SDL_GetPerformanceFrequency();
     float dt = static_cast<float>(now - previousCounter_) / static_cast<float>(frequency);
     previousCounter_ = now;
+
+    // Avoid simulation explosions after a debugger pause or window stall.
     dt = std::min(dt, 0.1f);
 
     update(dt);
@@ -103,7 +113,48 @@ SDL_AppResult HakuiApp::tick()
 void HakuiApp::update(float dt)
 {
     world_.elapsedSeconds += dt;
+
+    if (player_.locomotion == LocomotionMode::OnFoot) {
+        const bool* keys = SDL_GetKeyboardState(nullptr);
+
+        float moveX = 0.0f;
+        float moveZ = 0.0f;
+
+        if (keys[SDL_SCANCODE_A]) moveX -= 1.0f;
+        if (keys[SDL_SCANCODE_D]) moveX += 1.0f;
+        if (keys[SDL_SCANCODE_S]) moveZ -= 1.0f;
+        if (keys[SDL_SCANCODE_W]) moveZ += 1.0f;
+
+        const float length = std::sqrt(moveX * moveX + moveZ * moveZ);
+        if (length > 0.0001f) {
+            moveX /= length;
+            moveZ /= length;
+
+            const bool sprint = keys[SDL_SCANCODE_LSHIFT] || keys[SDL_SCANCODE_RSHIFT];
+            const float speed = sprint ? 5.75f : 3.25f;
+
+            player_.x += moveX * speed * dt;
+            player_.z += moveZ * speed * dt;
+            player_.yaw = std::atan2(moveX, moveZ);
+        }
+    }
+
     locomotion_.update(dt);
+
+    titleTimer_ += dt;
+    if (titleTimer_ >= 0.20f) {
+        titleTimer_ = 0.0f;
+
+        char title[160];
+        SDL_snprintf(
+            title,
+            sizeof(title),
+            "PROJECT HAKUI // v0.3 // DATA GRUNGE // X %.1f  Z %.1f",
+            player_.x,
+            player_.z
+        );
+        SDL_SetWindowTitle(window_, title);
+    }
 }
 
 bool HakuiApp::render()
@@ -124,23 +175,15 @@ bool HakuiApp::render()
         return false;
     }
 
-    (void)width;
-    (void)height;
+    if (!swapchain) {
+        SDL_CancelGPUCommandBuffer(commands);
+        return true;
+    }
 
-    if (swapchain) {
-        SDL_GPUColorTargetInfo target{};
-        target.texture = swapchain;
-        target.clear_color = SDL_FColor{0.018f, 0.018f, 0.022f, 1.0f};
-        target.load_op = SDL_GPU_LOADOP_CLEAR;
-        target.store_op = SDL_GPU_STOREOP_STORE;
-
-        SDL_GPURenderPass* pass = SDL_BeginGPURenderPass(commands, &target, 1, nullptr);
-        if (!pass) {
-            SDL_CancelGPUCommandBuffer(commands);
-            return false;
-        }
-
-        SDL_EndGPURenderPass(pass);
+    if (!debugRenderer_.render(commands, swapchain, width, height, player_)) {
+        SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "[HAKUI] world render failed: %s", SDL_GetError());
+        SDL_CancelGPUCommandBuffer(commands);
+        return false;
     }
 
     return SDL_SubmitGPUCommandBuffer(commands);
@@ -150,13 +193,17 @@ void HakuiApp::shutdown()
 {
     SDL_Log("[HAKUI] shutting down");
 
+    debugRenderer_.shutdown();
+
     if (gpu_ && window_) {
         SDL_ReleaseWindowFromGPUDevice(gpu_, window_);
     }
+
     if (gpu_) {
         SDL_DestroyGPUDevice(gpu_);
         gpu_ = nullptr;
     }
+
     if (window_) {
         SDL_DestroyWindow(window_);
         window_ = nullptr;
