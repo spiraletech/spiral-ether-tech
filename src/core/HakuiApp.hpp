@@ -4,6 +4,7 @@
 
 #include "avatar/HakuiSkeleton.hpp"
 #include "player/PlayerState.hpp"
+#include "render/DebugWorldRenderer.hpp"
 #include "systems/LocomotionRouter.hpp"
 #include "world/WorldState.hpp"
 
@@ -23,8 +24,10 @@ private:
     SDL_Window* window_ = nullptr;
     SDL_GPUDevice* gpu_ = nullptr;
     Uint64 previousCounter_ = 0;
+    float titleTimer_ = 0.0f;
 
     HakuiSkeleton avatarSkeleton_;
+    DebugWorldRenderer debugRenderer_;
     WorldState world_;
     PlayerState player_;
     LocomotionRouter locomotion_{player_};
