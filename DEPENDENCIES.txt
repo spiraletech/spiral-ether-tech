@@ -1,0 +1,8 @@
+PROJECT HAKUI :: Dependency Manifest
+
+IMVU CAL3D
+repo=https://github.com/imvu/cal3d.git
+commit=8522b45cdc26960f779323cc9a0ef50678eda7de
+license=LGPL-2.1-or-later
+linkage=shared
+adapter=src/avatar/HakuiSkeleton.*
