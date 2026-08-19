@@ -14,6 +14,7 @@ SDL_AppResult SDL_AppInit(void** appstate, int argc, char** argv)
     *appstate = app;
 
     if (!app->boot()) {
+        app->shutdown();
         delete app;
         *appstate = nullptr;
         return SDL_APP_FAILURE;
