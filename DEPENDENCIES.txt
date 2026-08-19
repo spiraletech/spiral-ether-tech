@@ -1,5 +1,12 @@
 PROJECT HAKUI :: Dependency Manifest
 
+SDL3
+repo=https://github.com/libsdl-org/SDL.git
+ref=release-3.4.14
+license=zlib
+role=platform+input+audio+gpu
+prototype_shader_source=test/testgpu/cube.*
+
 IMVU CAL3D
 repo=https://github.com/imvu/cal3d.git
 commit=8522b45cdc26960f779323cc9a0ef50678eda7de
