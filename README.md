@@ -61,4 +61,24 @@ Disable Cal3D for renderer-only development:
 cmake -S . -B build -DHAKUI_ENABLE_IMVU_CAL3D=OFF
 ```
 
+## Current render pipeline
+
+```text
+PlayerState
+   ↓
+WASD locomotion
+   ↓
+High-angle follow camera
+   ↓
+Hakui matrices
+   ↓
+SDL3 GPU command buffer
+   ↓
+Depth-tested render pass
+   ↓
+World floor + humanoid debug proxy
+```
+
+The next renderer milestone is to replace the block proxy with a skinned mesh driven by `HakuiSkeleton` / IMVU-Cal3D bone transforms.
+
 See `THIRD_PARTY.md` for license notes.
