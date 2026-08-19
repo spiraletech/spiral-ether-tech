@@ -1,11 +1,9 @@
 name: Hakui Native Build
 
+# Manual only while the Spiral/AUM architecture is being laid down.
+# Do not auto-build on push/PR during engine-logic construction.
 on:
-  pull_request:
-  push:
-    branches:
-      - main
-      - "agent/**"
+  workflow_dispatch:
 
 jobs:
   windows:
