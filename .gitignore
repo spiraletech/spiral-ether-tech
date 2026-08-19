@@ -6,3 +6,11 @@ out/
 *.user
 *.suo
 *.pdb
+
+# CMake / native output
+CMakeCache.txt
+CMakeFiles/
+cmake_install.cmake
+*.vcxproj
+*.vcxproj.filters
+*.sln
