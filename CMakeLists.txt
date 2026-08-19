@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.25)
 
 project(Hakui
-    VERSION 0.2.0
+    VERSION 0.3.0
     DESCRIPTION "Project Hakui native client"
     LANGUAGES CXX
 )
@@ -36,13 +36,21 @@ endif()
 
 add_executable(hakui
     src/main.cpp
+
     src/core/HakuiApp.cpp
     src/core/HakuiApp.hpp
+
     src/avatar/HakuiSkeleton.cpp
     src/avatar/HakuiSkeleton.hpp
     src/avatar/AvatarAttachment.hpp
+
+    src/render/DebugWorldRenderer.cpp
+    src/render/DebugWorldRenderer.hpp
+    src/render/Math3D.hpp
+
     src/player/PlayerState.hpp
     src/world/WorldState.hpp
+
     src/systems/LocomotionRouter.hpp
     src/systems/Interactable.hpp
 )
@@ -56,7 +64,13 @@ else()
     target_compile_definitions(hakui PRIVATE HAKUI_HAS_IMVU_CAL3D=0)
 endif()
 
-target_include_directories(hakui PRIVATE src)
+# `src` is Hakui's code. SDL's `test` directory is temporarily exposed only
+# so v0.3 can consume SDL's already-precompiled cross-platform cube shaders.
+# These bootstrap shaders will be replaced by Hakui-owned shader assets later.
+target_include_directories(hakui PRIVATE
+    src
+    "${sdl3_SOURCE_DIR}/test"
+)
 
 if(MSVC)
     target_compile_options(hakui PRIVATE /W4 /permissive-)
