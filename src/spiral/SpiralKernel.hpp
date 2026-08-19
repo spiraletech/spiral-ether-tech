@@ -1,6 +1,7 @@
 #pragma once
 
 #include <optional>
+#include <string>
 
 #include "spiral/aum/AUMField.hpp"
 #include "spiral/bus/EtherBus.hpp"
@@ -29,25 +30,34 @@ public:
     AUMField& aumField() noexcept;
     CrystalGrid& crystalGrid() noexcept;
 
-    MindWheel& mindWheel() noexcept;
-    CodingWheel& codingWheel() noexcept;
-
     const MindWheel& mindWheel() const noexcept;
     const CodingWheel& codingWheel() const noexcept;
-
     WheelSnapshot wheelSnapshot() const noexcept;
 
-    // Mode changes are deliberately explicit and independent.
-    bool selectMindPolicy(std::size_t notch);
-    bool selectCodingAction(std::size_t notch);
+    // Labels are configuration, not behavior. Engine code deliberately does
+    // not guess the historical eight notch names.
+    bool setMindNotchLabel(std::size_t notch, std::string label);
+    bool setCodingNotchLabel(std::size_t notch, std::string label);
+
+    // Wheel posture changes MUST ride Ether Bus. There is intentionally no
+    // direct public select() path.
+    bool requestMindPolicy(std::size_t notch, TimePoint now = Clock::now());
+    bool requestCodingAction(std::size_t notch, TimePoint now = Clock::now());
 
     // Stop authority is supplied by policy; the kernel only enforces the gate.
     void setMayStopFromPolicy(bool mayStop);
     bool mayStop() const noexcept;
 
-    // Ether Bus transition path. There is no bypass/skip method.
+    // Generic transition path for other future mode changes.
     bool beginTransition(const Signal& transitionSignal, TimePoint now = Clock::now());
+
+    // Explicit release. If the passenger is a wheel transition, its notch is
+    // activated here and only here, after the enforced transit window.
     std::optional<Signal> disembarkTransition();
+
+private:
+    Signal makeWheelTransition(const char* topic, std::size_t notch) const;
+    void applyTransition(const Signal& signal);
 
 private:
     RouterBus router_;
