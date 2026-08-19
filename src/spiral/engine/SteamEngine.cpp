@@ -67,6 +67,8 @@ void SteamEngine::tick(float dtSeconds)
         return;
     }
 
+    // Condenser behavior: shed heat continuously and let stored pressure leak
+    // down slowly while no piston is actively producing output.
     telemetry_.heat = std::max(0.0f, telemetry_.heat - condenserRate_ * dtSeconds);
     telemetry_.temperature = std::max(0.0f, telemetry_.temperature - condenserRate_ * 0.5f * dtSeconds);
     telemetry_.pressure = std::max(0.0f, telemetry_.pressure - passivePressureLoss_ * dtSeconds);
@@ -129,8 +131,10 @@ void SteamEngine::updateState()
         return;
     }
 
+    // Stored steam means the engine is charged/pressurized even if the
+    // condenser is simultaneously shedding heat.
     if (telemetry_.pressure > 0.0f) {
-        telemetry_.state = telemetry_.heat > 0.0f ? State::Cooling : State::Pressurizing;
+        telemetry_.state = State::Pressurizing;
         return;
     }
 
