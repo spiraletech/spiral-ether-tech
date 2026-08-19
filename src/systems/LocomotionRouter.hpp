@@ -10,6 +10,10 @@ public:
 
     void switchTo(LocomotionMode mode)
     {
+        if (player_.locomotion == mode) {
+            return;
+        }
+
         player_.locomotion = mode;
         switch (mode) {
             case LocomotionMode::OnFoot: SDL_Log("[HAKUI] locomotion -> ON FOOT"); break;
@@ -22,6 +26,11 @@ public:
     void update(float dt)
     {
         (void)dt;
+        // Controller dispatch lands here next:
+        // onFoot_.update(dt)
+        // skateboard_.update(dt)
+        // bmx_.update(dt)
+        // car_.update(dt)
     }
 
 private:
