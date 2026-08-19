@@ -1,0 +1,21 @@
+name: Hakui Native Build
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+      - "agent/**"
+
+jobs:
+  windows:
+    runs-on: windows-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Configure
+        run: cmake -S . -B build -DHAKUI_ENABLE_IMVU_CAL3D=ON
+
+      - name: Build
+        run: cmake --build build --config Release --parallel 2
