@@ -3,6 +3,7 @@
 #include <array>
 #include <chrono>
 #include <cstdint>
+#include <optional>
 #include <string>
 #include <string_view>
 
@@ -36,6 +37,9 @@ struct Signal {
     std::string topic;
     std::string payload;
     TimePoint timestamp = Clock::now();
+
+    // Optional typed wheel target used by Ether Bus transitions.
+    std::optional<std::size_t> notch;
 
     // Steam/pressure rides beside the signal. The bus does not interpret it.
     float pressure = 0.0f;
