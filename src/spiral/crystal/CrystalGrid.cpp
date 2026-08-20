@@ -160,7 +160,6 @@ void CrystalGrid::route(const Signal& signal)
 void CrystalGrid::emitCrystalError(const Crystal& crystal, const char* message)
 {
     Signal signal;
-    signal.id = nextSignalId_++;
     signal.kind = SignalKind::Error;
     signal.source = std::string(crystal.name());
     signal.destination = "spiral.core";
