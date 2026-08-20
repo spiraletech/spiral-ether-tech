@@ -448,7 +448,7 @@ bool DebugWorldRenderer::render(
     const float counterGait = std::sin(player.gaitPhase + kPi);
     const float stride = 0.72f * player.movementBlend;
     const float armStride = 0.82f * player.movementBlend;
-    const float idleBreath = 0.012f * std::sin(player.gaitPhase * 0.35f);
+    const float idleBreath = 0.012f * std::sin(player.idlePhase);
     const float bodyBob =
         0.045f * std::abs(std::sin(player.gaitPhase)) * player.movementBlend;
     const float bodySway = 0.035f * gait * player.movementBlend;

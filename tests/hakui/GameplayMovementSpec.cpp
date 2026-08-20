@@ -129,6 +129,28 @@ void renderer_rotations_are_stable()
     assert(nearlyEqual(combined.m[14], 4.0f));
 }
 
+void camera_relative_axes_match_screen_directions()
+{
+    using namespace hakui::math;
+
+    const Vec3 rightAtZero = cameraRelativePlanarMovement(1.0f, 0.0f, 0.0f);
+    assert(nearlyEqual(rightAtZero.x, -1.0f));
+    assert(nearlyEqual(rightAtZero.z, 0.0f));
+
+    constexpr float quarterTurn = 1.57079632679f;
+    const Vec3 rightAtQuarterTurn = cameraRelativePlanarMovement(
+        1.0f,
+        0.0f,
+        quarterTurn
+    );
+    assert(nearlyEqual(rightAtQuarterTurn.x, 0.0f));
+    assert(nearlyEqual(rightAtQuarterTurn.z, 1.0f));
+
+    const Vec3 forwardAtZero = cameraRelativePlanarMovement(0.0f, 1.0f, 0.0f);
+    assert(nearlyEqual(forwardAtZero.x, 0.0f));
+    assert(nearlyEqual(forwardAtZero.z, -1.0f));
+}
+
 } // namespace
 
 int main()
@@ -139,5 +161,6 @@ int main()
     non_on_foot_modes_do_not_apply_on_foot_motion();
     invalid_input_cannot_poison_player_state();
     renderer_rotations_are_stable();
+    camera_relative_axes_match_screen_directions();
     return 0;
 }

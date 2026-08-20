@@ -6,6 +6,8 @@
 #include <string>
 #include <utility>
 
+#include "render/Math3D.hpp"
+
 bool HakuiApp::boot()
 {
     SDL_Log("[HAKUI] booting native client v0.5-dev");
@@ -336,11 +338,13 @@ void HakuiApp::update(float dt)
     const float inputForward =
         static_cast<float>(keys[SDL_SCANCODE_W]) -
         static_cast<float>(keys[SDL_SCANCODE_S]);
-    const float cameraYaw = debugRenderer_.movementYaw();
-    movementInput.right =
-        inputRight * std::cos(cameraYaw) - inputForward * std::sin(cameraYaw);
-    movementInput.forward =
-        -inputRight * std::sin(cameraYaw) - inputForward * std::cos(cameraYaw);
+    const hakui::math::Vec3 cameraMovement = hakui::math::cameraRelativePlanarMovement(
+        inputRight,
+        inputForward,
+        debugRenderer_.movementYaw()
+    );
+    movementInput.right = cameraMovement.x;
+    movementInput.forward = cameraMovement.z;
     movementInput.sprint =
         keys[SDL_SCANCODE_LSHIFT] || keys[SDL_SCANCODE_RSHIFT];
 
@@ -353,6 +357,7 @@ void HakuiApp::update(float dt)
     const float blendResponse = 1.0f - std::exp(-12.0f * dt);
     player_.movementBlend +=
         (targetMovementBlend - player_.movementBlend) * blendResponse;
+    player_.idlePhase += 1.8f * dt;
     if (movementStep.moved) {
         const float gaitSpeed = movementStep.sprinting ? 11.0f : 7.2f;
         player_.gaitPhase += gaitSpeed * dt;

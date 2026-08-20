@@ -39,6 +39,17 @@ inline Vec3 normalize(const Vec3& value)
     return {value.x / length, value.y / length, value.z / length};
 }
 
+inline Vec3 cameraRelativePlanarMovement(float right, float forward, float cameraYaw)
+{
+    const float sine = std::sin(cameraYaw);
+    const float cosine = std::cos(cameraYaw);
+    return {
+        -right * cosine - forward * sine,
+        0.0f,
+        right * sine - forward * cosine
+    };
+}
+
 struct Mat4 {
     float m[16]{};
 };
