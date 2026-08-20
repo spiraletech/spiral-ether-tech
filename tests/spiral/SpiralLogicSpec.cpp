@@ -1,9 +1,11 @@
 #include <cassert>
 #include <chrono>
+#include <cstdint>
 #include <memory>
 #include <string>
 #include <type_traits>
 #include <utility>
+#include <variant>
 
 #include "spiral/SpiralKernel.hpp"
 #include "spiral/crystal/CrystalModule.hpp"
@@ -226,6 +228,75 @@ void router_bus_sequences_signals_and_monolith_is_bounded()
     assert(snapshot[2].id == id4);
 }
 
+void state_store_merges_bus_patches_and_restores_snapshots()
+{
+    spiral::SpiralKernel kernel;
+
+    spiral::Signal first;
+    first.kind = spiral::SignalKind::State;
+    first.source = "spec";
+    first.destination = "spiral.core";
+    first.topic = "state.first";
+    first.statePatch = {
+        {"player.mode", std::string("walk")},
+        {"wallet.money", std::int64_t{10}}
+    };
+    assert(kernel.dispatch(first));
+
+    assert(kernel.stateStore().revision() == 1);
+    assert(kernel.stateStore().size() == 2);
+
+    const auto* mode1 = kernel.stateStore().get("player.mode");
+    const auto* money1 = kernel.stateStore().get("wallet.money");
+    assert(mode1 != nullptr);
+    assert(money1 != nullptr);
+    assert(std::get<std::string>(*mode1) == "walk");
+    assert(std::get<std::int64_t>(*money1) == 10);
+
+    spiral::Signal second;
+    second.kind = spiral::SignalKind::State;
+    second.source = "spec";
+    second.destination = "spiral.core";
+    second.topic = "state.second";
+    second.statePatch = {
+        {"player.mode", std::string("bmx")},
+        {"wallet.money", std::int64_t{20}},
+        {"wallet.money", std::int64_t{25}}
+    };
+    assert(kernel.dispatch(second));
+
+    assert(kernel.stateStore().revision() == 2);
+    assert(std::get<std::string>(*kernel.stateStore().get("player.mode")) == "bmx");
+    assert(std::get<std::int64_t>(*kernel.stateStore().get("wallet.money")) == 25);
+
+    const auto latestEvent = kernel.monolith().tail(1);
+    assert(latestEvent.size() == 1);
+    assert(kernel.stateStore().lastSignalId() == latestEvent[0].id);
+
+    // Empty-key-only patches are observable events but are not state revisions.
+    spiral::Signal ignored;
+    ignored.kind = spiral::SignalKind::State;
+    ignored.source = "spec";
+    ignored.destination = "spiral.core";
+    ignored.topic = "state.ignored";
+    ignored.statePatch = {
+        {"", std::string("ignored")}
+    };
+    assert(kernel.dispatch(ignored));
+    assert(kernel.stateStore().revision() == 2);
+
+    auto snapshot = kernel.stateStore().snapshot();
+    kernel.stateStore().clear();
+    assert(kernel.stateStore().revision() == 0);
+    assert(kernel.stateStore().size() == 0);
+
+    kernel.stateStore().restore(std::move(snapshot));
+    assert(kernel.stateStore().revision() == 2);
+    assert(kernel.stateStore().size() == 2);
+    assert(std::get<std::string>(*kernel.stateStore().get("player.mode")) == "bmx");
+    assert(std::get<std::int64_t>(*kernel.stateStore().get("wallet.money")) == 25);
+}
+
 void crystal_host_owns_mounts_and_detaches_before_destruction()
 {
     spiral::SpiralKernel kernel;
@@ -348,6 +419,7 @@ int main()
     route_table_is_ordered_first_match_wins();
     kernel_dispatch_uses_route_table_without_inventing_fallback();
     router_bus_sequences_signals_and_monolith_is_bounded();
+    state_store_merges_bus_patches_and_restores_snapshots();
     crystal_host_owns_mounts_and_detaches_before_destruction();
     stop_gate_belongs_to_policy();
     steam_engine_contains_overpressure();
