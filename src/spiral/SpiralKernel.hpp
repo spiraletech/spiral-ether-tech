@@ -10,12 +10,14 @@
 #include "spiral/crystal/CrystalGrid.hpp"
 #include "spiral/engine/PressureRail.hpp"
 #include "spiral/engine/SteamEngine.hpp"
+#include "spiral/ledger/MonolithLedger.hpp"
+#include "spiral/routing/RouteTable.hpp"
 #include "spiral/wheel/OctopusWheel.hpp"
 
 namespace spiral {
 
 // SpiralKernel is plumbing/orchestration only.
-// It owns clocks, transport, state containers, and lifecycle order.
+// It owns clocks, transport, state containers, routing, audit, and lifecycle order.
 // It does not decide policy and it does not choose actions.
 class SpiralKernel {
 public:
@@ -24,6 +26,10 @@ public:
     void tick(float dtSeconds, TimePoint now = Clock::now());
 
     RouterBus& router() noexcept;
+    RouteTable& routes() noexcept;
+    MonolithLedger& monolith() noexcept;
+    const MonolithLedger& monolith() const noexcept;
+
     EtherBus& etherBus() noexcept;
     PressureRail& pressureRail() noexcept;
     SteamEngine& steamEngine() noexcept;
@@ -55,12 +61,25 @@ public:
     // activated here and only here, after the enforced transit window.
     std::optional<Signal> disembarkTransition();
 
+    // Resolve an address if needed, then put the packet on the Pressure Rail.
+    // Route selection is deterministic first-match-wins. A route miss is logged
+    // as an error event and returns false; the kernel invents no fallback policy.
+    bool dispatch(
+        Signal signal,
+        float pressureCharge = 0.0f,
+        float heatCharge = 0.0f
+    );
+
 private:
     Signal makeWheelTransition(const char* topic, std::size_t notch) const;
     void applyTransition(const Signal& signal);
+    void emitRouteMiss(const Signal& signal);
 
 private:
     RouterBus router_;
+    MonolithLedger monolith_;
+    RouteTable routes_;
+
     SteamEngine steamEngine_;
     PressureRail pressureRail_;
     EtherBus etherBus_;
