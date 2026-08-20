@@ -82,9 +82,14 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         shell: pwsh
-        run: >-
-          gh release create $env:GITHUB_REF_NAME
-          ./dist/spiral-os-hakui-engine-windows-x64.zip
-          --verify-tag
-          --title "SPIRAL OS: HAKUI ENGINE $env:GITHUB_REF_NAME"
-          --notes "Bare-bones Windows startup pack. Extract the ZIP and run SPIRAL-OS-HAKUI-ENGINE.exe."
+        run: |
+          $archive = "./dist/spiral-os-hakui-engine-windows-x64.zip"
+          gh release view $env:GITHUB_REF_NAME *> $null
+          if ($LASTEXITCODE -eq 0) {
+            gh release upload $env:GITHUB_REF_NAME $archive --clobber
+          } else {
+            gh release create $env:GITHUB_REF_NAME $archive `
+              --verify-tag `
+              --title "SPIRAL OS: HAKUI ENGINE $env:GITHUB_REF_NAME" `
+              --notes "Windows startup pack. Extract the ZIP and run SPIRAL-OS-HAKUI-ENGINE.exe."
+          }

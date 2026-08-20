@@ -20,6 +20,13 @@ struct PlayerState {
     float z = 0.0f;
     float yaw = 0.0f;
 
+    // Runtime presentation state. The movement controller supplies intent;
+    // the client smooths these values for the procedural debug-avatar pose.
+    float movementBlend = 0.0f;
+    float gaitPhase = 0.0f;
+    float idlePhase = 0.0f;
+    bool sprinting = false;
+
     float health = 100.0f;
     float hunger = 100.0f;
     float stamina = 100.0f;

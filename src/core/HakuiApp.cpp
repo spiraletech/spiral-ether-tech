@@ -1,13 +1,16 @@
 #include "core/HakuiApp.hpp"
 
 #include <algorithm>
+#include <cmath>
 #include <cstdint>
 #include <string>
 #include <utility>
 
+#include "render/Math3D.hpp"
+
 bool HakuiApp::boot()
 {
-    SDL_Log("[HAKUI] booting native client v0.4");
+    SDL_Log("[HAKUI] booting native client v0.5-dev");
 
     if (!initPlatform() || !initGPU()) {
         return false;
@@ -38,8 +41,10 @@ bool HakuiApp::boot()
     SDL_Log("[HAKUI] WORLD ONLINE");
     SDL_Log("[HAKUI] DATA GRUNGE // ACTIVE");
     SDL_Log("[HAKUI] SPIRAL CORE // ONLINE");
-    SDL_Log("[HAKUI] avatar rig ready // %zu bones", avatarSkeleton_.boneCount());
-    SDL_Log("[HAKUI] controls // WASD move // SHIFT sprint // 1-4 locomotion modes");
+    SDL_Log("[HAKUI] avatar skeleton // %zu bones loaded", avatarSkeleton_.boneCount());
+    SDL_Log("[HAKUI] procedural locomotion // idle + walk + sprint online");
+    SDL_Log("[HAKUI] controls // WASD move // SHIFT sprint // RMB orbit // WHEEL zoom // R camera reset");
+    SDL_Log("[HAKUI] modes // 1-4 locomotion scaffolds");
     SDL_Log("[HAKUI] terminal // T use/dice // G cards // B bet 25 // H hit // J stand // I inspect");
     return true;
 }
@@ -56,7 +61,7 @@ bool HakuiApp::initPlatform()
     }
 
     window_ = SDL_CreateWindow(
-        "PROJECT HAKUI // DATA GRUNGE // v0.4",
+        "PROJECT HAKUI // DATA GRUNGE // v0.5-dev",
         1280,
         720,
         SDL_WINDOW_RESIZABLE | SDL_WINDOW_HIGH_PIXEL_DENSITY
@@ -135,7 +140,7 @@ void HakuiApp::initSpiralCore()
     bootSignal.source = "hakui.client";
     bootSignal.destination = "spiral.core";
     bootSignal.topic = "client.boot";
-    bootSignal.payload = "hakui-v0.4";
+    bootSignal.payload = "hakui-v0.5-dev";
 
     // A small initial charge marks the native client's transition to live
     // operation. Steam is telemetry/energy state, not gameplay policy.
@@ -150,7 +155,7 @@ void HakuiApp::initSpiralCore()
     initialState.topic = "client.state.initial";
     initialState.statePatch = {
         {"client.status", std::string("online")},
-        {"client.version", std::string("0.4")},
+        {"client.version", std::string("0.5-dev")},
         {"avatar.rig.bones", static_cast<std::int64_t>(avatarSkeleton_.boneCount())},
         {"player.locomotion", std::string("on_foot")}
     };
@@ -202,10 +207,41 @@ SDL_AppResult HakuiApp::handleEvent(const SDL_Event& event)
         return SDL_APP_SUCCESS;
     }
 
-    if (event.type == SDL_EVENT_KEY_DOWN) {
+    if (event.type == SDL_EVENT_MOUSE_BUTTON_DOWN &&
+        event.button.button == SDL_BUTTON_RIGHT) {
+        cameraDragging_ = true;
+        SDL_SetWindowRelativeMouseMode(window_, true);
+    }
+
+    if (event.type == SDL_EVENT_MOUSE_BUTTON_UP &&
+        event.button.button == SDL_BUTTON_RIGHT) {
+        cameraDragging_ = false;
+        SDL_SetWindowRelativeMouseMode(window_, false);
+    }
+
+    if (event.type == SDL_EVENT_WINDOW_FOCUS_LOST && cameraDragging_) {
+        cameraDragging_ = false;
+        SDL_SetWindowRelativeMouseMode(window_, false);
+    }
+
+    if (event.type == SDL_EVENT_MOUSE_MOTION && cameraDragging_) {
+        debugRenderer_.orbitCamera(event.motion.xrel, event.motion.yrel);
+    }
+
+    if (event.type == SDL_EVENT_MOUSE_WHEEL) {
+        const float wheelDirection =
+            event.wheel.direction == SDL_MOUSEWHEEL_FLIPPED ? -1.0f : 1.0f;
+        debugRenderer_.zoomCamera(event.wheel.y * wheelDirection);
+    }
+
+    if (event.type == SDL_EVENT_KEY_DOWN && !event.key.repeat) {
         switch (event.key.key) {
             case SDLK_ESCAPE:
                 return SDL_APP_SUCCESS;
+
+            case SDLK_R:
+                debugRenderer_.resetCamera();
+                break;
 
             case SDLK_1:
                 switchLocomotion(LocomotionMode::OnFoot, "on_foot");
@@ -296,16 +332,38 @@ void HakuiApp::update(float dt)
 
     const bool* keys = SDL_GetKeyboardState(nullptr);
     hakui::MovementInput movementInput;
-    movementInput.right =
+    const float inputRight =
         static_cast<float>(keys[SDL_SCANCODE_D]) -
         static_cast<float>(keys[SDL_SCANCODE_A]);
-    movementInput.forward =
+    const float inputForward =
         static_cast<float>(keys[SDL_SCANCODE_W]) -
         static_cast<float>(keys[SDL_SCANCODE_S]);
+    const hakui::math::Vec3 cameraMovement = hakui::math::cameraRelativePlanarMovement(
+        inputRight,
+        inputForward,
+        debugRenderer_.movementYaw()
+    );
+    movementInput.right = cameraMovement.x;
+    movementInput.forward = cameraMovement.z;
     movementInput.sprint =
         keys[SDL_SCANCODE_LSHIFT] || keys[SDL_SCANCODE_RSHIFT];
 
-    movement_.update(player_, movementInput, dt);
+    const hakui::MovementStep movementStep = movement_.update(player_, movementInput, dt);
+
+    player_.sprinting = movementStep.sprinting;
+    const float targetMovementBlend = movementStep.moved
+        ? (movementStep.sprinting ? 1.0f : 0.62f)
+        : 0.0f;
+    const float blendResponse = 1.0f - std::exp(-12.0f * dt);
+    player_.movementBlend +=
+        (targetMovementBlend - player_.movementBlend) * blendResponse;
+    player_.idlePhase += 1.8f * dt;
+    if (movementStep.moved) {
+        const float gaitSpeed = movementStep.sprinting ? 11.0f : 7.2f;
+        player_.gaitPhase += gaitSpeed * dt;
+    }
+
+    debugRenderer_.updateCamera(dt, player_);
 
     locomotion_.update(dt);
 
@@ -324,7 +382,7 @@ void HakuiApp::update(float dt)
         SDL_snprintf(
             title,
             sizeof(title),
-            "PROJECT HAKUI // v0.4 // AUM %s // EVENTS %zu // STATE R%llu // X %.1f  Z %.1f",
+            "PROJECT HAKUI // v0.5-dev // AUM %s // EVENTS %zu // STATE R%llu // X %.1f  Z %.1f",
             aumPhase,
             spiral_.monolith().size(),
             static_cast<unsigned long long>(spiral_.stateStore().revision()),
@@ -387,6 +445,11 @@ bool HakuiApp::render()
 void HakuiApp::shutdown()
 {
     SDL_Log("[HAKUI] shutting down");
+
+    if (window_ && cameraDragging_) {
+        SDL_SetWindowRelativeMouseMode(window_, false);
+        cameraDragging_ = false;
+    }
 
     // Optional capability modules detach before platform/runtime teardown.
     spiral_.crystalHost().unmountAll();

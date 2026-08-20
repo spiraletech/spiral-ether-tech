@@ -1,5 +1,7 @@
 #include "render/DebugWorldRenderer.hpp"
 
+#include <algorithm>
+#include <cmath>
 #include <cstring>
 
 #include "render/Math3D.hpp"
@@ -76,11 +78,71 @@ constexpr Vertex kCubeVertices[] = {
 
 constexpr float kPi = 3.14159265358979323846f;
 
+float smoothToward(float current, float target, float response, float deltaSeconds)
+{
+    const float blend = 1.0f - std::exp(-response * std::max(deltaSeconds, 0.0f));
+    return current + (target - current) * blend;
+}
+
 } // namespace
 
 DebugWorldRenderer::~DebugWorldRenderer()
 {
     shutdown();
+}
+
+void DebugWorldRenderer::updateCamera(float deltaSeconds, const PlayerState& player)
+{
+    if (!cameraInitialized_) {
+        cameraTargetX_ = player.x;
+        cameraTargetY_ = player.y + 1.25f;
+        cameraTargetZ_ = player.z + 0.20f;
+        cameraInitialized_ = true;
+    }
+
+    cameraTargetX_ = smoothToward(cameraTargetX_, player.x, 8.0f, deltaSeconds);
+    cameraTargetY_ = smoothToward(cameraTargetY_, player.y + 1.25f, 8.0f, deltaSeconds);
+    cameraTargetZ_ = smoothToward(cameraTargetZ_, player.z + 0.20f, 8.0f, deltaSeconds);
+    cameraYaw_ = smoothToward(cameraYaw_, targetCameraYaw_, 14.0f, deltaSeconds);
+    cameraPitch_ = smoothToward(cameraPitch_, targetCameraPitch_, 14.0f, deltaSeconds);
+    cameraDistance_ = smoothToward(
+        cameraDistance_,
+        targetCameraDistance_,
+        12.0f,
+        deltaSeconds
+    );
+}
+
+void DebugWorldRenderer::orbitCamera(float horizontalPixels, float verticalPixels)
+{
+    constexpr float sensitivity = 0.0065f;
+    targetCameraYaw_ -= horizontalPixels * sensitivity;
+    targetCameraPitch_ = std::clamp(
+        targetCameraPitch_ - verticalPixels * sensitivity,
+        0.12f,
+        1.18f
+    );
+}
+
+void DebugWorldRenderer::zoomCamera(float wheelSteps)
+{
+    targetCameraDistance_ = std::clamp(
+        targetCameraDistance_ - wheelSteps * 0.85f,
+        3.5f,
+        16.0f
+    );
+}
+
+void DebugWorldRenderer::resetCamera()
+{
+    targetCameraYaw_ = 2.40f;
+    targetCameraPitch_ = 0.48f;
+    targetCameraDistance_ = 9.5f;
+}
+
+float DebugWorldRenderer::movementYaw() const noexcept
+{
+    return targetCameraYaw_;
 }
 
 bool DebugWorldRenderer::init(SDL_GPUDevice* device, SDL_Window* window)
@@ -102,7 +164,7 @@ bool DebugWorldRenderer::init(SDL_GPUDevice* device, SDL_Window* window)
         return false;
     }
 
-    SDL_Log("[HAKUI] v0.3 debug 3D renderer online");
+    SDL_Log("[HAKUI] v0.5 procedural 3D renderer online");
     return true;
 }
 
@@ -337,9 +399,13 @@ bool DebugWorldRenderer::render(
     vertexBinding.offset = 0;
     SDL_BindGPUVertexBuffers(pass, 0, &vertexBinding, 1);
 
-    const Vec3 playerPosition{player.x, player.y, player.z};
-    const Vec3 cameraEye{player.x + 6.5f, player.y + 5.8f, player.z - 7.0f};
-    const Vec3 cameraTarget{player.x, player.y + 1.25f, player.z + 0.45f};
+    const float horizontalDistance = cameraDistance_ * std::cos(cameraPitch_);
+    const Vec3 cameraTarget{cameraTargetX_, cameraTargetY_, cameraTargetZ_};
+    const Vec3 cameraEye{
+        cameraTarget.x + std::sin(cameraYaw_) * horizontalDistance,
+        cameraTarget.y + std::sin(cameraPitch_) * cameraDistance_,
+        cameraTarget.z + std::cos(cameraYaw_) * horizontalDistance
+    };
 
     const Mat4 view = lookAtLH(cameraEye, cameraTarget, {0.0f, 1.0f, 0.0f});
     const Mat4 projection = perspectiveLH(
@@ -350,33 +416,101 @@ bool DebugWorldRenderer::render(
     );
     const Mat4 viewProjection = multiply(projection, view);
 
-    auto drawBox = [&](const Vec3& position, const Vec3& dimensions) {
-        const Mat4 model = multiply(translation(position), scale(dimensions));
+    auto drawModel = [&](const Mat4& model) {
         const Mat4 mvp = multiply(viewProjection, model);
         SDL_PushGPUVertexUniformData(commands, 0, mvp.m, sizeof(mvp.m));
         SDL_DrawGPUPrimitives(pass, 36, 1, 0, 0);
     };
 
+    auto drawBox = [&](const Vec3& position, const Vec3& dimensions) {
+        drawModel(multiply(translation(position), scale(dimensions)));
+    };
+
     // First Hakui world surface.
     drawBox({0.0f, -0.08f, 0.0f}, {30.0f, 0.16f, 30.0f});
 
-    // HAKUI HUMANOID DEBUG PROXY v0.1
-    // This is intentionally primitive geometry. It lets us validate the camera,
-    // world scale, locomotion, and rig proportions before GPU skinning lands.
-    drawBox({playerPosition.x - 0.23f, 0.08f, playerPosition.z + 0.12f}, {0.32f, 0.16f, 0.58f});
-    drawBox({playerPosition.x + 0.23f, 0.08f, playerPosition.z + 0.12f}, {0.32f, 0.16f, 0.58f});
+    // A readable world grid makes speed, direction, and camera motion visible.
+    for (int offset = -7; offset <= 7; ++offset) {
+        const float position = static_cast<float>(offset) * 2.0f;
+        drawBox({position, 0.015f, 0.0f}, {0.025f, 0.03f, 30.0f});
+        drawBox({0.0f, 0.015f, position}, {30.0f, 0.03f, 0.025f});
+    }
 
-    drawBox({playerPosition.x - 0.23f, 0.62f, playerPosition.z}, {0.30f, 1.10f, 0.34f});
-    drawBox({playerPosition.x + 0.23f, 0.62f, playerPosition.z}, {0.30f, 1.10f, 0.34f});
+    // Simple skyline markers give the orbit camera useful parallax targets.
+    drawBox({-7.0f, 1.0f, 7.0f}, {1.4f, 2.0f, 1.4f});
+    drawBox({7.0f, 1.8f, 7.0f}, {1.2f, 3.6f, 1.2f});
+    drawBox({-7.0f, 2.6f, -7.0f}, {1.1f, 5.2f, 1.1f});
+    drawBox({7.0f, 1.35f, -7.0f}, {1.7f, 2.7f, 1.7f});
 
-    drawBox({playerPosition.x, 1.20f, playerPosition.z}, {0.74f, 0.30f, 0.44f});
-    drawBox({playerPosition.x, 1.72f, playerPosition.z}, {0.92f, 0.94f, 0.48f});
+    // HAKUI PROCEDURAL HUMANOID v0.5. The canonical 23-bone schema remains
+    // data-only for now, but the visible proxy finally has a readable gait.
+    const float gait = std::sin(player.gaitPhase);
+    const float counterGait = std::sin(player.gaitPhase + kPi);
+    const float stride = 0.72f * player.movementBlend;
+    const float armStride = 0.82f * player.movementBlend;
+    const float idleBreath = 0.012f * std::sin(player.idlePhase);
+    const float bodyBob =
+        0.045f * std::abs(std::sin(player.gaitPhase)) * player.movementBlend;
+    const float bodySway = 0.035f * gait * player.movementBlend;
 
-    drawBox({playerPosition.x - 0.60f, 1.70f, playerPosition.z}, {0.24f, 1.00f, 0.28f});
-    drawBox({playerPosition.x + 0.60f, 1.70f, playerPosition.z}, {0.24f, 1.00f, 0.28f});
+    const Mat4 avatarRoot = multiply(
+        translation({player.x, player.y + bodyBob, player.z}),
+        rotationY(player.yaw)
+    );
 
-    drawBox({playerPosition.x, 2.28f, playerPosition.z}, {0.22f, 0.18f, 0.22f});
-    drawBox({playerPosition.x, 2.60f, playerPosition.z}, {0.56f, 0.58f, 0.52f});
+    auto localBox = [&](const Vec3& position, const Vec3& dimensions) {
+        drawModel(multiply(
+            avatarRoot,
+            multiply(translation(position), scale(dimensions))
+        ));
+    };
+
+    auto hingedBox = [&](const Vec3& joint,
+                         float angle,
+                         const Vec3& centerOffset,
+                         const Vec3& dimensions) {
+        const Mat4 hinge = multiply(
+            avatarRoot,
+            multiply(translation(joint), rotationX(angle))
+        );
+        drawModel(multiply(
+            hinge,
+            multiply(translation(centerOffset), scale(dimensions))
+        ));
+    };
+
+    auto leg = [&](float side, float angle) {
+        const Vec3 hip{side * 0.23f, 1.17f, 0.0f};
+        hingedBox(hip, angle, {0.0f, -0.55f, 0.0f}, {0.30f, 1.10f, 0.34f});
+        hingedBox(hip, angle, {0.0f, -1.09f, 0.15f}, {0.32f, 0.16f, 0.58f});
+    };
+
+    auto arm = [&](float side, float angle) {
+        hingedBox(
+            {side * 0.60f, 2.12f, 0.0f},
+            angle,
+            {0.0f, -0.50f, 0.0f},
+            {0.24f, 1.00f, 0.28f}
+        );
+    };
+
+    leg(-1.0f, gait * stride);
+    leg(1.0f, counterGait * stride);
+    localBox({0.0f, 1.20f, 0.0f}, {0.74f, 0.30f, 0.44f});
+
+    const Mat4 torso = multiply(
+        avatarRoot,
+        multiply(
+            translation({0.0f, 1.72f + idleBreath, 0.0f}),
+            multiply(rotationZ(bodySway), scale({0.92f, 0.94f, 0.48f}))
+        )
+    );
+    drawModel(torso);
+
+    arm(-1.0f, counterGait * armStride);
+    arm(1.0f, gait * armStride);
+    localBox({0.0f, 2.28f + idleBreath, 0.0f}, {0.22f, 0.18f, 0.22f});
+    localBox({0.0f, 2.60f + idleBreath, 0.0f}, {0.56f, 0.58f, 0.52f});
 
     SDL_EndGPURenderPass(pass);
     return true;

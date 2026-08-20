@@ -39,6 +39,17 @@ inline Vec3 normalize(const Vec3& value)
     return {value.x / length, value.y / length, value.z / length};
 }
 
+inline Vec3 cameraRelativePlanarMovement(float right, float forward, float cameraYaw)
+{
+    const float sine = std::sin(cameraYaw);
+    const float cosine = std::cos(cameraYaw);
+    return {
+        -right * cosine - forward * sine,
+        0.0f,
+        right * sine - forward * cosine
+    };
+}
+
 struct Mat4 {
     float m[16]{};
 };
@@ -85,6 +96,42 @@ inline Mat4 scale(const Vec3& value)
     out.m[0] = value.x;
     out.m[5] = value.y;
     out.m[10] = value.z;
+    return out;
+}
+
+inline Mat4 rotationX(float radians)
+{
+    Mat4 out = identity();
+    const float cosine = std::cos(radians);
+    const float sine = std::sin(radians);
+    out.m[5] = cosine;
+    out.m[6] = sine;
+    out.m[9] = -sine;
+    out.m[10] = cosine;
+    return out;
+}
+
+inline Mat4 rotationY(float radians)
+{
+    Mat4 out = identity();
+    const float cosine = std::cos(radians);
+    const float sine = std::sin(radians);
+    out.m[0] = cosine;
+    out.m[2] = -sine;
+    out.m[8] = sine;
+    out.m[10] = cosine;
+    return out;
+}
+
+inline Mat4 rotationZ(float radians)
+{
+    Mat4 out = identity();
+    const float cosine = std::cos(radians);
+    const float sine = std::sin(radians);
+    out.m[0] = cosine;
+    out.m[1] = sine;
+    out.m[4] = -sine;
+    out.m[5] = cosine;
     return out;
 }
 

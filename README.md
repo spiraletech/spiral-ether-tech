@@ -1,4 +1,4 @@
-# PROJECT HAKUI — Native Client v0.4
+# PROJECT HAKUI — Native Client v0.5-dev
 
 [![Hakui Build and Test](https://github.com/spiraletech/spiral-ether-tech/actions/workflows/native-build.yml/badge.svg)](https://github.com/spiraletech/spiral-ether-tech/actions/workflows/native-build.yml)
 [![C++20](https://img.shields.io/badge/C%2B%2B-20-00599C.svg)](https://en.cppreference.com/w/cpp/20)
@@ -37,7 +37,7 @@ cmake --build build --config Release --target hakui --parallel
 
 The resulting executable is `hakui` (`hakui.exe` on Windows). Run it from the selected build-configuration directory used by your generator.
 
-## v0.4 architecture milestone
+## v0.5 playable-movement milestone
 
 ```text
 HAKUI CLIENT
@@ -76,11 +76,13 @@ Hakui's visible proof slice currently contains:
 
 - SDL3 GPU graphics pipeline
 - depth-tested 3D rendering
-- high-angle follow camera
+- smooth third-person follow camera with right-mouse orbit, wheel zoom, and reset
 - persistent player world transform
 - WASD on-foot movement
 - Shift sprint
-- grey cuboid humanoid debug proxy
+- camera-relative WASD steering
+- procedural cuboid humanoid with idle breathing, walk/run gait, body bob, and limb swing
+- world grid and skyline markers for readable motion and camera parallax
 - large world floor
 - AUM phase + Monolith event count + StateStore revision telemetry
 - locomotion state changes published into Router Bus / StateStore
