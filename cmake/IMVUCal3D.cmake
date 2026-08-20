@@ -68,10 +68,12 @@ else()
     target_compile_options(hakui_cal3d_skeleton PRIVATE -Wno-deprecated-declarations -Wno-unused-parameter)
 endif()
 
-# Crystal adapter: this is the ONLY Hakui-owned target allowed to include
-# Cal3D headers. Its public header remains opaque and Cal3D-free.
+# Crystal adapter/module: these are the ONLY Hakui-owned translation units
+# allowed to depend on the optional Cal3D skeletal target. Public headers remain
+# free of Cal3D types; legacy runtime objects are hidden inside backend PIMPL.
 add_library(spiral_imvu_cal3d_backend STATIC
     "${CMAKE_CURRENT_LIST_DIR}/../src/spiral/crystal/backend/ImvuCal3DBackend.cpp"
+    "${CMAKE_CURRENT_LIST_DIR}/../src/spiral/crystal/backend/ImvuCal3DModule.cpp"
 )
 
 target_include_directories(spiral_imvu_cal3d_backend
