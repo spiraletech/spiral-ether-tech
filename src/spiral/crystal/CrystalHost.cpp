@@ -53,7 +53,11 @@ bool CrystalHost::unmount(CrystalId id)
     }
 
     // Grid detaches and returns non-dormant crystals before module destruction.
-    if (!grid_.detach(id)) {
+    // If the Grid no longer knows this id, the module is already detached and
+    // is therefore safe to destroy. Only retain ownership if a future Grid can
+    // report failure while still holding the reference.
+    const bool detached = grid_.detach(id);
+    if (!detached && grid_.find(id) != nullptr) {
         return false;
     }
 
@@ -67,14 +71,15 @@ void CrystalHost::unmountAll()
     // newest/outermost modules return before earlier/foundational modules.
     while (!modules_.empty()) {
         const CrystalId id = modules_.back().module->crystal().id();
+        const bool detached = grid_.detach(id);
 
-        // Even if a future Grid implementation reports a detach failure, never
-        // destroy the module while the Grid still references it. Stop here and
-        // preserve ownership rather than creating a dangling pointer.
-        if (!grid_.detach(id)) {
+        if (!detached && grid_.find(id) != nullptr) {
+            // Do not destroy memory while Grid still exposes the crystal.
             return;
         }
 
+        // Either detach succeeded or the Grid had already forgotten the id.
+        // Both states are safe for module destruction.
         modules_.pop_back();
     }
 }
