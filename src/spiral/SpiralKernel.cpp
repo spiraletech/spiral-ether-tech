@@ -5,7 +5,8 @@
 namespace spiral {
 
 SpiralKernel::SpiralKernel()
-    : pressureRail_(router_, steamEngine_),
+    : monolith_(router_),
+      pressureRail_(router_, steamEngine_),
       crystalGrid_(router_, aumField_)
 {
 }
@@ -26,6 +27,21 @@ void SpiralKernel::tick(float dtSeconds, TimePoint now)
 RouterBus& SpiralKernel::router() noexcept
 {
     return router_;
+}
+
+RouteTable& SpiralKernel::routes() noexcept
+{
+    return routes_;
+}
+
+MonolithLedger& SpiralKernel::monolith() noexcept
+{
+    return monolith_;
+}
+
+const MonolithLedger& SpiralKernel::monolith() const noexcept
+{
+    return monolith_;
 }
 
 EtherBus& SpiralKernel::etherBus() noexcept
@@ -122,8 +138,23 @@ std::optional<Signal> SpiralKernel::disembarkTransition()
     applyTransition(*signal);
 
     // Only after explicit Disembark does the transition re-enter the live rail.
-    pressureRail_.send(*signal);
+    dispatch(*signal);
     return signal;
+}
+
+bool SpiralKernel::dispatch(Signal signal, float pressureCharge, float heatCharge)
+{
+    if (signal.destination.empty()) {
+        const auto match = routes_.resolve(signal);
+        if (!match) {
+            emitRouteMiss(signal);
+            return false;
+        }
+        signal.destination = match->destination;
+    }
+
+    pressureRail_.send(std::move(signal), pressureCharge, heatCharge);
+    return true;
 }
 
 Signal SpiralKernel::makeWheelTransition(const char* topic, std::size_t notch) const
@@ -152,6 +183,18 @@ void SpiralKernel::applyTransition(const Signal& signal)
     if (signal.topic == "wheel.coding") {
         codingWheel_.select(*signal.notch);
     }
+}
+
+void SpiralKernel::emitRouteMiss(const Signal& signal)
+{
+    Signal error;
+    error.kind = SignalKind::Error;
+    error.source = "spiral.router";
+    error.destination = "spiral.core";
+    error.topic = "route.miss";
+    error.payload = signal.topic;
+    error.timestamp = Clock::now();
+    router_.emit(std::move(error));
 }
 
 } // namespace spiral
