@@ -3,6 +3,18 @@
 # Hakui's humanoid hierarchy and attachment slots are first-party data.
 # This target must stay independent from skeletal runtime implementations.
 
+include(${CMAKE_CURRENT_LIST_DIR}/DependencyFirewall.cmake)
+
+file(GLOB HAKUI_AVATAR_FIREWALL_FILES CONFIGURE_DEPENDS
+    "${CMAKE_CURRENT_LIST_DIR}/../src/avatar/*.hpp"
+    "${CMAKE_CURRENT_LIST_DIR}/../src/avatar/*.cpp"
+)
+
+hakui_enforce_first_party_firewall(
+    "Hakui Avatar Rig"
+    ${HAKUI_AVATAR_FIREWALL_FILES}
+)
+
 add_library(hakui_avatar_rig STATIC
     ${CMAKE_CURRENT_LIST_DIR}/../src/avatar/HakuiSkeleton.cpp
 )
