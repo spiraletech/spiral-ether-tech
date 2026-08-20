@@ -17,14 +17,18 @@ public:
     ListenerId subscribe(Listener listener);
     void unsubscribe(ListenerId id);
 
-    // Plumbing only: distribute the packet exactly as received.
+    // Plumbing only: sequence and distribute the packet.
     // No policy, no action selection, no AUM interpretation.
-    void emit(const Signal& signal) const;
+    // A zero signal id is assigned here so event identity belongs to the bus,
+    // not to individual crystals/programs.
+    SignalId emit(Signal signal);
 
     std::size_t listenerCount() const noexcept;
+    SignalId nextSignalId() const noexcept;
 
 private:
     ListenerId nextListenerId_ = 1;
+    SignalId nextSignalId_ = 1;
     std::unordered_map<ListenerId, Listener> listeners_;
 };
 
