@@ -37,6 +37,7 @@ add_library(spiral_core STATIC
     ${CMAKE_CURRENT_LIST_DIR}/../src/spiral/engine/SteamEngine.cpp
 
     ${CMAKE_CURRENT_LIST_DIR}/../src/spiral/ledger/MonolithLedger.cpp
+    ${CMAKE_CURRENT_LIST_DIR}/../src/spiral/state/StateStore.cpp
 )
 
 target_include_directories(spiral_core
