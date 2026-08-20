@@ -6,6 +6,22 @@
 #
 # Third-party capability backends attach outside this target through crystals.
 
+include(${CMAKE_CURRENT_LIST_DIR}/DependencyFirewall.cmake)
+
+# Scan every first-party Spiral source/header except the explicit optional
+# crystal/backend directory. This catches accidental dependency leaks even when
+# a file is not yet part of the active target source list.
+file(GLOB_RECURSE SPIRAL_FIREWALL_FILES CONFIGURE_DEPENDS
+    "${CMAKE_CURRENT_LIST_DIR}/../src/spiral/*.hpp"
+    "${CMAKE_CURRENT_LIST_DIR}/../src/spiral/*.cpp"
+)
+list(FILTER SPIRAL_FIREWALL_FILES EXCLUDE REGEX "/crystal/backend/")
+
+hakui_enforce_first_party_firewall(
+    "Spiral Core"
+    ${SPIRAL_FIREWALL_FILES}
+)
+
 add_library(spiral_core STATIC
     ${CMAKE_CURRENT_LIST_DIR}/../src/spiral/SpiralKernel.cpp
 
