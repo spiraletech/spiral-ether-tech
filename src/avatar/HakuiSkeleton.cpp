@@ -1,140 +1,98 @@
 #include "avatar/HakuiSkeleton.hpp"
 
-#include <SDL3/SDL_log.h>
-
-#if HAKUI_HAS_IMVU_CAL3D
-#include <cal3d/BoostToStd.h>
-#include <cal3d/corebone.h>
-#include <cal3d/coreskeleton.h>
-#include <cal3d/skeleton.h>
-
-class HakuiSkeleton::Impl {
-public:
-    CalCoreSkeletonPtr core;
-    std::unique_ptr<CalSkeleton> runtime;
-    std::vector<AvatarAttachment> attachments;
-
-    int addBone(const std::string& name, int parent)
-    {
-        CalCoreBonePtr bone(new CalCoreBone(name, parent));
-        return static_cast<int>(core->addCoreBone(bone));
-    }
-
-    void rebuildRuntime()
-    {
-        runtime.reset(new CalSkeleton(core));
-        runtime->resetPose();
-        runtime->calculateAbsolutePose();
-    }
-};
-#else
-class HakuiSkeleton::Impl {
-public:
-    std::size_t fallbackBoneCount = 0;
-    std::vector<AvatarAttachment> attachments;
-};
-#endif
-
-HakuiSkeleton::HakuiSkeleton() : impl_(std::make_unique<Impl>()) {}
-HakuiSkeleton::~HakuiSkeleton() = default;
-HakuiSkeleton::HakuiSkeleton(HakuiSkeleton&&) noexcept = default;
-HakuiSkeleton& HakuiSkeleton::operator=(HakuiSkeleton&&) noexcept = default;
+#include <utility>
 
 bool HakuiSkeleton::buildDefaultHumanoid()
 {
-    impl_->attachments.clear();
+    bones_.clear();
+    attachments_.clear();
 
-#if HAKUI_HAS_IMVU_CAL3D
-    impl_->core = CalCoreSkeletonPtr(new CalCoreSkeleton());
+    const int root      = addBone("Root", -1);
+    const int pelvis    = addBone("Pelvis", root);
+    const int spine01   = addBone("Spine.01", pelvis);
+    const int spine02   = addBone("Spine.02", spine01);
+    const int chest     = addBone("Chest", spine02);
+    const int neck      = addBone("Neck", chest);
+    const int head      = addBone("Head", neck);
 
-    const int root      = impl_->addBone("Root", -1);
-    const int pelvis    = impl_->addBone("Pelvis", root);
-    const int spine01   = impl_->addBone("Spine.01", pelvis);
-    const int spine02   = impl_->addBone("Spine.02", spine01);
-    const int chest     = impl_->addBone("Chest", spine02);
-    const int neck      = impl_->addBone("Neck", chest);
-    const int head      = impl_->addBone("Head", neck);
+    const int clavicleL = addBone("Clavicle.L", chest);
+    const int upperArmL = addBone("UpperArm.L", clavicleL);
+    const int lowerArmL = addBone("LowerArm.L", upperArmL);
+    const int handL     = addBone("Hand.L", lowerArmL);
 
-    const int clavicleL = impl_->addBone("Clavicle.L", chest);
-    const int upperArmL = impl_->addBone("UpperArm.L", clavicleL);
-    const int lowerArmL = impl_->addBone("LowerArm.L", upperArmL);
-    const int handL     = impl_->addBone("Hand.L", lowerArmL);
+    const int clavicleR = addBone("Clavicle.R", chest);
+    const int upperArmR = addBone("UpperArm.R", clavicleR);
+    const int lowerArmR = addBone("LowerArm.R", upperArmR);
+    const int handR     = addBone("Hand.R", lowerArmR);
 
-    const int clavicleR = impl_->addBone("Clavicle.R", chest);
-    const int upperArmR = impl_->addBone("UpperArm.R", clavicleR);
-    const int lowerArmR = impl_->addBone("LowerArm.R", upperArmR);
-    const int handR     = impl_->addBone("Hand.R", lowerArmR);
+    const int thighL = addBone("Thigh.L", pelvis);
+    const int shinL  = addBone("Shin.L", thighL);
+    const int footL  = addBone("Foot.L", shinL);
+    addBone("Toe.L", footL);
 
-    const int thighL = impl_->addBone("Thigh.L", pelvis);
-    const int shinL  = impl_->addBone("Shin.L", thighL);
-    const int footL  = impl_->addBone("Foot.L", shinL);
-    impl_->addBone("Toe.L", footL);
-
-    const int thighR = impl_->addBone("Thigh.R", pelvis);
-    const int shinR  = impl_->addBone("Shin.R", thighR);
-    const int footR  = impl_->addBone("Foot.R", shinR);
-    impl_->addBone("Toe.R", footR);
+    const int thighR = addBone("Thigh.R", pelvis);
+    const int shinR  = addBone("Shin.R", thighR);
+    const int footR  = addBone("Foot.R", shinR);
+    addBone("Toe.R", footR);
 
     (void)head;
     (void)handL;
     (void)handR;
 
-    impl_->attachments = {
-        {"body", "Pelvis", AttachmentCategory::Body},
-        {"head", "Head", AttachmentCategory::Head},
-        {"hair", "Head", AttachmentCategory::Hair},
-        {"face", "Head", AttachmentCategory::Face},
-        {"neck", "Neck", AttachmentCategory::Neck},
-        {"torso", "Chest", AttachmentCategory::Torso},
-        {"back", "Chest", AttachmentCategory::Back},
-        {"waist", "Pelvis", AttachmentCategory::Waist},
-        {"hand.left", "Hand.L", AttachmentCategory::LeftHand},
-        {"hand.right", "Hand.R", AttachmentCategory::RightHand},
-        {"foot.left", "Foot.L", AttachmentCategory::LeftFoot},
-        {"foot.right", "Foot.R", AttachmentCategory::RightFoot},
-        {"skateboard", "Hand.R", AttachmentCategory::Skateboard},
-        {"bmx", "Pelvis", AttachmentCategory::BMX},
+    attachments_ = {
+        {"body",         "Pelvis", AttachmentCategory::Body},
+        {"head",         "Head",   AttachmentCategory::Head},
+        {"hair",         "Head",   AttachmentCategory::Hair},
+        {"face",         "Head",   AttachmentCategory::Face},
+        {"neck",         "Neck",   AttachmentCategory::Neck},
+        {"torso",        "Chest",  AttachmentCategory::Torso},
+        {"back",         "Chest",  AttachmentCategory::Back},
+        {"waist",        "Pelvis", AttachmentCategory::Waist},
+        {"hand.left",    "Hand.L", AttachmentCategory::LeftHand},
+        {"hand.right",   "Hand.R", AttachmentCategory::RightHand},
+        {"foot.left",    "Foot.L", AttachmentCategory::LeftFoot},
+        {"foot.right",   "Foot.R", AttachmentCategory::RightFoot},
+        {"skateboard",   "Hand.R", AttachmentCategory::Skateboard},
+        {"bmx",          "Pelvis", AttachmentCategory::BMX},
         {"vehicle.seat", "Pelvis", AttachmentCategory::VehicleSeat}
     };
 
-    impl_->rebuildRuntime();
-    SDL_Log("[HAKUI] IMVU-Cal3D bridge online // bones=%zu // attachment-slots=%zu",
-            impl_->core->getCoreBones().size(), impl_->attachments.size());
     return true;
-#else
-    impl_->fallbackBoneCount = 23;
-    impl_->attachments = {
-        {"body", "Pelvis", AttachmentCategory::Body},
-        {"head", "Head", AttachmentCategory::Head},
-        {"hair", "Head", AttachmentCategory::Hair},
-        {"face", "Head", AttachmentCategory::Face},
-        {"torso", "Chest", AttachmentCategory::Torso},
-        {"waist", "Pelvis", AttachmentCategory::Waist}
-    };
-    SDL_Log("[HAKUI] Cal3D disabled // fallback skeleton metadata active");
-    return true;
-#endif
 }
 
-std::size_t HakuiSkeleton::boneCount() const
+std::size_t HakuiSkeleton::boneCount() const noexcept
 {
-#if HAKUI_HAS_IMVU_CAL3D
-    return impl_->core ? impl_->core->getCoreBones().size() : 0;
-#else
-    return impl_->fallbackBoneCount;
-#endif
+    return bones_.size();
 }
 
-bool HakuiSkeleton::ready() const
+bool HakuiSkeleton::ready() const noexcept
 {
-#if HAKUI_HAS_IMVU_CAL3D
-    return impl_->core != nullptr && impl_->runtime != nullptr;
-#else
-    return impl_->fallbackBoneCount > 0;
-#endif
+    return !bones_.empty();
 }
 
-const std::vector<AvatarAttachment>& HakuiSkeleton::attachmentSlots() const
+const std::vector<HakuiBoneDefinition>& HakuiSkeleton::bones() const noexcept
 {
-    return impl_->attachments;
+    return bones_;
+}
+
+const std::vector<AvatarAttachment>& HakuiSkeleton::attachmentSlots() const noexcept
+{
+    return attachments_;
+}
+
+int HakuiSkeleton::findBone(std::string_view name) const noexcept
+{
+    for (std::size_t i = 0; i < bones_.size(); ++i) {
+        if (bones_[i].name == name) {
+            return static_cast<int>(i);
+        }
+    }
+    return -1;
+}
+
+int HakuiSkeleton::addBone(std::string name, int parent)
+{
+    const int index = static_cast<int>(bones_.size());
+    bones_.push_back(HakuiBoneDefinition{std::move(name), parent});
+    return index;
 }
