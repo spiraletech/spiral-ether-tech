@@ -80,7 +80,7 @@ public:
 
 private:
     Signal makeWheelTransition(const char* topic, std::size_t notch) const;
-    void applyTransition(const Signal& signal);
+    void applyTransition(Signal& signal);
     void emitRouteMiss(const Signal& signal);
 
 private:
