@@ -13,6 +13,7 @@
 #include "spiral/engine/SteamEngine.hpp"
 #include "spiral/ledger/MonolithLedger.hpp"
 #include "spiral/routing/RouteTable.hpp"
+#include "spiral/state/StateStore.hpp"
 #include "spiral/wheel/OctopusWheel.hpp"
 
 namespace spiral {
@@ -28,8 +29,12 @@ public:
 
     RouterBus& router() noexcept;
     RouteTable& routes() noexcept;
+
     MonolithLedger& monolith() noexcept;
     const MonolithLedger& monolith() const noexcept;
+
+    StateStore& stateStore() noexcept;
+    const StateStore& stateStore() const noexcept;
 
     EtherBus& etherBus() noexcept;
     PressureRail& pressureRail() noexcept;
@@ -81,6 +86,7 @@ private:
 private:
     RouterBus router_;
     MonolithLedger monolith_;
+    StateStore stateStore_;
     RouteTable routes_;
 
     SteamEngine steamEngine_;
