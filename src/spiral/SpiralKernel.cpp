@@ -1,5 +1,6 @@
 #include "spiral/SpiralKernel.hpp"
 
+#include <cstdint>
 #include <utility>
 
 namespace spiral {
@@ -160,6 +161,7 @@ std::optional<Signal> SpiralKernel::disembarkTransition()
     applyTransition(*signal);
 
     // Only after explicit Disembark does the transition re-enter the live rail.
+    // StateStore therefore sees the active posture only after transit completes.
     dispatch(*signal);
     return signal;
 }
@@ -192,19 +194,23 @@ Signal SpiralKernel::makeWheelTransition(const char* topic, std::size_t notch) c
     return signal;
 }
 
-void SpiralKernel::applyTransition(const Signal& signal)
+void SpiralKernel::applyTransition(Signal& signal)
 {
     if (!signal.notch || *signal.notch >= kOctopusNotchCount) {
         return;
     }
 
+    const auto activeNotch = static_cast<std::int64_t>(*signal.notch);
+
     if (signal.topic == "wheel.mind") {
         mindWheel_.select(*signal.notch);
+        signal.statePatch.push_back({"wheel.mind.active", activeNotch});
         return;
     }
 
     if (signal.topic == "wheel.coding") {
         codingWheel_.select(*signal.notch);
+        signal.statePatch.push_back({"wheel.coding.active", activeNotch});
     }
 }
 
