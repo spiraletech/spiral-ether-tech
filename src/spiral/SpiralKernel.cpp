@@ -6,6 +6,7 @@ namespace spiral {
 
 SpiralKernel::SpiralKernel()
     : monolith_(router_),
+      stateStore_(router_),
       pressureRail_(router_, steamEngine_),
       crystalGrid_(router_, aumField_),
       crystalHost_(crystalGrid_)
@@ -43,6 +44,16 @@ MonolithLedger& SpiralKernel::monolith() noexcept
 const MonolithLedger& SpiralKernel::monolith() const noexcept
 {
     return monolith_;
+}
+
+StateStore& SpiralKernel::stateStore() noexcept
+{
+    return stateStore_;
+}
+
+const StateStore& SpiralKernel::stateStore() const noexcept
+{
+    return stateStore_;
 }
 
 EtherBus& SpiralKernel::etherBus() noexcept
@@ -176,6 +187,7 @@ Signal SpiralKernel::makeWheelTransition(const char* topic, std::size_t notch) c
     signal.destination = "spiral.core";
     signal.topic = topic;
     signal.notch = notch;
+    signal.statePatch.push_back({"wheel.last_transition", std::string(topic)});
     signal.timestamp = Clock::now();
     return signal;
 }
