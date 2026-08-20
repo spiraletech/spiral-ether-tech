@@ -15,6 +15,7 @@ add_library(spiral_core STATIC
     ${CMAKE_CURRENT_LIST_DIR}/../src/spiral/bus/RouterBus.cpp
 
     ${CMAKE_CURRENT_LIST_DIR}/../src/spiral/crystal/CrystalGrid.cpp
+    ${CMAKE_CURRENT_LIST_DIR}/../src/spiral/crystal/CrystalHost.cpp
     ${CMAKE_CURRENT_LIST_DIR}/../src/spiral/crystal/ImvuSkeletonCrystal.cpp
 
     ${CMAKE_CURRENT_LIST_DIR}/../src/spiral/engine/SteamEngine.cpp
