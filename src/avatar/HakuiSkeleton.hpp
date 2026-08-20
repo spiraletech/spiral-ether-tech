@@ -1,28 +1,38 @@
 #pragma once
 
 #include <cstddef>
-#include <memory>
+#include <string>
+#include <string_view>
 #include <vector>
 
 #include "avatar/AvatarAttachment.hpp"
 
+struct HakuiBoneDefinition {
+    std::string name;
+    int parent = -1;
+};
+
+// Hakui-owned rig definition.
+//
+// This class is deliberately engine/runtime agnostic: no SDL, Cal3D, Boost,
+// renderer, or physics types are allowed here. Third-party skeletal runtimes
+// translate this definition inside optional crystal backends.
 class HakuiSkeleton {
 public:
-    HakuiSkeleton();
-    ~HakuiSkeleton();
-
-    HakuiSkeleton(HakuiSkeleton&&) noexcept;
-    HakuiSkeleton& operator=(HakuiSkeleton&&) noexcept;
-
-    HakuiSkeleton(const HakuiSkeleton&) = delete;
-    HakuiSkeleton& operator=(const HakuiSkeleton&) = delete;
-
     bool buildDefaultHumanoid();
-    std::size_t boneCount() const;
-    bool ready() const;
-    const std::vector<AvatarAttachment>& attachmentSlots() const;
+
+    std::size_t boneCount() const noexcept;
+    bool ready() const noexcept;
+
+    const std::vector<HakuiBoneDefinition>& bones() const noexcept;
+    const std::vector<AvatarAttachment>& attachmentSlots() const noexcept;
+
+    int findBone(std::string_view name) const noexcept;
 
 private:
-    class Impl;
-    std::unique_ptr<Impl> impl_;
+    int addBone(std::string name, int parent);
+
+private:
+    std::vector<HakuiBoneDefinition> bones_;
+    std::vector<AvatarAttachment> attachments_;
 };
