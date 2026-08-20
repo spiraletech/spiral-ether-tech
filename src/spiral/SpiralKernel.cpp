@@ -7,7 +7,8 @@ namespace spiral {
 SpiralKernel::SpiralKernel()
     : monolith_(router_),
       pressureRail_(router_, steamEngine_),
-      crystalGrid_(router_, aumField_)
+      crystalGrid_(router_, aumField_),
+      crystalHost_(crystalGrid_)
 {
 }
 
@@ -67,6 +68,16 @@ AUMField& SpiralKernel::aumField() noexcept
 CrystalGrid& SpiralKernel::crystalGrid() noexcept
 {
     return crystalGrid_;
+}
+
+CrystalHost& SpiralKernel::crystalHost() noexcept
+{
+    return crystalHost_;
+}
+
+const CrystalHost& SpiralKernel::crystalHost() const noexcept
+{
+    return crystalHost_;
 }
 
 const MindWheel& SpiralKernel::mindWheel() const noexcept
