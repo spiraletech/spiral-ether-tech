@@ -65,6 +65,7 @@ Core owns:
 - transition state
 - audit transport
 - telemetry transport
+- module ownership plumbing
 - lifecycle ordering
 
 Core does **not** own:
@@ -166,6 +167,8 @@ Implementation baseline:
 
 No `skip()` API exists.
 
+Gameplay input does **not** automatically inherit Ether latency. Ordinary movement remains immediate; Ether Bus is used only for transitions that intentionally require a transit gate.
+
 ## 7. Steam Engine
 
 Steam is the execution-energy metaphor and telemetry model.
@@ -227,7 +230,7 @@ M = compression / return
 
 AUM is a governor/lifecycle field. It does not replace Router Bus transport or wheel selection.
 
-## 10. Crystal Logic
+## 10. Crystal Lifecycle
 
 A crystal is an optional capability node.
 
@@ -251,7 +254,48 @@ Failure containment law:
 
 The Crystal Grid emits a typed error signal and isolates that crystal.
 
-## 11. Hakui Avatar Rig Law
+## 11. Crystal Grid vs Crystal Host
+
+Ownership and lifecycle are deliberately split.
+
+### Crystal Grid
+
+Owns:
+
+- AUM-field placement
+- lifecycle requests
+- Router Bus targeting
+- references to live crystals
+
+Does not own module memory.
+
+### Crystal Host
+
+Owns:
+
+- `CrystalModule` memory
+- backend lifetime
+- safe mount/unmount order
+
+```text
+CRYSTAL HOST // owns memory
+      ↓
+CRYSTAL MODULE
+      ↓ exposes
+CRYSTAL GRID // owns relationship
+      ↓
+AUM FIELD + ROUTER BUS
+```
+
+Unmount law:
+
+> Grid references are removed before module/backend memory is destroyed.
+
+Mass-unmount occurs in reverse mount order so outer/newer capabilities return before foundational/older modules.
+
+The Host is declared after the Grid in `SpiralKernel`, so C++ reverse destruction order destroys the Host first and allows it to detach every owned module while the Grid still exists.
+
+## 12. Hakui Avatar Rig Law
 
 Hakui owns its avatar schema.
 
@@ -286,7 +330,7 @@ Root
 
 Runtime libraries translate this schema; they do not define Hakui's canonical skeleton.
 
-## 12. IMVU / Cal3D Crystal Rule
+## 13. IMVU / Cal3D Crystal Rule
 
 IMVU-Cal3D is **not Hakui's skeleton core**.
 
@@ -296,14 +340,30 @@ It is an optional capability:
 HakuiSkeleton
      ↓
 ImvuCal3DBackend
-     ↓ hooks
-crystal.imvu_skeleton
      ↓
-Crystal Grid / AUM lifecycle
+ImvuCal3DModule
+     ↓ exposes
+crystal.imvu_skeleton
+     ↓ mounted by
+CrystalHost
+     ↓ lifecycle through
+CrystalGrid / AUM
 ```
 
-`ImvuSkeletonCrystal.hpp` contains zero Cal3D headers.
-`ImvuCal3DBackend.hpp` also exposes zero Cal3D types; legacy objects live only in its `.cpp` implementation.
+`ImvuSkeletonCrystal.hpp`, `ImvuCal3DBackend.hpp`, and `ImvuCal3DModule.hpp` expose zero Cal3D types. Legacy objects live only in `ImvuCal3DBackend.cpp`.
+
+### Module lifetime law
+
+`ImvuCal3DModule` owns both backend and crystal.
+
+Member order is deliberate:
+
+```text
+backend_  // constructed first, destroyed last
+crystal_  // constructed second, destroyed first
+```
+
+The crystal's hooks therefore cannot outlive the backend object they target.
 
 ### Minimal Cal3D slice
 
@@ -338,16 +398,67 @@ IMVU's `USE_CAL3D_WITH_CPP_11=1` path is enabled so this slice uses standard-lib
 ### Dependency law
 
 ```text
-spiral_core              = plain C++20
-hakui_avatar_rig         = plain C++20
-hakui client             = spiral_core + hakui_avatar_rig + SDL3
-spiral_imvu_cal3d_backend= OPTIONAL translator capability
-hakui_cal3d_skeleton     = OPTIONAL LGPL legacy runtime slice
+spiral_core               = plain C++20
+hakui_avatar_rig          = plain C++20
+hakui client              = spiral_core + hakui_avatar_rig + SDL3
+spiral_imvu_cal3d_backend = OPTIONAL translator/module capability
+hakui_cal3d_skeleton      = OPTIONAL LGPL legacy runtime slice
 ```
 
 The Hakui executable never links Cal3D directly.
 
-## 13. Current Source Layout
+## 14. Live Hakui Client Bridge
+
+`HakuiApp` now owns a `SpiralKernel` as part of the native client heartbeat.
+
+Current integration:
+
+```text
+Hakui boot
+  ↓
+Router Bus boot signal
+  ↓
+Monolith audit
+
+frame dt
+  ↓
+SpiralKernel.tick()
+  ├── Steam state
+  ├── Ether clock
+  ├── AUM phase
+  └── Crystal lifecycle
+
+locomotion change
+  ↓
+immediate gameplay state change
+  ↓
+Router Bus state signal
+```
+
+SDL is an outer bridge only. Spiral Core contains no SDL dependency.
+
+The debug window title may expose AUM phase + Monolith event count as observable telemetry.
+
+On client shutdown, `CrystalHost.unmountAll()` is called before renderer/platform teardown.
+
+## 15. Dependency Firewall
+
+`cmake/DependencyFirewall.cmake` enforces first-party source boundaries during configuration.
+
+Forbidden direct includes in `spiral_core` and `hakui_avatar_rig`:
+
+```text
+SDL3/
+cal3d/
+boost/
+rapidxml
+```
+
+The explicit optional `src/spiral/crystal/backend/` directory is excluded from the Spiral firewall because that directory is the intentional adapter boundary.
+
+This means the dependency law is executable configuration policy, not only documentation.
+
+## 16. Current Source Layout
 
 ```text
 src/
@@ -375,30 +486,54 @@ src/
     │   └── AUMField.hpp/.cpp
     └── crystal/
         ├── Crystal.hpp
+        ├── CrystalModule.hpp
         ├── CrystalGrid.hpp/.cpp
+        ├── CrystalHost.hpp/.cpp
         ├── ImvuSkeletonCrystal.hpp/.cpp
         └── backend/
-            └── ImvuCal3DBackend.hpp/.cpp
+            ├── ImvuCal3DBackend.hpp/.cpp
+            └── ImvuCal3DModule.hpp/.cpp
 ```
 
-## 14. Build Targets
+## 17. Build Gates and Targets
+
+Core targets:
 
 ```text
 spiral_core
 hakui_avatar_rig
-hakui
+```
 
-optional:
-hakui_cal3d_skeleton
-spiral_imvu_cal3d_backend
-spiral_logic_spec
-imvu_cal3d_backend_spec
+Native client:
+
+```text
+HAKUI_BUILD_NATIVE_CLIENT=ON
+→ SDL3
+→ hakui
+```
+
+Optional legacy capability:
+
+```text
+HAKUI_ENABLE_IMVU_CAL3D=ON
+→ hakui_cal3d_skeleton
+→ spiral_imvu_cal3d_backend
+```
+
+Optional invariant specs:
+
+```text
+HAKUI_ENABLE_SPIRAL_LOGIC_SPECS=ON
+→ spiral_logic_spec
+
+HAKUI_ENABLE_IMVU_BACKEND_SPECS=ON
+→ imvu_cal3d_backend_spec
 ```
 
 Cal3D is OFF by default.
-Both invariant-spec executables are OFF by default.
+Both spec executables are OFF by default.
 
-## 15. Validation Law
+## 18. Validation Law
 
 Do not compile-chase architecture.
 
@@ -407,12 +542,24 @@ Order:
 1. freeze invariants
 2. code plumbing
 3. write source-level contracts
-4. separate dependency graph
-5. validate `spiral_core` with Cal3D OFF
-6. validate Hakui avatar rig independently
-7. validate optional IMVU translator/runtime separately
-8. only then connect live avatar rendering/animation
+4. separate ownership graph
+5. separate dependency graph
+6. validate `spiral_core` with native client OFF and Cal3D OFF
+7. validate Hakui avatar rig independently
+8. validate native client
+9. validate optional IMVU translator/runtime separately
+10. only then connect live GPU-skinned avatar rendering/animation
 
-Automatic CI remains disabled. The GitHub workflow is manual-only and currently configured to validate the core-first path when deliberately triggered.
+Automatic CI remains disabled.
+
+The manual core workflow is configured to use:
+
+```text
+HAKUI_BUILD_NATIVE_CLIENT=OFF
+HAKUI_ENABLE_IMVU_CAL3D=OFF
+HAKUI_ENABLE_SPIRAL_LOGIC_SPECS=ON
+```
+
+and to build only the `spiral_logic_spec` target.
 
 No source-level contract in this branch should be described as passing until it has actually been run.
