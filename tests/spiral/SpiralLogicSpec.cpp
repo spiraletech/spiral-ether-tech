@@ -1,10 +1,12 @@
 #include <cassert>
 #include <chrono>
+#include <memory>
 #include <string>
 #include <type_traits>
 #include <utility>
 
 #include "spiral/SpiralKernel.hpp"
+#include "spiral/crystal/CrystalModule.hpp"
 #include "spiral/crystal/ImvuSkeletonCrystal.hpp"
 #include "spiral/ledger/MonolithLedger.hpp"
 #include "spiral/routing/RouteTable.hpp"
@@ -12,6 +14,58 @@
 using namespace std::chrono_literals;
 
 namespace {
+
+class SpecCrystal final : public spiral::Crystal {
+public:
+    static constexpr spiral::CrystalId kId = 0x53504543ULL; // 'SPEC'
+
+    spiral::CrystalId id() const noexcept override { return kId; }
+    std::string_view name() const noexcept override { return "crystal.spec_owned"; }
+
+    bool emerge(spiral::RouterBus& bus) override
+    {
+        (void)bus;
+        state_ = State::Sustaining;
+        return true;
+    }
+
+    void sustain(float dtSeconds) override
+    {
+        sustainedSeconds_ += dtSeconds;
+    }
+
+    void returnToDormant() override
+    {
+        state_ = State::Dormant;
+    }
+
+    void onSignal(const spiral::Signal& signal) override
+    {
+        lastTopic_ = signal.topic;
+    }
+
+    State state() const noexcept override { return state_; }
+    bool healthy() const noexcept override { return state_ != State::Faulted; }
+
+    float sustainedSeconds() const noexcept { return sustainedSeconds_; }
+    const std::string& lastTopic() const noexcept { return lastTopic_; }
+
+private:
+    State state_ = State::Dormant;
+    float sustainedSeconds_ = 0.0f;
+    std::string lastTopic_;
+};
+
+class SpecModule final : public spiral::CrystalModule {
+public:
+    spiral::Crystal& crystal() noexcept override { return crystal_; }
+    const spiral::Crystal& crystal() const noexcept override { return crystal_; }
+
+    SpecCrystal& specCrystal() noexcept { return crystal_; }
+
+private:
+    SpecCrystal crystal_;
+};
 
 void ether_bus_requires_time_and_disembark()
 {
@@ -172,6 +226,43 @@ void router_bus_sequences_signals_and_monolith_is_bounded()
     assert(snapshot[2].id == id4);
 }
 
+void crystal_host_owns_mounts_and_detaches_before_destruction()
+{
+    spiral::SpiralKernel kernel;
+
+    auto module = std::make_unique<SpecModule>();
+    auto* specModule = module.get();
+    const spiral::CrystalId id = specModule->crystal().id();
+
+    assert(kernel.crystalHost().mount(std::move(module), 1, 1));
+    assert(kernel.crystalHost().size() == 1);
+    assert(kernel.crystalGrid().find(id) != nullptr);
+    assert(kernel.crystalHost().requestEmerge(id));
+
+    kernel.tick(0.01f);
+    assert(specModule->specCrystal().state() == spiral::Crystal::State::Sustaining);
+
+    // U phase should sustain the owned module.
+    kernel.tick(3.1f);
+    assert(specModule->specCrystal().sustainedSeconds() > 0.0f);
+
+    spiral::Signal signal;
+    signal.kind = spiral::SignalKind::Capability;
+    signal.source = "spec";
+    signal.destination = std::string(specModule->crystal().name());
+    signal.topic = "owned.signal";
+    assert(kernel.dispatch(signal));
+    assert(specModule->specCrystal().lastTopic() == "owned.signal");
+
+    assert(kernel.crystalHost().requestReturn(id));
+    kernel.tick(3.0f);
+    assert(specModule->specCrystal().state() == spiral::Crystal::State::Dormant);
+
+    assert(kernel.crystalHost().unmount(id));
+    assert(kernel.crystalHost().size() == 0);
+    assert(kernel.crystalGrid().find(id) == nullptr);
+}
+
 void stop_gate_belongs_to_policy()
 {
     spiral::SpiralKernel kernel;
@@ -257,6 +348,7 @@ int main()
     route_table_is_ordered_first_match_wins();
     kernel_dispatch_uses_route_table_without_inventing_fallback();
     router_bus_sequences_signals_and_monolith_is_bounded();
+    crystal_host_owns_mounts_and_detaches_before_destruction();
     stop_gate_belongs_to_policy();
     steam_engine_contains_overpressure();
     aum_field_cycles_a_u_m();
