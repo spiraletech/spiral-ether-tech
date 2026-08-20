@@ -19,11 +19,7 @@ void RouterBus::unsubscribe(ListenerId id)
 
 SignalId RouterBus::emit(Signal signal)
 {
-    if (signal.id == 0) {
-        signal.id = nextSignalId_++;
-    } else if (signal.id >= nextSignalId_) {
-        nextSignalId_ = signal.id + 1;
-    }
+    signal.id = nextSignalId_++;
 
     // Snapshot listeners before dispatch. A listener may unsubscribe itself or
     // another listener while handling an event; that must not invalidate the
