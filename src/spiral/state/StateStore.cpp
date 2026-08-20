@@ -79,12 +79,19 @@ void StateStore::onSignal(const Signal& signal)
 
 void StateStore::applyPatch(const StatePatch& patch, SignalId signalId)
 {
+    bool applied = false;
+
     for (const StatePatchEntry& entry : patch) {
         if (entry.key.empty()) {
             continue;
         }
 
         values_[entry.key] = entry.value;
+        applied = true;
+    }
+
+    if (!applied) {
+        return;
     }
 
     ++revision_;
