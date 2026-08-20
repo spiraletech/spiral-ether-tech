@@ -23,6 +23,9 @@ include(cmake/SpiralCore.cmake)
 # No skeletal runtime implementation is allowed inside this target.
 include(cmake/HakuiAvatarRig.cmake)
 
+# Hakui-owned world interaction semantics over the Spiral bus/state layer.
+include(cmake/HakuiInteraction.cmake)
+
 # ============================================================
 # BUILD GATES
 # ============================================================
@@ -90,6 +93,7 @@ if(HAKUI_BUILD_NATIVE_CLIENT)
             SDL3::SDL3
             spiral_core
             hakui_avatar_rig
+            hakui_interaction
     )
 
     # Deliberate boundary:
