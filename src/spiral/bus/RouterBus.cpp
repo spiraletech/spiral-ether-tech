@@ -17,8 +17,14 @@ void RouterBus::unsubscribe(ListenerId id)
     listeners_.erase(id);
 }
 
-void RouterBus::emit(const Signal& signal) const
+SignalId RouterBus::emit(Signal signal)
 {
+    if (signal.id == 0) {
+        signal.id = nextSignalId_++;
+    } else if (signal.id >= nextSignalId_) {
+        nextSignalId_ = signal.id + 1;
+    }
+
     // Snapshot listeners before dispatch. A listener may unsubscribe itself or
     // another listener while handling an event; that must not invalidate the
     // active iteration over the live registry.
@@ -35,11 +41,18 @@ void RouterBus::emit(const Signal& signal) const
     for (const Listener& listener : snapshot) {
         listener(signal);
     }
+
+    return signal.id;
 }
 
 std::size_t RouterBus::listenerCount() const noexcept
 {
     return listeners_.size();
+}
+
+SignalId RouterBus::nextSignalId() const noexcept
+{
+    return nextSignalId_;
 }
 
 } // namespace spiral
