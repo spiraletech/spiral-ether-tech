@@ -8,6 +8,7 @@
 #include "spiral/bus/RouterBus.hpp"
 #include "spiral/core/StopGate.hpp"
 #include "spiral/crystal/CrystalGrid.hpp"
+#include "spiral/crystal/CrystalHost.hpp"
 #include "spiral/engine/PressureRail.hpp"
 #include "spiral/engine/SteamEngine.hpp"
 #include "spiral/ledger/MonolithLedger.hpp"
@@ -17,8 +18,8 @@
 namespace spiral {
 
 // SpiralKernel is plumbing/orchestration only.
-// It owns clocks, transport, state containers, routing, audit, and lifecycle order.
-// It does not decide policy and it does not choose actions.
+// It owns clocks, transport, state containers, routing, audit, module ownership,
+// and lifecycle order. It does not decide policy and it does not choose actions.
 class SpiralKernel {
 public:
     SpiralKernel();
@@ -35,6 +36,8 @@ public:
     SteamEngine& steamEngine() noexcept;
     AUMField& aumField() noexcept;
     CrystalGrid& crystalGrid() noexcept;
+    CrystalHost& crystalHost() noexcept;
+    const CrystalHost& crystalHost() const noexcept;
 
     const MindWheel& mindWheel() const noexcept;
     const CodingWheel& codingWheel() const noexcept;
@@ -90,6 +93,10 @@ private:
 
     AUMField aumField_;
     CrystalGrid crystalGrid_;
+
+    // Declared after CrystalGrid so it is destroyed first and can detach every
+    // owned module before the Grid itself disappears.
+    CrystalHost crystalHost_;
 };
 
 } // namespace spiral
