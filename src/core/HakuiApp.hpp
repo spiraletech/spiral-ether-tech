@@ -35,6 +35,7 @@ private:
     SDL_GPUDevice* gpu_ = nullptr;
     Uint64 previousCounter_ = 0;
     float titleTimer_ = 0.0f;
+    bool cameraDragging_ = false;
 
     // Spiral is the client's orchestration spine. It remains independent from
     // SDL/rendering and from optional legacy avatar backends.

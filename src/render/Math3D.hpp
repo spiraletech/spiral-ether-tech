@@ -88,6 +88,42 @@ inline Mat4 scale(const Vec3& value)
     return out;
 }
 
+inline Mat4 rotationX(float radians)
+{
+    Mat4 out = identity();
+    const float cosine = std::cos(radians);
+    const float sine = std::sin(radians);
+    out.m[5] = cosine;
+    out.m[6] = sine;
+    out.m[9] = -sine;
+    out.m[10] = cosine;
+    return out;
+}
+
+inline Mat4 rotationY(float radians)
+{
+    Mat4 out = identity();
+    const float cosine = std::cos(radians);
+    const float sine = std::sin(radians);
+    out.m[0] = cosine;
+    out.m[2] = -sine;
+    out.m[8] = sine;
+    out.m[10] = cosine;
+    return out;
+}
+
+inline Mat4 rotationZ(float radians)
+{
+    Mat4 out = identity();
+    const float cosine = std::cos(radians);
+    const float sine = std::sin(radians);
+    out.m[0] = cosine;
+    out.m[1] = sine;
+    out.m[4] = -sine;
+    out.m[5] = cosine;
+    return out;
+}
+
 inline Mat4 perspectiveLH(float fovRadians, float aspect, float nearPlane, float farPlane)
 {
     Mat4 out{};

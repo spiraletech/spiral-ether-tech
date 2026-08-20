@@ -20,6 +20,11 @@ public:
         Uint32 height,
         const PlayerState& player
     );
+    void updateCamera(float deltaSeconds, const PlayerState& player);
+    void orbitCamera(float horizontalPixels, float verticalPixels);
+    void zoomCamera(float wheelSteps);
+    void resetCamera();
+    float movementYaw() const noexcept;
     void shutdown();
 
 private:
@@ -36,4 +41,15 @@ private:
     SDL_GPUTexture* depthTexture_ = nullptr;
     Uint32 depthWidth_ = 0;
     Uint32 depthHeight_ = 0;
+
+    float cameraYaw_ = 2.40f;
+    float cameraPitch_ = 0.48f;
+    float cameraDistance_ = 9.5f;
+    float targetCameraYaw_ = 2.40f;
+    float targetCameraPitch_ = 0.48f;
+    float targetCameraDistance_ = 9.5f;
+    float cameraTargetX_ = 0.0f;
+    float cameraTargetY_ = 1.25f;
+    float cameraTargetZ_ = 0.0f;
+    bool cameraInitialized_ = false;
 };

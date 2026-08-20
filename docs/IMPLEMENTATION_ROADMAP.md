@@ -57,6 +57,10 @@ Current state: domain logic, terminal interaction, and specs implemented; visibl
 - Validate attachment slots visually and structurally.
 - Keep optional Cal3D types behind the crystal backend.
 
+Current state: a procedural debug gait now drives visible limbs from movement
+state, with smoothed idle/walk/sprint blending. A first-party skinned mesh and
+attachment visualization remain.
+
 Exit signal: on-foot movement drives a visible rig without breaking the dependency firewall.
 
 ## M5 — World persistence and replay

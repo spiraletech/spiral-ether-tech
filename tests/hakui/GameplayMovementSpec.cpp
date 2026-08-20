@@ -3,6 +3,7 @@
 #include <limits>
 
 #include "player/PlayerMovementController.hpp"
+#include "render/Math3D.hpp"
 
 namespace {
 
@@ -103,6 +104,31 @@ void invalid_input_cannot_poison_player_state()
     assert(std::isfinite(player.stamina));
 }
 
+void renderer_rotations_are_stable()
+{
+    using namespace hakui::math;
+
+    constexpr float halfTurn = 1.57079632679f;
+    const Mat4 yaw = rotationY(halfTurn);
+
+    // Column-major transform of a unit forward vector. This guards the matrix
+    // convention used by the procedural avatar and camera-relative steering.
+    const float transformedX = yaw.m[8];
+    const float transformedY = yaw.m[9];
+    const float transformedZ = yaw.m[10];
+    assert(nearlyEqual(transformedX, 1.0f));
+    assert(nearlyEqual(transformedY, 0.0f));
+    assert(nearlyEqual(transformedZ, 0.0f));
+
+    const Mat4 combined = multiply(
+        translation({2.0f, 3.0f, 4.0f}),
+        rotationX(halfTurn)
+    );
+    assert(nearlyEqual(combined.m[12], 2.0f));
+    assert(nearlyEqual(combined.m[13], 3.0f));
+    assert(nearlyEqual(combined.m[14], 4.0f));
+}
+
 } // namespace
 
 int main()
@@ -112,5 +138,6 @@ int main()
     sprint_consumes_and_rest_recovers_stamina();
     non_on_foot_modes_do_not_apply_on_foot_motion();
     invalid_input_cannot_poison_player_state();
+    renderer_rotations_are_stable();
     return 0;
 }
