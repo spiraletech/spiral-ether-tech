@@ -36,7 +36,7 @@ endif()
 
 option(HAKUI_ENABLE_INTERACTION_SPECS
     "Build the Hakui world-interaction invariant specification"
-    OFF
+    ${BUILD_TESTING}
 )
 
 if(HAKUI_ENABLE_INTERACTION_SPECS)
@@ -46,4 +46,14 @@ if(HAKUI_ENABLE_INTERACTION_SPECS)
 
     target_compile_features(hakui_interaction_spec PRIVATE cxx_std_20)
     target_link_libraries(hakui_interaction_spec PRIVATE hakui_interaction)
+
+    if(MSVC)
+        target_compile_options(hakui_interaction_spec PRIVATE /W4 /permissive- /UNDEBUG)
+    else()
+        target_compile_options(hakui_interaction_spec PRIVATE -Wall -Wextra -Wpedantic -UNDEBUG)
+    endif()
+
+    if(BUILD_TESTING)
+        add_test(NAME hakui.interaction COMMAND hakui_interaction_spec)
+    endif()
 endif()

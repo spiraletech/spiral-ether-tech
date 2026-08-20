@@ -1,0 +1,172 @@
+# Hakui Product Requirements
+
+Status: working specification for the v1.0 playable proof.
+
+Each requirement has a stable identifier so code, tests, issues, and release notes can refer to the same contract. A requirement is complete only when its acceptance criteria are automated or explicitly marked as a manual visual/audio check.
+
+## Product goal
+
+Hakui v1.0 is a responsive native social/action-world proof in which a player can enter a world, move a persistent avatar, interact with typed world capabilities, and observe those actions through the deterministic Spiral event and state layers.
+
+## Experience requirements
+
+### HK-EXP-001 — Enter a live world
+
+The client shall create an SDL3 window, initialize a supported GPU backend, construct the canonical avatar rig, and enter the world loop without optional capability backends.
+
+Acceptance criteria:
+
+- The default Windows build produces `hakui.exe`.
+- Startup failure returns a non-success result and emits a useful SDL error.
+- The client can run with `HAKUI_ENABLE_IMVU_CAL3D=OFF`.
+
+### HK-EXP-002 — Responsive on-foot movement
+
+The player shall move with normalized WASD input, face the movement direction, sprint while stamina is available, and remain stable after a frame stall.
+
+Acceptance criteria:
+
+- Diagonal input is not faster than axial input.
+- Walk speed is 3.25 world units per second.
+- Sprint speed is 5.75 world units per second.
+- Simulation delta is capped at 100 ms.
+- Sprint drains stamina and rest recovers it within the range `[0, 100]`.
+- Invalid numeric input cannot introduce non-finite player state.
+
+Automated by: `hakui.gameplay_movement`.
+
+### HK-EXP-003 — Explicit locomotion modes
+
+The player shall be able to select on-foot, skateboard, BMX, and vehicle modes. A mode may not silently reuse another mode's physics.
+
+Acceptance criteria:
+
+- Mode changes publish `locomotion.changed` and update `player.locomotion`.
+- The on-foot controller does not move a player in BMX, skateboard, or vehicle mode.
+- Each non-on-foot mode remains visibly identified as scaffolded until its own controller exists.
+
+Automated in part by: `hakui.gameplay_movement`.
+
+### HK-EXP-004 — Typed world interaction
+
+World objects shall expose explicit verbs and return an interaction result rather than mutating player state through an unrestricted reference.
+
+Acceptance criteria:
+
+- Requests, successful execution, denial, and missing targets are observable events.
+- State changes enter the canonical StateStore only through a returned state patch.
+- Expired world objects cannot leave dangling targets.
+
+Automated by: `hakui.interaction`.
+
+### HK-EXP-005 — Visible proof slice
+
+The native client shall render a depth-tested world floor, a player proxy, and live telemetry sufficient to prove that world, state, and Spiral systems are advancing.
+
+Acceptance criteria:
+
+- A manual smoke-test checklist verifies the viewport and controls.
+- The title or debug overlay exposes AUM phase, event count, StateStore revision, and player position.
+- A release artifact includes at least one current screenshot or short capture.
+
+### HK-EXP-006 — Fictional tabletop suite
+
+The world shall support deterministic 52-card and dice activities using fictional virtual credits only.
+
+Acceptance criteria:
+
+- A standard deck contains exactly 52 unique suit/rank combinations and cannot draw past exhaustion.
+- A supplied random seed reproduces the same shuffle and dice sequence.
+- Dice requests validate count and side limits before rolling.
+- Blackjack evaluates soft aces, validates wagers, deals without replacement, applies dealer draw rules, and settles wins, losses, pushes, and natural blackjack.
+- Credits cannot be purchased, deposited, transferred, redeemed, or cashed out.
+
+Automated by: `hakui.tabletop`.
+
+### HK-EXP-007 — Usable world terminals
+
+The player shall be able to power on, inspect, and launch tabletop applications from original, vendor-neutral terminals.
+
+Acceptance criteria:
+
+- Terminal actions use the common `InteractionService` request/result path.
+- Power, selected app, and dice results publish StateStore patches.
+- Terminal models use original in-world names and visual identities rather than real-company names, logos, or trade dress.
+- Humor may be absurd and satirical but may not reproduce protected characters, dialogue, sketches, or a specific show's distinctive presentation.
+
+Automated by: `hakui.tabletop`.
+
+## Engine requirements
+
+### HK-ENG-001 — Dependency firewall
+
+Spiral Core, avatar schema, gameplay rules, and interaction rules shall remain free of SDL, rendering, Cal3D, Boost, RapidXML, audio, and platform APIs.
+
+Acceptance criteria:
+
+- CMake configuration fails when a forbidden include enters a protected first-party layer.
+- Protected targets configure and test with the native client disabled.
+
+### HK-ENG-002 — Deterministic canonical state
+
+StateStore shall be the authoritative shared-state reducer. Accepted patches increment a revision and retain the originating signal identifier.
+
+Automated by: `spiral.logic`.
+
+### HK-ENG-003 — Observable routing
+
+Routing shall be ordered, first-match-wins, and have no hidden fallback. Route misses shall produce an error signal.
+
+Automated by: `spiral.logic`.
+
+### HK-ENG-004 — Explicit transitions
+
+Transitions that use Ether Bus shall pass through Boarding, Transit, ReadyToDisembark, and explicit Disembark. They may not commit transition state early.
+
+Automated by: `spiral.logic`.
+
+### HK-ENG-005 — Capability lifetime safety
+
+CrystalHost shall own capability memory, and CrystalGrid references shall detach before owned capability memory is destroyed.
+
+Automated by: `spiral.logic` and, when enabled, `spiral.imvu_cal3d_backend`.
+
+## Quality requirements
+
+### HK-QLT-001 — Automated validation
+
+Every push and pull request shall run dependency-free tests on Linux and Windows. Windows CI shall also compile the native SDL3 client.
+
+### HK-QLT-002 — Warning-clean first-party code
+
+First-party targets shall compile with high warning levels (`/W4 /permissive-` or `-Wall -Wextra -Wpedantic`). Test assertions shall remain active in every configuration.
+
+### HK-QLT-003 — Reproducible dependencies
+
+Third-party source dependencies shall use pinned releases or commits and be documented in `DEPENDENCIES.txt` and `THIRD_PARTY.md`.
+
+### HK-QLT-004 — Public release hygiene
+
+Before a public v1.0 release, the repository shall include an owner-selected license, build instructions, current media, and a passing build badge.
+
+## Requirement states
+
+| Requirement | State | Evidence |
+| --- | --- | --- |
+| HK-EXP-001 | Implemented, awaiting CI | `HakuiApp`, Windows native build job |
+| HK-EXP-002 | Implemented, awaiting CI | `PlayerMovementController`, gameplay spec |
+| HK-EXP-003 | Partial | Selection exists; three controllers remain |
+| HK-EXP-004 | Implemented, awaiting CI | `InteractionService`, interaction spec |
+| HK-EXP-005 | Partial | Debug renderer exists; smoke checklist/media remain |
+| HK-EXP-006 | Implemented, awaiting CI | Card deck, dice, blackjack, tabletop spec |
+| HK-EXP-007 | Implemented, awaiting CI | Game terminal, interaction routing, tabletop spec |
+| HK-ENG-001–005 | Implemented, awaiting CI | Firewall and Spiral specs |
+| HK-QLT-001–003 | Implemented, awaiting CI | CMake, workflow, dependency manifest |
+| HK-QLT-004 | Partial | License and current media require owner input |
+
+## Open owner decisions
+
+- First-party source license: MIT, Apache-2.0, or proprietary/no-license.
+- Target art direction and the first shippable avatar asset.
+- Whether v1.0 networking is local-loopback proof, client/server authoritative, or deferred.
+- Supported release platforms beyond Windows.

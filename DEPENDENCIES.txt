@@ -3,6 +3,9 @@ PROJECT HAKUI :: Dependency Manifest
 FIRST-PARTY CORE
 spiral_core=plain C++20
 hakui_avatar_rig=plain C++20
+hakui_gameplay=plain C++20
+hakui_interaction=plain C++20
+hakui_tabletop=plain C++20
 third_party_dependencies=none
 
 SDL3

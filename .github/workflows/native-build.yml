@@ -1,30 +1,59 @@
-name: Hakui Native Build
+name: Hakui Build and Test
 
-# Manual only while the Spiral/AUM architecture is being laid down.
-# Do not auto-build on push/PR during engine-logic construction.
 on:
+  push:
+  pull_request:
   workflow_dispatch:
 
+permissions:
+  contents: read
+
+concurrency:
+  group: hakui-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
-  windows-core:
-    runs-on: windows-latest
+  core-tests:
+    name: Core tests (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 10
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Configure dependency-free Spiral Core
+      - name: Configure dependency-free targets
         run: >-
           cmake -S . -B build
           -DHAKUI_BUILD_NATIVE_CLIENT=OFF
           -DHAKUI_ENABLE_IMVU_CAL3D=OFF
-          -DHAKUI_ENABLE_SPIRAL_LOGIC_SPECS=ON
+          -DBUILD_TESTING=ON
 
-      - name: Build Spiral logic spec only
+      - name: Build
+        run: cmake --build build --config Debug --parallel 2
+
+      - name: Test
+        run: ctest --test-dir build --build-config Debug --output-on-failure
+
+  native-windows:
+    name: Native client (Windows)
+    runs-on: windows-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Configure native client
         run: >-
-          cmake --build build
-          --config Release
-          --target spiral_logic_spec
-          --parallel 2
+          cmake -S . -B build
+          -DHAKUI_BUILD_NATIVE_CLIENT=ON
+          -DHAKUI_ENABLE_IMVU_CAL3D=OFF
+          -DBUILD_TESTING=OFF
 
-      - name: Run Spiral logic spec
-        run: ./build/Release/spiral_logic_spec.exe
+      - name: Build native client
+        run: cmake --build build --config Release --target hakui --parallel 2

@@ -93,7 +93,7 @@ target_link_libraries(spiral_imvu_cal3d_backend
 
 option(HAKUI_ENABLE_IMVU_BACKEND_SPECS
     "Build the isolated IMVU-Cal3D crystal backend invariant specification"
-    OFF
+    ${BUILD_TESTING}
 )
 
 if(HAKUI_ENABLE_IMVU_BACKEND_SPECS)
@@ -106,4 +106,14 @@ if(HAKUI_ENABLE_IMVU_BACKEND_SPECS)
         PRIVATE
             spiral_imvu_cal3d_backend
     )
+
+    if(MSVC)
+        target_compile_options(imvu_cal3d_backend_spec PRIVATE /W4 /permissive- /UNDEBUG)
+    else()
+        target_compile_options(imvu_cal3d_backend_spec PRIVATE -Wall -Wextra -Wpedantic -UNDEBUG)
+    endif()
+
+    if(BUILD_TESTING)
+        add_test(NAME spiral.imvu_cal3d_backend COMMAND imvu_cal3d_backend_spec)
+    endif()
 endif()

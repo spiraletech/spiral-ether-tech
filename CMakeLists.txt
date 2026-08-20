@@ -11,6 +11,7 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
 include(FetchContent)
+include(CTest)
 
 # ============================================================
 # FIRST-PARTY HAKUI / SPIRAL LAYERS
@@ -25,6 +26,12 @@ include(cmake/HakuiAvatarRig.cmake)
 
 # Hakui-owned world interaction semantics over the Spiral bus/state layer.
 include(cmake/HakuiInteraction.cmake)
+
+# Deterministic gameplay rules, independent from SDL and rendering.
+include(cmake/HakuiGameplay.cmake)
+
+# Fictional chance games and vendor-neutral in-world terminals.
+include(cmake/HakuiTabletop.cmake)
 
 # ============================================================
 # BUILD GATES
@@ -94,6 +101,8 @@ if(HAKUI_BUILD_NATIVE_CLIENT)
             spiral_core
             hakui_avatar_rig
             hakui_interaction
+            hakui_gameplay
+            hakui_tabletop
     )
 
     # Deliberate boundary:

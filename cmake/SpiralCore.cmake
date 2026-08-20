@@ -55,7 +55,7 @@ endif()
 
 option(HAKUI_ENABLE_SPIRAL_LOGIC_SPECS
     "Build the source-level Spiral engine invariant specification executable"
-    OFF
+    ${BUILD_TESTING}
 )
 
 if(HAKUI_ENABLE_SPIRAL_LOGIC_SPECS)
@@ -65,4 +65,14 @@ if(HAKUI_ENABLE_SPIRAL_LOGIC_SPECS)
 
     target_link_libraries(spiral_logic_spec PRIVATE spiral_core)
     target_compile_features(spiral_logic_spec PRIVATE cxx_std_20)
+
+    if(MSVC)
+        target_compile_options(spiral_logic_spec PRIVATE /W4 /permissive- /UNDEBUG)
+    else()
+        target_compile_options(spiral_logic_spec PRIVATE -Wall -Wextra -Wpedantic -UNDEBUG)
+    endif()
+
+    if(BUILD_TESTING)
+        add_test(NAME spiral.logic COMMAND spiral_logic_spec)
+    endif()
 endif()
