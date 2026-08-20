@@ -88,3 +88,20 @@ target_link_libraries(spiral_imvu_cal3d_backend
     PRIVATE
         hakui_cal3d_skeleton
 )
+
+option(HAKUI_ENABLE_IMVU_BACKEND_SPECS
+    "Build the isolated IMVU-Cal3D crystal backend invariant specification"
+    OFF
+)
+
+if(HAKUI_ENABLE_IMVU_BACKEND_SPECS)
+    add_executable(imvu_cal3d_backend_spec
+        "${CMAKE_CURRENT_LIST_DIR}/../tests/spiral/ImvuCal3DBackendSpec.cpp"
+    )
+
+    target_compile_features(imvu_cal3d_backend_spec PRIVATE cxx_std_20)
+    target_link_libraries(imvu_cal3d_backend_spec
+        PRIVATE
+            spiral_imvu_cal3d_backend
+    )
+endif()
