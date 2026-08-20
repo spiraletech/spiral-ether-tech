@@ -1,0 +1,19 @@
+SPIRAL OS: HAKUI ENGINE
+WINDOWS STARTUP PACK
+
+Run:
+SPIRAL-OS-HAKUI-ENGINE.exe
+
+Controls:
+WASD  MOVE
+SHIFT SPRINT
+1-4   LOCOMOTION
+T     TERMINAL / DICE
+G     CARD SUITE
+B     BET 25 VIRTUAL CREDITS
+H     HIT
+J     STAND
+I     INSPECT
+ESC   EXIT
+
+Virtual credits only. No purchase or cash-out.

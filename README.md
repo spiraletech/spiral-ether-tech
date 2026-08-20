@@ -10,6 +10,12 @@ The current milestone is architecture-first, but its dependency-free engine, gam
 
 Planning is traceable through [`docs/PRODUCT_REQUIREMENTS.md`](docs/PRODUCT_REQUIREMENTS.md) and [`docs/IMPLEMENTATION_ROADMAP.md`](docs/IMPLEMENTATION_ROADMAP.md).
 
+## Download
+
+**SPIRAL OS: HAKUI ENGINE** Windows startup packs are published on the [Releases page](https://github.com/spiraletech/spiral-ether-tech/releases). Successful Windows workflow runs also provide a 30-day `spiral-os-hakui-engine-windows-x64` build artifact.
+
+Extract the ZIP and run `SPIRAL-OS-HAKUI-ENGINE.exe`. The pack contains the executable, `SDL3.dll`, and `START_HERE.txt`.
+
 ## Quick start
 
 Requirements: CMake 3.25 or newer and a C++20 compiler. The native client fetches the pinned SDL3 source during configuration.

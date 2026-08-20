@@ -2,6 +2,8 @@ name: Hakui Build and Test
 
 on:
   push:
+    branches: ["**"]
+    tags: ["v*"]
   pull_request:
   workflow_dispatch:
 
@@ -43,6 +45,8 @@ jobs:
     name: Native client (Windows)
     runs-on: windows-latest
     timeout-minutes: 20
+    permissions:
+      contents: write
 
     steps:
       - name: Checkout
@@ -57,3 +61,30 @@ jobs:
 
       - name: Build native client
         run: cmake --build build --config Release --target hakui --parallel 2
+
+      - name: Build Windows startup pack
+        shell: pwsh
+        run: >-
+          ./packaging/windows/package.ps1
+          -BuildDirectory ./build
+          -OutputDirectory ./dist
+
+      - name: Upload Windows startup pack
+        uses: actions/upload-artifact@v4
+        with:
+          name: spiral-os-hakui-engine-windows-x64
+          path: dist/spiral-os-hakui-engine-windows-x64.zip
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Publish tagged GitHub Release
+        if: startsWith(github.ref, 'refs/tags/v')
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: pwsh
+        run: >-
+          gh release create $env:GITHUB_REF_NAME
+          ./dist/spiral-os-hakui-engine-windows-x64.zip
+          --verify-tag
+          --title "SPIRAL OS: HAKUI ENGINE $env:GITHUB_REF_NAME"
+          --notes "Bare-bones Windows startup pack. Extract the ZIP and run SPIRAL-OS-HAKUI-ENGINE.exe."
