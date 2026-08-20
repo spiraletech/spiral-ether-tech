@@ -1,12 +1,7 @@
 #pragma once
 
-#include <string_view>
+// Compatibility include for early Hakui source paths.
+// New code should include interaction/Interactable.hpp directly.
+#include "interaction/Interactable.hpp"
 
-class PlayerState;
-
-class Interactable {
-public:
-    virtual ~Interactable() = default;
-    virtual std::string_view prompt() const = 0;
-    virtual void interact(PlayerState& player) = 0;
-};
+using Interactable = hakui::Interactable;
