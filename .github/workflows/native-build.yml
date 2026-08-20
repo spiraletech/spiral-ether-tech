@@ -12,14 +12,19 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Configure core-first build
+      - name: Configure dependency-free Spiral Core
         run: >-
           cmake -S . -B build
+          -DHAKUI_BUILD_NATIVE_CLIENT=OFF
           -DHAKUI_ENABLE_IMVU_CAL3D=OFF
           -DHAKUI_ENABLE_SPIRAL_LOGIC_SPECS=ON
 
-      - name: Build
-        run: cmake --build build --config Release --parallel 2
+      - name: Build Spiral logic spec only
+        run: >-
+          cmake --build build
+          --config Release
+          --target spiral_logic_spec
+          --parallel 2
 
       - name: Run Spiral logic spec
         run: ./build/Release/spiral_logic_spec.exe
