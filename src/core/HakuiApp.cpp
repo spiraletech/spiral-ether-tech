@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <cstdint>
 #include <string>
 #include <utility>
 
@@ -128,6 +129,21 @@ void HakuiApp::initSpiralCore()
     // A small initial charge marks the native client's transition to live
     // operation. Steam is telemetry/energy state, not gameplay policy.
     spiral_.dispatch(std::move(bootSignal), 4.0f, 0.5f);
+
+    // Canonical state lives in StateStore through typed State patches. Boot is
+    // kept as its own event family rather than overloading it with reducer data.
+    spiral::Signal initialState;
+    initialState.kind = spiral::SignalKind::State;
+    initialState.source = "hakui.client";
+    initialState.destination = "spiral.core";
+    initialState.topic = "client.state.initial";
+    initialState.statePatch = {
+        {"client.status", std::string("online")},
+        {"client.version", std::string("0.4")},
+        {"avatar.rig.bones", static_cast<std::int64_t>(avatarSkeleton_.boneCount())},
+        {"player.locomotion", std::string("on_foot")}
+    };
+    spiral_.dispatch(std::move(initialState));
 }
 
 void HakuiApp::switchLocomotion(LocomotionMode mode, std::string_view label)
@@ -143,6 +159,9 @@ void HakuiApp::switchLocomotion(LocomotionMode mode, std::string_view label)
     signal.destination = "spiral.core";
     signal.topic = "locomotion.changed";
     signal.payload = std::string(label);
+    signal.statePatch = {
+        {"player.locomotion", std::string(label)}
+    };
 
     spiral_.dispatch(std::move(signal), 0.25f, 0.01f);
 }
@@ -244,13 +263,14 @@ void HakuiApp::update(float dt)
             case spiral::AUMPhase::M_Return:    aumPhase = "M"; break;
         }
 
-        char title[192];
+        char title[224];
         SDL_snprintf(
             title,
             sizeof(title),
-            "PROJECT HAKUI // v0.4 // AUM %s // EVENTS %zu // X %.1f  Z %.1f",
+            "PROJECT HAKUI // v0.4 // AUM %s // EVENTS %zu // STATE R%llu // X %.1f  Z %.1f",
             aumPhase,
             spiral_.monolith().size(),
+            static_cast<unsigned long long>(spiral_.stateStore().revision()),
             player_.x,
             player_.z
         );
@@ -320,6 +340,9 @@ void HakuiApp::shutdown()
     shutdownSignal.destination = "spiral.core";
     shutdownSignal.topic = "client.shutdown";
     shutdownSignal.payload = "normal";
+    shutdownSignal.statePatch = {
+        {"client.status", std::string("offline")}
+    };
     spiral_.dispatch(std::move(shutdownSignal));
 
     if (spiralListener_ != 0) {
