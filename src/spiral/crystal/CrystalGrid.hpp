@@ -46,7 +46,6 @@ private:
     RouterBus& bus_;
     AUMField& field_;
     RouterBus::ListenerId listenerId_ = 0;
-    SignalId nextSignalId_ = 1;
     std::vector<Record> records_;
 };
 
