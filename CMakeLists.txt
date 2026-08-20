@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.25)
 
 project(Hakui
-    VERSION 0.3.0
+    VERSION 0.4.0
     DESCRIPTION "Project Hakui native client"
     LANGUAGES CXX
 )
@@ -12,9 +12,14 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 
 include(FetchContent)
 
+# Spiral Core is Hakui's dependency-free orchestration/plumbing layer.
+include(cmake/SpiralCore.cmake)
+
+# Legacy IMVU-Cal3D backend is retained but disabled by default until it is
+# connected exclusively through crystal.imvu_skeleton.
 option(HAKUI_ENABLE_IMVU_CAL3D
-    "Enable IMVU's open-source Cal3D skeletal runtime"
-    ON
+    "Enable the legacy IMVU Cal3D backend"
+    OFF
 )
 
 set(SDL_TEST_LIBRARY OFF CACHE BOOL "" FORCE)
@@ -55,8 +60,15 @@ add_executable(hakui
     src/systems/Interactable.hpp
 )
 
-target_link_libraries(hakui PRIVATE SDL3::SDL3)
+target_link_libraries(hakui
+    PRIVATE
+        SDL3::SDL3
+        spiral_core
+)
 
+# Temporary compatibility path for the pre-crystal avatar skeleton scaffold.
+# Default OFF. The final architecture will move this dependency into a separate
+# IMVU crystal backend target instead of linking Cal3D into the Hakui client.
 if(HAKUI_ENABLE_IMVU_CAL3D)
     target_link_libraries(hakui PRIVATE hakui_cal3d)
     target_compile_definitions(hakui PRIVATE HAKUI_HAS_IMVU_CAL3D=1)
