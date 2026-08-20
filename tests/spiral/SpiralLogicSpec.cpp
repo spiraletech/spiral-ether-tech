@@ -1,10 +1,13 @@
 #include <cassert>
 #include <chrono>
+#include <string>
 #include <type_traits>
 #include <utility>
 
 #include "spiral/SpiralKernel.hpp"
 #include "spiral/crystal/ImvuSkeletonCrystal.hpp"
+#include "spiral/ledger/MonolithLedger.hpp"
+#include "spiral/routing/RouteTable.hpp"
 
 using namespace std::chrono_literals;
 
@@ -70,6 +73,105 @@ void octopus_wheels_are_orthogonal_and_bus_gated()
     assert(kernel.codingWheel().activeIndex() == 5);
 }
 
+void route_table_is_ordered_first_match_wins()
+{
+    spiral::RouteTable routes;
+    bool secondConsulted = false;
+
+    assert(routes.addRule(
+        "first",
+        "crystal.first",
+        [](const spiral::Signal&) { return true; }
+    ));
+
+    assert(routes.addRule(
+        "second",
+        "crystal.second",
+        [&secondConsulted](const spiral::Signal&) {
+            secondConsulted = true;
+            return true;
+        }
+    ));
+
+    spiral::Signal signal;
+    signal.topic = "anything";
+
+    const auto match = routes.resolve(signal);
+    assert(match.has_value());
+    assert(match->index == 0);
+    assert(match->name == "first");
+    assert(match->destination == "crystal.first");
+    assert(!secondConsulted);
+}
+
+void kernel_dispatch_uses_route_table_without_inventing_fallback()
+{
+    spiral::SpiralKernel kernel;
+    std::string deliveredTo;
+
+    kernel.router().subscribe([&deliveredTo](const spiral::Signal& signal) {
+        if (signal.topic == "route.spec") {
+            deliveredTo = signal.destination;
+        }
+    });
+
+    assert(kernel.routes().addRule(
+        "spec",
+        "crystal.spec",
+        [](const spiral::Signal& signal) {
+            return signal.topic == "route.spec";
+        }
+    ));
+
+    spiral::Signal routed;
+    routed.source = "spec";
+    routed.topic = "route.spec";
+    assert(kernel.dispatch(routed));
+    assert(deliveredTo == "crystal.spec");
+
+    spiral::Signal missing;
+    missing.source = "spec";
+    missing.topic = "no.route";
+    assert(!kernel.dispatch(missing));
+
+    const auto tail = kernel.monolith().tail(1);
+    assert(tail.size() == 1);
+    assert(tail[0].kind == spiral::SignalKind::Error);
+    assert(tail[0].topic == "route.miss");
+}
+
+void router_bus_sequences_signals_and_monolith_is_bounded()
+{
+    spiral::RouterBus bus;
+    spiral::MonolithLedger ledger(bus, 3);
+
+    spiral::Signal one;
+    one.topic = "one";
+    const auto id1 = bus.emit(one);
+
+    spiral::Signal two;
+    two.topic = "two";
+    const auto id2 = bus.emit(two);
+
+    spiral::Signal three;
+    three.topic = "three";
+    const auto id3 = bus.emit(three);
+
+    spiral::Signal four;
+    four.topic = "four";
+    const auto id4 = bus.emit(four);
+
+    assert(id1 < id2 && id2 < id3 && id3 < id4);
+    assert(ledger.size() == 3);
+
+    const auto snapshot = ledger.snapshot();
+    assert(snapshot.size() == 3);
+    assert(snapshot[0].topic == "two");
+    assert(snapshot[1].topic == "three");
+    assert(snapshot[2].topic == "four");
+    assert(snapshot[2].id == id4);
+}
+
 void stop_gate_belongs_to_policy()
 {
     spiral::SpiralKernel kernel;
@@ -118,7 +220,7 @@ void aum_field_cycles_a_u_m()
     assert(field.phase() == spiral::AUMPhase::A_Emergence);
 }
 
-void failed_imvu_crystal_is_contained()
+void failed_imvu_crystal_is_contained_and_logged()
 {
     spiral::SpiralKernel kernel;
     spiral::ImvuSkeletonCrystal imvu; // no backend hooks = unavailable
@@ -132,12 +234,17 @@ void failed_imvu_crystal_is_contained()
     assert(imvu.state() == spiral::Crystal::State::Faulted);
     assert(!imvu.healthy());
 
+    const auto errors = kernel.monolith().tail(1);
+    assert(errors.size() == 1);
+    assert(errors[0].kind == spiral::SignalKind::Error);
+    assert(errors[0].topic == "crystal.error");
+
     // Kernel plumbing remains alive and usable.
     spiral::Signal signal;
     signal.source = "spec";
     signal.destination = "spiral.core";
     signal.topic = "still.alive";
-    kernel.pressureRail().send(signal, 1.0f);
+    assert(kernel.dispatch(signal, 1.0f));
     assert(kernel.steamEngine().telemetry().pressure > 0.0f);
 }
 
@@ -147,9 +254,12 @@ int main()
 {
     ether_bus_requires_time_and_disembark();
     octopus_wheels_are_orthogonal_and_bus_gated();
+    route_table_is_ordered_first_match_wins();
+    kernel_dispatch_uses_route_table_without_inventing_fallback();
+    router_bus_sequences_signals_and_monolith_is_bounded();
     stop_gate_belongs_to_policy();
     steam_engine_contains_overpressure();
     aum_field_cycles_a_u_m();
-    failed_imvu_crystal_is_contained();
+    failed_imvu_crystal_is_contained_and_logged();
     return 0;
 }
