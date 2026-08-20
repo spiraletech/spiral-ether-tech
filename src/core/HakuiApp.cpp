@@ -1,7 +1,6 @@
 #include "core/HakuiApp.hpp"
 
 #include <algorithm>
-#include <cmath>
 #include <cstdint>
 #include <string>
 #include <utility>
@@ -23,6 +22,17 @@ bool HakuiApp::boot()
     }
 
     initSpiralCore();
+    terminal_ = std::make_shared<hakui::games::GameTerminal>(
+        7001,
+        hakui::games::TerminalModel::FusionDeck
+    );
+    if (!interactions_.registerTarget(terminal_)) {
+        SDL_LogError(
+            SDL_LOG_CATEGORY_APPLICATION,
+            "[HAKUI] failed to register tabletop terminal"
+        );
+        return false;
+    }
     previousCounter_ = SDL_GetPerformanceCounter();
 
     SDL_Log("[HAKUI] WORLD ONLINE");
@@ -30,6 +40,7 @@ bool HakuiApp::boot()
     SDL_Log("[HAKUI] SPIRAL CORE // ONLINE");
     SDL_Log("[HAKUI] avatar rig ready // %zu bones", avatarSkeleton_.boneCount());
     SDL_Log("[HAKUI] controls // WASD move // SHIFT sprint // 1-4 locomotion modes");
+    SDL_Log("[HAKUI] terminal // T use/dice // G cards // B bet 25 // H hit // J stand // I inspect");
     return true;
 }
 
@@ -166,6 +177,25 @@ void HakuiApp::switchLocomotion(LocomotionMode mode, std::string_view label)
     spiral_.dispatch(std::move(signal), 0.25f, 0.01f);
 }
 
+void HakuiApp::interactWithTerminal(hakui::InteractionVerb verb)
+{
+    if (!terminal_) {
+        return;
+    }
+
+    hakui::InteractionRequest request;
+    request.actor = 1;
+    request.target = terminal_->interactionId();
+    request.verb = verb;
+
+    const hakui::InteractionResult result = interactions_.interact(request);
+    if (result.handled) {
+        SDL_Log("[TERMINAL] %s", result.output.c_str());
+    } else {
+        SDL_Log("[TERMINAL] action unavailable");
+    }
+}
+
 SDL_AppResult HakuiApp::handleEvent(const SDL_Event& event)
 {
     if (event.type == SDL_EVENT_QUIT) {
@@ -191,6 +221,46 @@ SDL_AppResult HakuiApp::handleEvent(const SDL_Event& event)
 
             case SDLK_4:
                 switchLocomotion(LocomotionMode::Car, "car");
+                break;
+
+            case SDLK_T:
+                interactWithTerminal(hakui::InteractionVerb::Use);
+                break;
+
+            case SDLK_G:
+                interactWithTerminal(hakui::InteractionVerb::Play);
+                break;
+
+            case SDLK_I:
+                interactWithTerminal(hakui::InteractionVerb::Inspect);
+                break;
+
+            case SDLK_B:
+                if (terminal_ && terminal_->beginCardRound(25)) {
+                    SDL_Log("[TABLETOP] round started // virtual wager 25");
+                } else {
+                    SDL_Log("[TABLETOP] open card suite before starting a round");
+                }
+                break;
+
+            case SDLK_H:
+                if (terminal_ && terminal_->hitCardTable()) {
+                    SDL_Log(
+                        "[TABLETOP] hit // hand value %d",
+                        hakui::games::BlackjackTable::handValue(
+                            terminal_->cardTable().playerHand()
+                        )
+                    );
+                }
+                break;
+
+            case SDLK_J:
+                if (terminal_ && terminal_->standCardTable()) {
+                    SDL_Log(
+                        "[TABLETOP] stand // virtual credits %lld",
+                        static_cast<long long>(terminal_->cardTable().credits())
+                    );
+                }
                 break;
 
             default:
@@ -224,31 +294,18 @@ void HakuiApp::update(float dt)
     // internals remain platform-independent.
     spiral_.tick(dt);
 
-    if (player_.locomotion == LocomotionMode::OnFoot) {
-        const bool* keys = SDL_GetKeyboardState(nullptr);
+    const bool* keys = SDL_GetKeyboardState(nullptr);
+    hakui::MovementInput movementInput;
+    movementInput.right =
+        static_cast<float>(keys[SDL_SCANCODE_D]) -
+        static_cast<float>(keys[SDL_SCANCODE_A]);
+    movementInput.forward =
+        static_cast<float>(keys[SDL_SCANCODE_W]) -
+        static_cast<float>(keys[SDL_SCANCODE_S]);
+    movementInput.sprint =
+        keys[SDL_SCANCODE_LSHIFT] || keys[SDL_SCANCODE_RSHIFT];
 
-        float moveX = 0.0f;
-        float moveZ = 0.0f;
-
-        if (keys[SDL_SCANCODE_A]) moveX -= 1.0f;
-        if (keys[SDL_SCANCODE_D]) moveX += 1.0f;
-        if (keys[SDL_SCANCODE_S]) moveZ -= 1.0f;
-        if (keys[SDL_SCANCODE_W]) moveZ += 1.0f;
-
-        const float length = std::sqrt(moveX * moveX + moveZ * moveZ);
-        if (length > 0.0001f) {
-            moveX /= length;
-            moveZ /= length;
-
-            const bool sprint =
-                keys[SDL_SCANCODE_LSHIFT] || keys[SDL_SCANCODE_RSHIFT];
-            const float speed = sprint ? 5.75f : 3.25f;
-
-            player_.x += moveX * speed * dt;
-            player_.z += moveZ * speed * dt;
-            player_.yaw = std::atan2(moveX, moveZ);
-        }
-    }
+    movement_.update(player_, movementInput, dt);
 
     locomotion_.update(dt);
 
@@ -344,6 +401,8 @@ void HakuiApp::shutdown()
         {"client.status", std::string("offline")}
     };
     spiral_.dispatch(std::move(shutdownSignal));
+
+    terminal_.reset();
 
     if (spiralListener_ != 0) {
         spiral_.router().unsubscribe(spiralListener_);

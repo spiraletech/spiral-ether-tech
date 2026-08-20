@@ -31,3 +31,27 @@ if(MSVC)
 else()
     target_compile_options(hakui_avatar_rig PRIVATE -Wall -Wextra -Wpedantic)
 endif()
+
+option(HAKUI_ENABLE_AVATAR_RIG_SPECS
+    "Build the Hakui avatar-rig invariant specification"
+    ${BUILD_TESTING}
+)
+
+if(HAKUI_ENABLE_AVATAR_RIG_SPECS)
+    add_executable(hakui_avatar_rig_spec
+        ${CMAKE_CURRENT_LIST_DIR}/../tests/hakui/AvatarRigSpec.cpp
+    )
+
+    target_compile_features(hakui_avatar_rig_spec PRIVATE cxx_std_20)
+    target_link_libraries(hakui_avatar_rig_spec PRIVATE hakui_avatar_rig)
+
+    if(MSVC)
+        target_compile_options(hakui_avatar_rig_spec PRIVATE /W4 /permissive- /UNDEBUG)
+    else()
+        target_compile_options(hakui_avatar_rig_spec PRIVATE -Wall -Wextra -Wpedantic -UNDEBUG)
+    endif()
+
+    if(BUILD_TESTING)
+        add_test(NAME hakui.avatar_rig COMMAND hakui_avatar_rig_spec)
+    endif()
+endif()

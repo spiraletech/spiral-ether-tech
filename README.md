@@ -1,8 +1,35 @@
 # PROJECT HAKUI — Native Client v0.4
 
+[![Hakui Build and Test](https://github.com/spiraletech/spiral-ether-tech/actions/workflows/native-build.yml/badge.svg)](https://github.com/spiraletech/spiral-ether-tech/actions/workflows/native-build.yml)
+[![C++20](https://img.shields.io/badge/C%2B%2B-20-00599C.svg)](https://en.cppreference.com/w/cpp/20)
+[![SDL3](https://img.shields.io/badge/SDL-3-17365D.svg)](https://www.libsdl.org/)
+
 Hakui is a custom C++20 social/action world client built around a dependency-free **Spiral engine core**, an SDL3 GPU client layer, first-party avatar + interaction systems, and optional capability crystals.
 
-The current branch is **architecture-first and intentionally unvalidated**. Automatic CI is disabled; no source-level spec should be described as passing until the manual validation stage is deliberately triggered.
+The current milestone is architecture-first, but its dependency-free engine, gameplay, interaction layer, and avatar schema now have executable CTest contracts. GitHub Actions validates those contracts on Linux and Windows and compiles the native SDL3 client on Windows.
+
+Planning is traceable through [`docs/PRODUCT_REQUIREMENTS.md`](docs/PRODUCT_REQUIREMENTS.md) and [`docs/IMPLEMENTATION_ROADMAP.md`](docs/IMPLEMENTATION_ROADMAP.md).
+
+## Quick start
+
+Requirements: CMake 3.25 or newer and a C++20 compiler. The native client fetches the pinned SDL3 source during configuration.
+
+Build and test the dependency-free layers:
+
+```sh
+cmake -S . -B build -DHAKUI_BUILD_NATIVE_CLIENT=OFF -DBUILD_TESTING=ON
+cmake --build build --config Debug --parallel
+ctest --test-dir build --build-config Debug --output-on-failure
+```
+
+Build the native client:
+
+```sh
+cmake -S . -B build -DHAKUI_BUILD_NATIVE_CLIENT=ON -DBUILD_TESTING=OFF
+cmake --build build --config Release --target hakui --parallel
+```
+
+The resulting executable is `hakui` (`hakui.exe` on Windows). Run it from the selected build-configuration directory used by your generator.
 
 ## v0.4 architecture milestone
 
@@ -51,6 +78,7 @@ Hakui's visible proof slice currently contains:
 - large world floor
 - AUM phase + Monolith event count + StateStore revision telemetry
 - locomotion state changes published into Router Bus / StateStore
+- a vendor-neutral Fusion Deck terminal with deterministic card and dice apps
 
 Gameplay input remains immediate. Ether Bus is reserved for transitions that actually need its explicit transit/disembark gate.
 
@@ -186,7 +214,7 @@ This is the common path intended for cars, BMX, skateboards, doors, TVs, console
 
 Interaction targets use weak references so expired world objects cannot leave dangling interaction pointers.
 
-`tests/hakui/InteractionSpec.cpp` is an **unrun** source contract for request logging, verb validation, state patching, missing targets, and safe object expiry.
+`tests/hakui/InteractionSpec.cpp` is an executable CTest contract for request logging, verb validation, state patching, missing targets, and safe object expiry.
 
 ## Avatar architecture
 
@@ -230,6 +258,8 @@ Cal3D remains **OFF by default**.
 spiral_core
 hakui_avatar_rig
 hakui_interaction
+hakui_gameplay
+hakui_tabletop
 hakui
 ```
 
@@ -240,6 +270,9 @@ hakui_cal3d_skeleton
 spiral_imvu_cal3d_backend
 spiral_logic_spec
 hakui_interaction_spec
+hakui_avatar_rig_spec
+hakui_gameplay_spec
+hakui_tabletop_spec
 imvu_cal3d_backend_spec
 ```
 
@@ -252,28 +285,50 @@ Shift         sprint
 2             skateboard mode
 3             BMX mode
 4             car mode
+T             power/use terminal; roll dice when online
+G             open the 52-card table suite
+B             begin a round with 25 virtual credits
+H             hit
+J             stand
+I             inspect the terminal
 Esc           quit
 ```
+
+The tabletop suite uses fictional virtual credits only. It has no real-money purchase, deposit, cash-out, marketplace, or external gambling integration. Terminal models—Nebula Tower, Orchard Glass, and Fusion Deck—are original in-world identities and do not represent real hardware companies.
 
 Only on-foot physics is implemented in the visible proof slice; the other locomotion states are scaffolds.
 
 ## Dependency firewall
 
-CMake scans first-party Spiral Core, avatar-rig, and interaction sources and rejects direct SDL3, Cal3D, Boost, or RapidXML includes in those layers. The explicit optional crystal backend directory is the deliberate legacy-runtime exception.
+CMake scans first-party Spiral Core, avatar-rig, gameplay, interaction, and tabletop sources and rejects direct SDL3, Cal3D, Boost, or RapidXML includes in those layers. The explicit optional crystal backend directory is the deliberate legacy-runtime exception.
 
-## Validation policy
+## Vocabulary map
 
-Automatic GitHub Actions runs are paused.
+Hakui keeps its project-specific language, while each name maps to a conventional engineering role:
 
-The manual core workflow is configured to isolate Spiral first:
+| Hakui term | Conventional role |
+| --- | --- |
+| Router Bus | Typed in-process event bus |
+| Route Table | Ordered predicate router |
+| Monolith Ledger | Bounded event/audit log |
+| StateStore | Reducer-backed canonical state |
+| Ether Bus | Timed transition state machine |
+| Steam Engine / Pressure Rail | Deterministic resource telemetry |
+| AUM Field | Three-phase lifecycle scheduler |
+| Crystal Grid / Host | Capability registry and lifetime owner |
+| Octopus Wheels | Policy and action selectors |
+
+## Validation
+
+Every push and every pull request runs the dependency-free test suite on Linux and Windows. A separate Windows job compiles the SDL3 native client. The core test configuration is:
 
 ```text
 HAKUI_BUILD_NATIVE_CLIENT=OFF
 HAKUI_ENABLE_IMVU_CAL3D=OFF
-HAKUI_ENABLE_SPIRAL_LOGIC_SPECS=ON
+BUILD_TESTING=ON
 ```
 
-The interaction layer and optional IMVU backend each have separate, currently unrun spec targets.
+CTest currently covers Spiral engine invariants, interaction behavior, and avatar-rig integrity. Assertions remain enabled for spec executables even when a release-style configuration is selected.
 
 Validation order:
 
