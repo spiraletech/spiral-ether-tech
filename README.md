@@ -1,12 +1,10 @@
 # PROJECT HAKUI — Native Client v0.4
 
-Hakui is a custom C++20 social/action world client built around a dependency-free **Spiral engine core**, an SDL3 GPU client layer, a first-party avatar rig, and optional capability crystals.
+Hakui is a custom C++20 social/action world client built around a dependency-free **Spiral engine core**, an SDL3 GPU client layer, first-party avatar + interaction systems, and optional capability crystals.
 
 The current branch is **architecture-first and intentionally unvalidated**. Automatic CI is disabled; no source-level spec should be described as passing until the manual validation stage is deliberately triggered.
 
 ## v0.4 architecture milestone
-
-The native client now has two distinct layers:
 
 ```text
 HAKUI CLIENT
@@ -14,10 +12,12 @@ HAKUI CLIENT
 ├── debug 3D world renderer
 ├── immediate gameplay locomotion
 ├── Hakui-owned avatar rig
+├── Hakui interaction layer
 └── SpiralKernel heartbeat
     ├── Router Bus
     ├── Route Table
     ├── Monolith Ledger
+    ├── StateStore
     ├── Ether Bus
     ├── Steam Engine
     ├── Pressure Rail
@@ -49,10 +49,10 @@ Hakui's visible proof slice currently contains:
 - Shift sprint
 - grey cuboid humanoid debug proxy
 - large world floor
-- AUM phase + Monolith event count in the window title
-- locomotion state changes published into Router Bus
+- AUM phase + Monolith event count + StateStore revision telemetry
+- locomotion state changes published into Router Bus / StateStore
 
-Gameplay input remains immediate. Ether Bus is reserved for state transitions that actually need its explicit transit/disembark gate.
+Gameplay input remains immediate. Ether Bus is reserved for transitions that actually need its explicit transit/disembark gate.
 
 ## Spiral Core
 
@@ -74,6 +74,31 @@ ordered rules
 ### Monolith Ledger
 
 Passive bounded audit ring. Default capacity: 1000 events.
+
+**Monolith answers: what happened?**
+
+### StateStore
+
+Bus-fed typed reducer for canonical current state.
+
+`State` signals may carry ordered key/value patches. Patches merge into the prior state using last-write-wins semantics, increment a revision counter, and retain the Bus signal ID that produced the latest state revision.
+
+The store exposes a snapshot/restore boundary so future disk saves, networking, replay, or server persistence do not need to mutate gameplay objects directly.
+
+**StateStore answers: what is true now?**
+
+Example state keys already published by the native client include:
+
+```text
+client.status
+client.version
+avatar.bones
+player.locomotion
+wheel.mind.active
+wheel.coding.active
+```
+
+Octopus wheel posture is committed to StateStore **only after Ether Bus transit completes and explicit Disembark occurs**.
 
 ### Ether Bus
 
@@ -122,11 +147,52 @@ Router Bus signals
 
 Unmount detaches Grid references before module/backend memory is destroyed.
 
+## Hakui interaction layer
+
+Hakui no longer gives arbitrary world objects a mutable `PlayerState&` and lets them silently mutate the game.
+
+The first-party `hakui_interaction` library uses a Bus-native protocol:
+
+```text
+PLAYER INPUT
+    ↓
+InteractionService
+    ↓
+interaction.request
+    ↓
+Interactable capability
+    ↓
+InteractionResult
+    ├── exec/error event → Monolith
+    └── State patch      → StateStore
+```
+
+Current interaction verbs include:
+
+```text
+Use
+Enter
+Mount
+PickUp
+Sit
+Open
+Talk
+Trade
+Play
+Inspect
+```
+
+This is the common path intended for cars, BMX, skateboards, doors, TVs, consoles, NPCs, shops, EtherTech tables, furniture, and future world objects.
+
+Interaction targets use weak references so expired world objects cannot leave dangling interaction pointers.
+
+`tests/hakui/InteractionSpec.cpp` is an **unrun** source contract for request logging, verb validation, state patching, missing targets, and safe object expiry.
+
 ## Avatar architecture
 
 Hakui owns its canonical humanoid schema through `HakuiSkeleton`.
 
-It is now a plain first-party C++ data model containing:
+It is a plain first-party C++ data model containing:
 
 - bone names
 - parent indices
@@ -138,7 +204,7 @@ Current attachment slots include body, head, hair, face, neck, torso, back, wais
 
 ## Optional IMVU-Cal3D crystal
 
-IMVU's public Cal3D fork is no longer linked directly into the Hakui executable.
+IMVU's public Cal3D fork is not linked directly into the Hakui executable.
 
 When explicitly enabled, the path is:
 
@@ -163,6 +229,7 @@ Cal3D remains **OFF by default**.
 ```text
 spiral_core
 hakui_avatar_rig
+hakui_interaction
 hakui
 ```
 
@@ -172,6 +239,7 @@ Optional:
 hakui_cal3d_skeleton
 spiral_imvu_cal3d_backend
 spiral_logic_spec
+hakui_interaction_spec
 imvu_cal3d_backend_spec
 ```
 
@@ -189,26 +257,32 @@ Esc           quit
 
 Only on-foot physics is implemented in the visible proof slice; the other locomotion states are scaffolds.
 
+## Dependency firewall
+
+CMake scans first-party Spiral Core, avatar-rig, and interaction sources and rejects direct SDL3, Cal3D, Boost, or RapidXML includes in those layers. The explicit optional crystal backend directory is the deliberate legacy-runtime exception.
+
 ## Validation policy
 
 Automatic GitHub Actions runs are paused.
 
-The manual workflow is configured to validate the dependency-free Spiral path first:
+The manual core workflow is configured to isolate Spiral first:
 
 ```text
+HAKUI_BUILD_NATIVE_CLIENT=OFF
 HAKUI_ENABLE_IMVU_CAL3D=OFF
 HAKUI_ENABLE_SPIRAL_LOGIC_SPECS=ON
 ```
 
-The optional IMVU backend has its own separate, currently unrun specification target.
+The interaction layer and optional IMVU backend each have separate, currently unrun spec targets.
 
 Validation order:
 
 1. static architecture audit
 2. Spiral Core
-3. first-party Hakui avatar rig
-4. native Hakui client
-5. optional IMVU-Cal3D crystal backend
-6. only then GPU-skinned avatar integration
+3. StateStore + interaction contracts
+4. first-party Hakui avatar rig
+5. native Hakui client
+6. optional IMVU-Cal3D crystal backend
+7. only then GPU-skinned avatar integration
 
 See `docs/SPIRAL_ENGINE_CANON.md` for the architectural laws and `THIRD_PARTY.md` for license notes.
