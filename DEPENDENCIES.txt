@@ -1,15 +1,37 @@
 PROJECT HAKUI :: Dependency Manifest
 
+FIRST-PARTY CORE
+spiral_core=plain C++20
+hakui_avatar_rig=plain C++20
+third_party_dependencies=none
+
 SDL3
 repo=https://github.com/libsdl-org/SDL.git
 ref=release-3.4.14
 license=zlib
-role=platform+input+audio+gpu
+role=optional native-client platform+input+audio+gpu
+build_gate=HAKUI_BUILD_NATIVE_CLIENT
 prototype_shader_source=test/testgpu/cube.*
 
-IMVU CAL3D
+IMVU CAL3D // OPTIONAL SKELETON CRYSTAL BACKEND
 repo=https://github.com/imvu/cal3d.git
 commit=8522b45cdc26960f779323cc9a0ef50678eda7de
 license=LGPL-2.1-or-later
-linkage=shared
-adapter=src/avatar/HakuiSkeleton.*
+default=disabled
+build_gate=HAKUI_ENABLE_IMVU_CAL3D
+legacy_runtime_target=hakui_cal3d_skeleton
+hakui_adapter_target=spiral_imvu_cal3d_backend
+module=src/spiral/crystal/backend/ImvuCal3DModule.*
+backend=src/spiral/crystal/backend/ImvuCal3DBackend.*
+crystal=src/spiral/crystal/ImvuSkeletonCrystal.*
+canonical_rig=src/avatar/HakuiSkeleton.*
+legacy_linkage=shared
+boost_required=no (USE_CAL3D_WITH_CPP_11=1)
+rapidxml_selected=no
+full_cal3d_build=no
+
+BOUNDARY LAW
+hakui_executable_links_cal3d_directly=no
+spiral_core_links_sdl=no
+spiral_core_links_cal3d=no
+hakui_avatar_rig_links_cal3d=no
