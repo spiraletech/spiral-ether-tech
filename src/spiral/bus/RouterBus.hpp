@@ -19,8 +19,8 @@ public:
 
     // Plumbing only: sequence and distribute the packet.
     // No policy, no action selection, no AUM interpretation.
-    // A zero signal id is assigned here so event identity belongs to the bus,
-    // not to individual crystals/programs.
+    // Event identity belongs exclusively to this bus: every emission receives
+    // a fresh monotonically increasing id regardless of caller-provided data.
     SignalId emit(Signal signal);
 
     std::size_t listenerCount() const noexcept;
