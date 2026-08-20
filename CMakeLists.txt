@@ -12,15 +12,33 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 
 include(FetchContent)
 
-# Spiral Core is Hakui's dependency-free orchestration/plumbing layer.
+# ============================================================
+# FIRST-PARTY HAKUI / SPIRAL LAYERS
+# ============================================================
+
+# Dependency-free orchestration/plumbing.
 include(cmake/SpiralCore.cmake)
 
-# Legacy IMVU-Cal3D backend is retained but disabled by default until it is
-# connected exclusively through crystal.imvu_skeleton.
+# Hakui-owned humanoid hierarchy + attachment-slot metadata.
+# No skeletal runtime implementation is allowed inside this target.
+include(cmake/HakuiAvatarRig.cmake)
+
+# ============================================================
+# OPTIONAL LEGACY CAPABILITY BACKENDS
+# ============================================================
+
 option(HAKUI_ENABLE_IMVU_CAL3D
-    "Enable the legacy IMVU Cal3D backend"
+    "Enable the optional IMVU-Cal3D skeleton crystal backend"
     OFF
 )
+
+if(HAKUI_ENABLE_IMVU_CAL3D)
+    include(cmake/IMVUCal3D.cmake)
+endif()
+
+# ============================================================
+# SDL3 PLATFORM / RENDERING LAYER
+# ============================================================
 
 set(SDL_TEST_LIBRARY OFF CACHE BOOL "" FORCE)
 set(SDL_TESTS OFF CACHE BOOL "" FORCE)
@@ -35,9 +53,9 @@ FetchContent_Declare(
 
 FetchContent_MakeAvailable(SDL3)
 
-if(HAKUI_ENABLE_IMVU_CAL3D)
-    include(cmake/IMVUCal3D.cmake)
-endif()
+# ============================================================
+# HAKUI CLIENT
+# ============================================================
 
 add_executable(hakui
     src/main.cpp
@@ -45,7 +63,8 @@ add_executable(hakui
     src/core/HakuiApp.cpp
     src/core/HakuiApp.hpp
 
-    src/avatar/HakuiSkeleton.cpp
+    # Headers are listed for IDE visibility; implementation lives in
+    # hakui_avatar_rig and is not compiled twice here.
     src/avatar/HakuiSkeleton.hpp
     src/avatar/AvatarAttachment.hpp
 
@@ -64,21 +83,17 @@ target_link_libraries(hakui
     PRIVATE
         SDL3::SDL3
         spiral_core
+        hakui_avatar_rig
 )
 
-# Temporary compatibility path for the pre-crystal avatar skeleton scaffold.
-# Default OFF. The final architecture will move this dependency into a separate
-# IMVU crystal backend target instead of linking Cal3D into the Hakui client.
-if(HAKUI_ENABLE_IMVU_CAL3D)
-    target_link_libraries(hakui PRIVATE hakui_cal3d)
-    target_compile_definitions(hakui PRIVATE HAKUI_HAS_IMVU_CAL3D=1)
-else()
-    target_compile_definitions(hakui PRIVATE HAKUI_HAS_IMVU_CAL3D=0)
-endif()
+# Deliberate boundary:
+# The Hakui executable NEVER links Cal3D directly. When enabled, the optional
+# `spiral_imvu_cal3d_backend` target exists for a crystal host/composition layer
+# to instantiate. This keeps legacy runtime dependencies out of the client core.
 
 # `src` is Hakui's code. SDL's `test` directory is temporarily exposed only
-# so v0.3 can consume SDL's already-precompiled cross-platform cube shaders.
-# These bootstrap shaders will be replaced by Hakui-owned shader assets later.
+# so the debug renderer can consume SDL's precompiled bootstrap cube shaders.
+# These will be replaced with Hakui-owned shader assets later.
 target_include_directories(hakui PRIVATE
     src
     "${sdl3_SOURCE_DIR}/test"
