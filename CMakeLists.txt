@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.25)
 
 project(Hakui
-    VERSION 0.5.0
+    VERSION 0.7.0
     DESCRIPTION "Project Hakui native client"
     LANGUAGES CXX
 )
@@ -29,6 +29,12 @@ include(cmake/HakuiInteraction.cmake)
 
 # Deterministic gameplay rules, independent from SDL and rendering.
 include(cmake/HakuiGameplay.cmake)
+
+# Deterministic third-person orbit/framing math, independent from SDL.
+include(cmake/HakuiCamera.cmake)
+
+# Weapon-agnostic deterministic combat state and discipline interpretation.
+include(cmake/HakuiCombat.cmake)
 
 # Fictional chance games and vendor-neutral in-world terminals.
 include(cmake/HakuiTabletop.cmake)
@@ -79,6 +85,9 @@ if(HAKUI_BUILD_NATIVE_CLIENT)
         src/core/HakuiApp.cpp
         src/core/HakuiApp.hpp
 
+        src/audio/HakuiAudio.cpp
+        src/audio/HakuiAudio.hpp
+
         # Headers are listed for IDE visibility; implementation lives in
         # hakui_avatar_rig and is not compiled twice here.
         src/avatar/HakuiSkeleton.hpp
@@ -102,6 +111,8 @@ if(HAKUI_BUILD_NATIVE_CLIENT)
             hakui_avatar_rig
             hakui_interaction
             hakui_gameplay
+            hakui_camera
+            hakui_combat
             hakui_tabletop
     )
 

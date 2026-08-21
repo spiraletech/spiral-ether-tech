@@ -47,6 +47,8 @@ public:
     bool standCardTable();
     const BlackjackTable& cardTable() const noexcept;
     DiceResult lastDiceResult() const;
+    std::int64_t virtualCredits() const noexcept;
+    std::int64_t lastDiceReward() const noexcept;
 
 private:
     hakui::EntityId id_ = 0;
@@ -56,6 +58,7 @@ private:
     BlackjackTable cardTable_;
     DiceRoller dice_;
     DiceResult lastDice_;
+    std::int64_t lastDiceReward_ = 0;
 };
 
 } // namespace hakui::games

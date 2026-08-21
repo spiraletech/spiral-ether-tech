@@ -8,6 +8,8 @@ include(${CMAKE_CURRENT_LIST_DIR}/DependencyFirewall.cmake)
 file(GLOB HAKUI_GAMEPLAY_FIREWALL_FILES CONFIGURE_DEPENDS
     "${CMAKE_CURRENT_LIST_DIR}/../src/player/*.hpp"
     "${CMAKE_CURRENT_LIST_DIR}/../src/player/*.cpp"
+    "${CMAKE_CURRENT_LIST_DIR}/../src/world/*.hpp"
+    "${CMAKE_CURRENT_LIST_DIR}/../src/world/*.cpp"
 )
 
 hakui_enforce_first_party_firewall(
@@ -17,6 +19,7 @@ hakui_enforce_first_party_firewall(
 
 add_library(hakui_gameplay STATIC
     ${CMAKE_CURRENT_LIST_DIR}/../src/player/PlayerMovementController.cpp
+    ${CMAKE_CURRENT_LIST_DIR}/../src/world/BlackRoom.cpp
 )
 
 target_include_directories(hakui_gameplay
