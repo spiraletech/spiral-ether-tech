@@ -1,10 +1,10 @@
-# PROJECT HAKUI — Native Client v0.5-dev
+# PROJECT HAKUI — Native Client v0.65-dev
 
 [![Hakui Build and Test](https://github.com/spiraletech/spiral-ether-tech/actions/workflows/native-build.yml/badge.svg)](https://github.com/spiraletech/spiral-ether-tech/actions/workflows/native-build.yml)
 [![C++20](https://img.shields.io/badge/C%2B%2B-20-00599C.svg)](https://en.cppreference.com/w/cpp/20)
 [![SDL3](https://img.shields.io/badge/SDL-3-17365D.svg)](https://www.libsdl.org/)
 
-Hakui is a custom C++20 social/action world client built around a dependency-free **Spiral engine core**, an SDL3 GPU client layer, first-party avatar + interaction systems, and optional capability crystals.
+Hakui is a custom C++20 social/action world client built around a dependency-free **Spiral engine core**, deterministic gameplay/combat layers, an SDL3 GPU client, first-party avatar + interaction systems, and optional capability crystals.
 
 The current milestone is architecture-first, but its dependency-free engine, gameplay, interaction layer, and avatar schema now have executable CTest contracts. GitHub Actions validates those contracts on Linux and Windows and compiles the native SDL3 client on Windows.
 
@@ -37,13 +37,42 @@ cmake --build build --config Release --target hakui --parallel
 
 The resulting executable is `hakui` (`hakui.exe` on Windows). Run it from the selected build-configuration directory used by your generator.
 
-## v0.5 playable-movement milestone
+## v0.65 DATA GRUNGE vertical slice
+
+v0.65 turns the native proof into the first canonical HAKUI specimen. The world
+is described as reusable primitives, semantic material roles, and descriptive
+affordance volumes; deterministic systems interpret those descriptions, and the
+SDL renderer presents their results.
+
+The acceptance loop is:
+
+```text
+spawn → orient → walk/sprint/jump → ramp/platform traversal
+      → sit/stand → anchored Fusion table session
+      → enter spar → jab/cross/guard → hit/knockdown/recover → leave
+      → fall through black space → respawn → pause/settings/resume
+```
+
+Current world identity includes powder-concrete masses, deliberate negative
+space, a ramp and elevated unfinished gallery, CRT datum lines, sparse luminous
+signage, a void couch, a fictional Fusion terminal/card table, a sculptural
+monument, and a readable sparring datum. See
+[`docs/DATA_GRUNGE_WORLD_GRAMMAR.md`](docs/DATA_GRUNGE_WORLD_GRAMMAR.md).
+
+Combat is weapon-agnostic at its core. Unarmed is the only playable v0.65
+discipline; sword and bow semantics are declared extension seams, not partially
+implemented features. Hit decisions remain deterministic and renderer-free.
+
+## Native architecture
 
 ```text
 HAKUI CLIENT
 ├── SDL3 platform / input / GPU
 ├── debug 3D world renderer
-├── immediate gameplay locomotion
+├── semantic world description + affordances
+├── deterministic movement / interaction / tabletop
+├── generic combat simulation
+│   └── playable unarmed discipline
 ├── Hakui-owned avatar rig
 ├── Hakui interaction layer
 └── SpiralKernel heartbeat
@@ -76,14 +105,16 @@ Hakui's visible proof slice currently contains:
 
 - SDL3 GPU graphics pipeline
 - depth-tested 3D rendering
-- smooth third-person follow camera with right-mouse orbit, wheel zoom, and reset
+- third-person-first camera roles for follow, interactions, combat framing, and future target/duel/director framing
+- right-mouse orbit, wheel zoom, shoulder switch, reset, collision, and gamepad look
 - persistent player world transform
-- WASD on-foot movement
-- Shift sprint
+- acceleration/deceleration, camera-relative WASD movement, sprint, jump, collision, ramps, elevated surfaces, black-space fall, and respawn
 - camera-relative WASD steering
-- procedural cuboid humanoid with idle breathing, walk/run gait, body bob, and limb swing
-- world grid and skyline markers for readable motion and camera parallax
-- large world floor
+- procedural full-body avatar with idle/walk/run/jump/seated/combat poses and visible hit/knockdown response
+- modular DATA GRUNGE specimen geometry and semantic 8-role material vocabulary
+- contextual couch/table seating and table-anchored casino controls
+- deterministic unarmed sparring with stance, jab, cross, guard, stamina, hit reaction, knockdown, and recovery
+- procedural footsteps, interaction, casino, void, and combat audio cues
 - AUM phase + Monolith event count + StateStore revision telemetry
 - locomotion state changes published into Router Bus / StateStore
 - a vendor-neutral Fusion Deck terminal with deterministic card and dice apps

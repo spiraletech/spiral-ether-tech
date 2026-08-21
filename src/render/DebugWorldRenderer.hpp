@@ -1,8 +1,50 @@
 #pragma once
 
+#include <span>
+
 #include <SDL3/SDL.h>
 
+#include "combat/CombatSimulation.hpp"
 #include "player/PlayerState.hpp"
+#include "world/WorldGeometry.hpp"
+
+enum class CameraRole {
+    GameplayFollow,
+    InteractionFrame,
+    CombatFrame,
+    TargetFrame,
+    DuelFrame,
+    Spectator,
+    Director
+};
+
+enum class InteractionFrame {
+    None,
+    FusionTable,
+    LoungeCouch
+};
+
+struct HakuiSceneState {
+    bool paused = false;
+    bool terminalPowered = false;
+    bool cardSuiteActive = false;
+    int diceTotal = 0;
+    bool combatActive = false;
+    hakui::combat::CombatState playerCombatState =
+        hakui::combat::CombatState::Inactive;
+    hakui::combat::CombatState opponentCombatState =
+        hakui::combat::CombatState::Inactive;
+    hakui::combat::AttackSemantic playerAttack =
+        hakui::combat::AttackSemantic::None;
+    hakui::combat::AttackSemantic opponentAttack =
+        hakui::combat::AttackSemantic::None;
+    float opponentX = 0.0f;
+    float opponentY = 0.0f;
+    float opponentZ = 0.0f;
+    float opponentYaw = 0.0f;
+    float playerHitPulse = 0.0f;
+    float opponentHitPulse = 0.0f;
+};
 
 class DebugWorldRenderer {
 public:
@@ -18,12 +60,21 @@ public:
         SDL_GPUTexture* swapchain,
         Uint32 width,
         Uint32 height,
-        const PlayerState& player
+        const PlayerState& player,
+        const HakuiSceneState& scene,
+        std::span<const hakui::WorldPrimitive> worldGeometry
     );
     void updateCamera(float deltaSeconds, const PlayerState& player);
     void orbitCamera(float horizontalPixels, float verticalPixels);
     void zoomCamera(float wheelSteps);
     void resetCamera();
+    void toggleShoulder();
+    void adjustLookSensitivity(float delta);
+    float lookSensitivity() const noexcept;
+    void setCameraRole(CameraRole role);
+    void frameInteraction(InteractionFrame frame);
+    void setCombatTarget(float x, float y, float z) noexcept;
+    CameraRole cameraRole() const noexcept;
     float movementYaw() const noexcept;
     void shutdown();
 
@@ -51,5 +102,12 @@ private:
     float cameraTargetX_ = 0.0f;
     float cameraTargetY_ = 1.25f;
     float cameraTargetZ_ = 0.0f;
+    float shoulderSide_ = 1.0f;
+    float lookSensitivity_ = 0.0065f;
+    CameraRole cameraRole_ = CameraRole::GameplayFollow;
+    InteractionFrame interactionFrame_ = InteractionFrame::None;
+    float combatTargetX_ = 0.0f;
+    float combatTargetY_ = 1.25f;
+    float combatTargetZ_ = 0.0f;
     bool cameraInitialized_ = false;
 };

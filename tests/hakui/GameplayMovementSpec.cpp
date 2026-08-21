@@ -4,6 +4,7 @@
 
 #include "player/PlayerMovementController.hpp"
 #include "render/Math3D.hpp"
+#include "world/BlackRoom.hpp"
 
 namespace {
 
@@ -43,8 +44,37 @@ void frame_stalls_are_clamped()
         3.0f
     );
 
-    assert(nearlyEqual(step.distance, 0.325f));
-    assert(nearlyEqual(player.z, 0.325f));
+    assert(nearlyEqual(step.distance, 0.26f));
+    assert(nearlyEqual(player.z, 0.26f));
+}
+
+void acceleration_and_deceleration_are_responsive()
+{
+    PlayerState player;
+    hakui::PlayerMovementController controller;
+
+    const auto first = controller.update(
+        player,
+        hakui::MovementInput{0.0f, 1.0f, false, false},
+        0.05f
+    );
+    const float firstVelocity = player.velocityZ;
+    const auto second = controller.update(
+        player,
+        hakui::MovementInput{0.0f, 1.0f, false, false},
+        0.05f
+    );
+
+    assert(first.moved);
+    assert(second.moved);
+    assert(firstVelocity > 0.0f);
+    assert(player.velocityZ > firstVelocity);
+    assert(second.distance > first.distance);
+
+    controller.update(player, {}, 0.05f);
+    assert(player.velocityZ < 2.6f);
+    controller.update(player, {}, 0.05f);
+    assert(nearlyEqual(player.velocityZ, 0.0f));
 }
 
 void sprint_consumes_and_rest_recovers_stamina()
@@ -60,7 +90,7 @@ void sprint_consumes_and_rest_recovers_stamina()
     );
 
     assert(sprint.sprinting);
-    assert(nearlyEqual(sprint.distance, 0.575f));
+    assert(nearlyEqual(sprint.distance, 0.26f));
     assert(nearlyEqual(player.stamina, 8.8f));
 
     controller.update(player, {}, 0.1f);
@@ -102,6 +132,214 @@ void invalid_input_cannot_poison_player_state()
     assert(std::isfinite(player.x));
     assert(std::isfinite(player.z));
     assert(std::isfinite(player.stamina));
+}
+
+
+void jumping_lands_on_room_floor()
+{
+    PlayerState player;
+    hakui::PlayerMovementController controller;
+    hakui::MovementEnvironment environment;
+    environment.floorMinimumX = -2.0f;
+    environment.floorMaximumX = 2.0f;
+    environment.floorMinimumZ = -2.0f;
+    environment.floorMaximumZ = 2.0f;
+
+    auto step = controller.update(
+        player,
+        hakui::MovementInput{0.0f, 0.0f, false, true},
+        environment,
+        0.05f
+    );
+    assert(step.jumped);
+    assert(!player.grounded);
+    assert(player.y > 0.0f);
+
+    bool landed = false;
+    for (int frame = 0; frame < 100 && !landed; ++frame) {
+        step = controller.update(player, {}, environment, 0.05f);
+        landed = step.landed;
+    }
+    assert(landed);
+    assert(player.grounded);
+    assert(nearlyEqual(player.y, 0.0f));
+}
+
+void room_colliders_block_horizontal_motion()
+{
+    PlayerState player;
+    hakui::PlayerMovementController controller;
+    const hakui::HorizontalCollider obstacle{0.45f, 1.50f, -1.0f, 1.0f};
+    hakui::MovementEnvironment environment;
+    environment.colliders = std::span<const hakui::HorizontalCollider>(&obstacle, 1);
+
+    const auto step = controller.update(
+        player,
+        hakui::MovementInput{1.0f, 0.0f, false, false},
+        environment,
+        0.1f
+    );
+    assert(!step.moved);
+    assert(nearlyEqual(player.x, 0.0f));
+    assert(nearlyEqual(player.velocityX, 0.0f));
+}
+
+void black_space_fall_recovers_at_checkpoint()
+{
+    PlayerState player;
+    player.x = 2.0f;
+    player.y = -4.95f;
+    player.velocityY = -4.0f;
+    player.grounded = false;
+
+    hakui::MovementEnvironment environment;
+    environment.floorMinimumX = -1.0f;
+    environment.floorMaximumX = 1.0f;
+    environment.floorMinimumZ = -1.0f;
+    environment.floorMaximumZ = 1.0f;
+    environment.voidResetHeight = -5.0f;
+    environment.spawnX = 0.0f;
+    environment.spawnY = 0.0f;
+    environment.spawnZ = 0.75f;
+
+    hakui::PlayerMovementController controller;
+    const auto step = controller.update(player, {}, environment, 0.1f);
+    assert(step.respawned);
+    assert(player.grounded);
+    assert(nearlyEqual(player.x, 0.0f));
+    assert(nearlyEqual(player.y, 0.0f));
+    assert(nearlyEqual(player.z, 0.75f));
+    assert(player.voidRespawns == 1);
+}
+
+void furniture_and_casino_use_contextual_seat_anchors()
+{
+    hakui::BlackRoom room;
+    PlayerState player;
+    player.x = 0.0f;
+    player.z = 2.05f;
+
+    const auto table = room.nearestInteraction(player);
+    assert(table.kind == hakui::RoomInteractionKind::FusionTable);
+    assert(room.engageNearest(player));
+    assert(player.activity == PlayerActivity::CasinoSeated);
+    assert(room.leaveInteraction(player));
+    assert(player.activity == PlayerActivity::Roaming);
+
+    player.x = 5.72f;
+    player.z = 3.28f;
+    const auto couch = room.nearestInteraction(player);
+    assert(couch.kind == hakui::RoomInteractionKind::LoungeCouch);
+    assert(room.engageNearest(player));
+    assert(player.activity == PlayerActivity::CouchSeated);
+
+    const auto seatedStep = hakui::PlayerMovementController{}.update(
+        player,
+        hakui::MovementInput{1.0f, 1.0f, true, true},
+        room.movementEnvironment(),
+        0.1f
+    );
+    assert(!seatedStep.moved);
+}
+
+void modular_world_grammar_contains_canonical_roles()
+{
+    hakui::BlackRoom room;
+    const auto geometry = room.geometry();
+    assert(geometry.size() >= 30);
+
+    bool hasRamp = false;
+    bool hasPlatform = false;
+    bool hasMonument = false;
+    bool hasFurniture = false;
+    bool hasCasino = false;
+    bool hasSignage = false;
+    bool hasPowderConcrete = false;
+    bool hasCrtAccent = false;
+    bool hasVoidMaterial = false;
+    bool hasRepeatedModule = false;
+
+    for (const hakui::WorldPrimitive& primitive : geometry) {
+        hasRamp = hasRamp || primitive.kind == hakui::WorldPrimitiveKind::Ramp;
+        hasPlatform = hasPlatform || primitive.kind == hakui::WorldPrimitiveKind::Platform;
+        hasMonument = hasMonument || primitive.kind == hakui::WorldPrimitiveKind::Monument;
+        hasFurniture = hasFurniture || primitive.kind == hakui::WorldPrimitiveKind::Furniture;
+        hasCasino = hasCasino || primitive.kind == hakui::WorldPrimitiveKind::Casino;
+        hasSignage = hasSignage || primitive.kind == hakui::WorldPrimitiveKind::Signage;
+        hasPowderConcrete = hasPowderConcrete ||
+            primitive.material == hakui::MaterialRole::PowderConcrete;
+        hasCrtAccent = hasCrtAccent ||
+            primitive.material == hakui::MaterialRole::CrtCyan;
+        hasVoidMaterial = hasVoidMaterial ||
+            primitive.material == hakui::MaterialRole::VoidBlack;
+        hasRepeatedModule = hasRepeatedModule || primitive.repeatCount > 1;
+    }
+
+    assert(hasRamp && hasPlatform && hasMonument);
+    assert(hasFurniture && hasCasino && hasSignage);
+    assert(hasPowderConcrete && hasCrtAccent && hasVoidMaterial);
+    assert(hasRepeatedModule);
+}
+
+void player_can_traverse_ramp_to_elevated_platform()
+{
+    hakui::BlackRoom room;
+    const hakui::MovementEnvironment environment = room.movementEnvironment();
+    PlayerState player;
+    player.x = -7.8f;
+    player.z = 0.0f;
+    player.y = environment.groundHeightAt(player.x, player.z).value();
+    player.grounded = true;
+
+    hakui::PlayerMovementController controller;
+    for (int frame = 0; frame < 30; ++frame) {
+        controller.update(
+            player,
+            hakui::MovementInput{1.0f, 0.0f, false, false},
+            environment,
+            0.05f
+        );
+    }
+
+    assert(player.x > -4.0f && player.x < -2.0f);
+    assert(player.grounded);
+    assert(nearlyEqual(player.y, 2.0f));
+}
+
+void world_affordances_describe_system_neutral_actions()
+{
+    hakui::BlackRoom room;
+    assert(room.affordances().size() >= 8);
+    assert(room.hasAffordanceAt(
+        hakui::WorldAffordance::FightZone,
+        5.0f,
+        0.0f,
+        -5.0f
+    ));
+    assert(room.hasAffordanceAt(
+        hakui::WorldAffordance::SparAnchor,
+        5.0f,
+        0.0f,
+        -5.0f
+    ));
+    assert(!room.hasAffordanceAt(
+        hakui::WorldAffordance::FightZone,
+        0.0f,
+        0.0f,
+        5.25f
+    ));
+    assert(room.hasAffordanceAt(
+        hakui::WorldAffordance::CasinoAnchor,
+        0.0f,
+        0.0f,
+        1.75f
+    ));
+    assert(room.hasAffordanceAt(
+        hakui::WorldAffordance::Void,
+        20.0f,
+        -3.0f,
+        20.0f
+    ));
 }
 
 void renderer_rotations_are_stable()
@@ -157,7 +395,15 @@ int main()
 {
     diagonal_input_is_normalized();
     frame_stalls_are_clamped();
+    acceleration_and_deceleration_are_responsive();
     sprint_consumes_and_rest_recovers_stamina();
+    jumping_lands_on_room_floor();
+    room_colliders_block_horizontal_motion();
+    black_space_fall_recovers_at_checkpoint();
+    furniture_and_casino_use_contextual_seat_anchors();
+    modular_world_grammar_contains_canonical_roles();
+    player_can_traverse_ramp_to_elevated_platform();
+    world_affordances_describe_system_neutral_actions();
     non_on_foot_modes_do_not_apply_on_foot_motion();
     invalid_input_cannot_poison_player_state();
     renderer_rotations_are_stable();

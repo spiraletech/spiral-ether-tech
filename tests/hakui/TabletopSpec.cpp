@@ -81,16 +81,18 @@ void blackjack_scores_aces_and_uses_virtual_credits()
     }) == 21);
 
     hakui::games::BlackjackTable table(1000, 99);
+    table.grantCredits(50);
+    assert(table.credits() == 1050);
     assert(!table.startRound(0));
-    assert(!table.startRound(1001));
+    assert(!table.startRound(1051));
     assert(table.startRound(100));
-    assert(table.credits() == 900 || table.phase() == hakui::games::BlackjackPhase::Settled);
+    assert(table.credits() == 950 || table.phase() == hakui::games::BlackjackPhase::Settled);
 
     if (table.phase() == hakui::games::BlackjackPhase::PlayerTurn) {
         assert(table.stand());
     }
     assert(table.phase() == hakui::games::BlackjackPhase::Settled);
-    assert(table.credits() >= 900);
+    assert(table.credits() >= 950);
 }
 
 void terminals_route_use_play_and_dice_through_interactions()
@@ -110,6 +112,7 @@ void terminals_route_use_play_and_dice_through_interactions()
     request.verb = hakui::InteractionVerb::Use;
     assert(interactions.interact(request).handled);
     assert(terminal->powered());
+    assert(terminal->virtualCredits() == 250);
 
     request.verb = hakui::InteractionVerb::Play;
     assert(interactions.interact(request).handled);

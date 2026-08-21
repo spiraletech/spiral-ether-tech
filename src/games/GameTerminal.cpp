@@ -11,7 +11,7 @@ GameTerminal::GameTerminal(
 )
     : id_(id),
       model_(model),
-      cardTable_(1000, seed),
+      cardTable_(250, seed),
       dice_(seed ^ 0xD1CEU)
 {
 }
@@ -79,13 +79,24 @@ hakui::InteractionResult GameTerminal::interact(
     if (request.verb == hakui::InteractionVerb::Use && powered_) {
         activeApp_ = TerminalApp::DiceLab;
         lastDice_ = dice_.roll(2, 6);
+        lastDiceReward_ = 0;
+        if (lastDice_.values.size() == 2 &&
+            lastDice_.values[0] == lastDice_.values[1]) {
+            lastDiceReward_ = static_cast<std::int64_t>(lastDice_.total * 5);
+            cardTable_.grantCredits(lastDiceReward_);
+        }
         result.handled = true;
         result.output = "dice total=" + std::to_string(lastDice_.total);
+        if (lastDiceReward_ > 0) {
+            result.output += " // doubles reward=" + std::to_string(lastDiceReward_);
+        }
         result.statePatch = {
             {"world.terminal." + std::to_string(id_) + ".app",
              std::string("dice_lab")},
             {"world.terminal." + std::to_string(id_) + ".dice.total",
-             static_cast<std::int64_t>(lastDice_.total)}
+             static_cast<std::int64_t>(lastDice_.total)},
+            {"world.terminal." + std::to_string(id_) + ".credits",
+             cardTable_.credits()}
         };
         return result;
     }
@@ -116,5 +127,7 @@ bool GameTerminal::standCardTable()
 
 const BlackjackTable& GameTerminal::cardTable() const noexcept { return cardTable_; }
 DiceResult GameTerminal::lastDiceResult() const { return lastDice_; }
+std::int64_t GameTerminal::virtualCredits() const noexcept { return cardTable_.credits(); }
+std::int64_t GameTerminal::lastDiceReward() const noexcept { return lastDiceReward_; }
 
 } // namespace hakui::games

@@ -21,6 +21,7 @@ public:
     bool startRound(std::int64_t wager);
     bool hit();
     bool stand();
+    void grantCredits(std::int64_t amount) noexcept;
 
     static int handValue(const std::vector<Card>& hand) noexcept;
 

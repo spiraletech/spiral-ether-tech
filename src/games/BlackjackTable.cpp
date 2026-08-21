@@ -77,6 +77,13 @@ bool BlackjackTable::stand()
     return true;
 }
 
+void BlackjackTable::grantCredits(std::int64_t amount) noexcept
+{
+    if (amount > 0) {
+        credits_ += amount;
+    }
+}
+
 int BlackjackTable::handValue(const std::vector<Card>& hand) noexcept
 {
     int value = 0;

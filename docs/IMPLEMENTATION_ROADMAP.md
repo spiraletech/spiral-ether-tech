@@ -63,6 +63,27 @@ attachment visualization remain.
 
 Exit signal: on-foot movement drives a visible rig without breaking the dependency firewall.
 
+## M4.5 — v0.65 DATA GRUNGE specimen
+
+- Replace the generic room with modular powder-concrete/industrial geometry,
+  CRT accents, negative space, ramps, platforms, furniture, and monuments.
+- Describe rideable, grindable, transition, launch, landing, seating, casino,
+  terminal, combat, spectator, respawn, and void affordances without placing
+  system rules in the world layer.
+- Complete the movement → seating → table → sparring → void → pause loop.
+- Add third-person camera roles for follow, interaction, combat, and future
+  target/duel/spectator/director framing.
+- Add a weapon-agnostic combat simulation with unarmed as the only playable
+  discipline and disabled sword/bow extension seams.
+- Present deterministic combat events through full-body poses, HUD, sound, hit
+  reaction, knockdown, and recovery.
+
+Current state: implemented locally on `codex/data-grunge-v0.65`; native/manual
+visual QA and remote CI remain before merge authorization.
+
+Exit signal: launching the executable immediately reads as HAKUI, and the full
+acceptance path remains coherent in one specimen environment.
+
 ## M5 — World persistence and replay
 
 - Define a versioned StateStore snapshot schema.
