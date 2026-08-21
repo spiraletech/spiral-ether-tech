@@ -75,6 +75,16 @@ public:
         float sprintStaminaPerSecond = 12.0f;
         float staminaRecoveryPerSecond = 8.0f;
         float maximumDeltaSeconds = 0.1f;
+        float skateboardCruiseSpeed = 4.50f;
+        float skateboardSprintSpeed = 7.00f;
+        float skateboardAcceleration = 8.0f;
+        float skateboardDeceleration = 4.5f;
+        float skateboardTurnSpeed = 7.0f;
+        float bmxCruiseSpeed = 5.25f;
+        float bmxSprintSpeed = 8.50f;
+        float bmxAcceleration = 10.0f;
+        float bmxDeceleration = 6.0f;
+        float bmxTurnSpeed = 6.5f;
     };
 
     PlayerMovementController() = default;

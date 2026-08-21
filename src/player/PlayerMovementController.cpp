@@ -44,6 +44,62 @@ float wrapAngle(float radians) noexcept
     return radians;
 }
 
+struct ModeMotionProfile {
+    bool enabled = false;
+    bool canJump = false;
+    float cruiseSpeed = 0.0f;
+    float sprintSpeed = 0.0f;
+    float acceleration = 0.0f;
+    float deceleration = 0.0f;
+    float turnSpeed = 0.0f;
+    float collisionRadius = 0.32f;
+};
+
+ModeMotionProfile profileFor(
+    LocomotionMode mode,
+    const PlayerMovementController::Config& config
+) noexcept
+{
+    switch (mode) {
+        case LocomotionMode::OnFoot:
+            return {
+                true,
+                true,
+                config.walkSpeed,
+                config.sprintSpeed,
+                config.groundAcceleration,
+                config.groundDeceleration,
+                config.turnSpeed,
+                config.collisionRadius
+            };
+        case LocomotionMode::Skateboard:
+            return {
+                true,
+                false,
+                config.skateboardCruiseSpeed,
+                config.skateboardSprintSpeed,
+                config.skateboardAcceleration,
+                config.skateboardDeceleration,
+                config.skateboardTurnSpeed,
+                config.collisionRadius + 0.04f
+            };
+        case LocomotionMode::BMX:
+            return {
+                true,
+                false,
+                config.bmxCruiseSpeed,
+                config.bmxSprintSpeed,
+                config.bmxAcceleration,
+                config.bmxDeceleration,
+                config.bmxTurnSpeed,
+                config.collisionRadius + 0.10f
+            };
+        case LocomotionMode::Car:
+            return {};
+    }
+    return {};
+}
+
 } // namespace
 
 bool MovementEnvironment::hasFloorAt(float x, float z) const noexcept
@@ -100,6 +156,19 @@ PlayerMovementController::PlayerMovementController(Config config)
     config_.sprintStaminaPerSecond = std::max(config_.sprintStaminaPerSecond, 0.0f);
     config_.staminaRecoveryPerSecond = std::max(config_.staminaRecoveryPerSecond, 0.0f);
     config_.maximumDeltaSeconds = std::max(config_.maximumDeltaSeconds, 0.0f);
+    config_.skateboardCruiseSpeed = std::max(config_.skateboardCruiseSpeed, 0.0f);
+    config_.skateboardSprintSpeed = std::max(
+        config_.skateboardSprintSpeed,
+        config_.skateboardCruiseSpeed
+    );
+    config_.skateboardAcceleration = std::max(config_.skateboardAcceleration, 0.0f);
+    config_.skateboardDeceleration = std::max(config_.skateboardDeceleration, 0.0f);
+    config_.skateboardTurnSpeed = std::max(config_.skateboardTurnSpeed, 0.0f);
+    config_.bmxCruiseSpeed = std::max(config_.bmxCruiseSpeed, 0.0f);
+    config_.bmxSprintSpeed = std::max(config_.bmxSprintSpeed, config_.bmxCruiseSpeed);
+    config_.bmxAcceleration = std::max(config_.bmxAcceleration, 0.0f);
+    config_.bmxDeceleration = std::max(config_.bmxDeceleration, 0.0f);
+    config_.bmxTurnSpeed = std::max(config_.bmxTurnSpeed, 0.0f);
 }
 
 MovementStep PlayerMovementController::update(
@@ -126,8 +195,8 @@ MovementStep PlayerMovementController::update(
 
     player.stamina = std::clamp(player.stamina, 0.0f, 100.0f);
 
-    if (player.locomotion != LocomotionMode::OnFoot ||
-        player.activity != PlayerActivity::Roaming) {
+    const ModeMotionProfile motion = profileFor(player.locomotion, config_);
+    if (!motion.enabled || player.activity != PlayerActivity::Roaming) {
         player.velocityX = 0.0f;
         player.velocityY = 0.0f;
         player.velocityZ = 0.0f;
@@ -149,12 +218,12 @@ MovementStep PlayerMovementController::update(
 
     const bool hasMovementInput = magnitude > 0.0001f;
     step.sprinting = hasMovementInput && input.sprint && player.stamina > 0.0f;
-    const float speed = step.sprinting ? config_.sprintSpeed : config_.walkSpeed;
+    const float speed = step.sprinting ? motion.sprintSpeed : motion.cruiseSpeed;
     const float targetVelocityX = hasMovementInput ? right * speed : 0.0f;
     const float targetVelocityZ = hasMovementInput ? forward * speed : 0.0f;
     const float response = hasMovementInput
-        ? config_.groundAcceleration * (player.grounded ? 1.0f : config_.airControl)
-        : config_.groundDeceleration * (player.grounded ? 1.0f : 0.06f);
+        ? motion.acceleration * (player.grounded ? 1.0f : config_.airControl)
+        : motion.deceleration * (player.grounded ? 1.0f : 0.06f);
 
     player.velocityX = approach(player.velocityX, targetVelocityX, response * dt);
     player.velocityZ = approach(player.velocityZ, targetVelocityZ, response * dt);
@@ -164,8 +233,8 @@ MovementStep PlayerMovementController::update(
         const float turnDelta = wrapAngle(targetYaw - player.yaw);
         const float appliedTurn = std::clamp(
             turnDelta,
-            -config_.turnSpeed * dt,
-            config_.turnSpeed * dt
+            -motion.turnSpeed * dt,
+            motion.turnSpeed * dt
         );
         player.yaw = wrapAngle(player.yaw + appliedTurn);
         player.turnBlend = std::clamp(
@@ -183,10 +252,10 @@ MovementStep PlayerMovementController::update(
 
     const auto blocked = [&](float x, float z) {
         for (const HorizontalCollider& collider : environment.colliders) {
-            if (x > collider.minimumX - config_.collisionRadius &&
-                x < collider.maximumX + config_.collisionRadius &&
-                z > collider.minimumZ - config_.collisionRadius &&
-                z < collider.maximumZ + config_.collisionRadius) {
+            if (x > collider.minimumX - motion.collisionRadius &&
+                x < collider.maximumX + motion.collisionRadius &&
+                z > collider.minimumZ - motion.collisionRadius &&
+                z < collider.maximumZ + motion.collisionRadius) {
                 return true;
             }
         }
@@ -230,7 +299,7 @@ MovementStep PlayerMovementController::update(
         }
     }
 
-    if (input.jumpPressed && player.grounded && floorBelow) {
+    if (motion.canJump && input.jumpPressed && player.grounded && floorBelow) {
         player.velocityY = config_.jumpVelocity;
         player.grounded = false;
         step.jumped = true;

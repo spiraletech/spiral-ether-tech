@@ -17,6 +17,7 @@ enum class RoomInteractionKind {
 
 struct RoomInteractionFocus {
     RoomInteractionKind kind = RoomInteractionKind::None;
+    std::uint32_t affordanceId = 0;
     float distance = 0.0f;
     std::string_view prompt{};
 
@@ -36,6 +37,18 @@ public:
     MovementEnvironment movementEnvironment() const noexcept;
     std::span<const WorldPrimitive> geometry() const noexcept;
     std::span<const WorldAffordanceVolume> affordances() const noexcept;
+    const WorldAffordanceVolume* firstAffordance(
+        WorldAffordance affordance
+    ) const noexcept;
+    const WorldAffordanceVolume* affordanceAt(
+        WorldAffordance affordance,
+        float x,
+        float y,
+        float z
+    ) const noexcept;
+    const WorldAffordanceVolume* affordanceById(
+        std::uint32_t id
+    ) const noexcept;
     bool hasAffordanceAt(
         WorldAffordance affordance,
         float x,

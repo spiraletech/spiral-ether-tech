@@ -4,6 +4,7 @@
 
 #include <SDL3/SDL.h>
 
+#include "camera/ThirdPersonCameraRig.hpp"
 #include "combat/CombatSimulation.hpp"
 #include "player/PlayerState.hpp"
 #include "world/WorldGeometry.hpp"
@@ -30,6 +31,7 @@ struct HakuiSceneState {
     bool cardSuiteActive = false;
     int diceTotal = 0;
     bool combatActive = false;
+    bool sparDummyVisible = false;
     hakui::combat::CombatState playerCombatState =
         hakui::combat::CombatState::Inactive;
     hakui::combat::CombatState opponentCombatState =
@@ -71,6 +73,10 @@ public:
     void toggleShoulder();
     void adjustLookSensitivity(float delta);
     float lookSensitivity() const noexcept;
+    float cameraYaw() const noexcept;
+    float cameraPitch() const noexcept;
+    float cameraDistance() const noexcept;
+    float cameraShoulderSide() const noexcept;
     void setCameraRole(CameraRole role);
     void frameInteraction(InteractionFrame frame);
     void setCombatTarget(float x, float y, float z) noexcept;
@@ -96,14 +102,10 @@ private:
     float cameraYaw_ = 2.40f;
     float cameraPitch_ = 0.48f;
     float cameraDistance_ = 9.5f;
-    float targetCameraYaw_ = 2.40f;
-    float targetCameraPitch_ = 0.48f;
-    float targetCameraDistance_ = 9.5f;
     float cameraTargetX_ = 0.0f;
     float cameraTargetY_ = 1.25f;
     float cameraTargetZ_ = 0.0f;
-    float shoulderSide_ = 1.0f;
-    float lookSensitivity_ = 0.0065f;
+    hakui::camera::ThirdPersonCameraRig cameraRig_{};
     CameraRole cameraRole_ = CameraRole::GameplayFollow;
     InteractionFrame interactionFrame_ = InteractionFrame::None;
     float combatTargetX_ = 0.0f;

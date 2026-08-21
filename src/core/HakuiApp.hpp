@@ -35,6 +35,8 @@ private:
     void handlePrimaryInteraction();
     void toggleCombat();
     void updateCombat(float dt, const bool* keys);
+    bool setCameraCapture(bool enabled);
+    void updateCameraOrbitInput();
     void setPaused(bool paused);
     void openGamepad(SDL_JoystickID instanceId);
     void handleGamepadButton(SDL_GamepadButton button);
@@ -49,6 +51,7 @@ private:
     float titleTimer_ = 0.0f;
     float footstepDistance_ = 0.0f;
     bool cameraDragging_ = false;
+    int cameraCaptureWarmupFrames_ = 0;
     bool paused_ = false;
     bool jumpQueued_ = false;
     bool combatRecoverQueued_ = false;

@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.25)
 
 project(Hakui
-    VERSION 0.65.0
+    VERSION 0.7.0
     DESCRIPTION "Project Hakui native client"
     LANGUAGES CXX
 )
@@ -29,6 +29,9 @@ include(cmake/HakuiInteraction.cmake)
 
 # Deterministic gameplay rules, independent from SDL and rendering.
 include(cmake/HakuiGameplay.cmake)
+
+# Deterministic third-person orbit/framing math, independent from SDL.
+include(cmake/HakuiCamera.cmake)
 
 # Weapon-agnostic deterministic combat state and discipline interpretation.
 include(cmake/HakuiCombat.cmake)
@@ -108,6 +111,7 @@ if(HAKUI_BUILD_NATIVE_CLIENT)
             hakui_avatar_rig
             hakui_interaction
             hakui_gameplay
+            hakui_camera
             hakui_combat
             hakui_tabletop
     )

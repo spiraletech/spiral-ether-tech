@@ -35,6 +35,7 @@ struct PlayerState {
     float velocityZ = 0.0f;
     bool grounded = true;
     PlayerActivity activity = PlayerActivity::Roaming;
+    std::uint32_t activeAffordanceId = 0;
     std::uint32_t voidRespawns = 0;
 
     // Runtime presentation state. The movement controller supplies intent;

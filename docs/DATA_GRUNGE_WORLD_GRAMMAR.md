@@ -1,6 +1,7 @@
 # HAKUI DATA GRUNGE World Grammar
 
-Status: v0.65 specimen contract.
+Status: v0.65 specimen contract, inherited and extended by the local v0.7
+embodiment pass.
 
 The first HAKUI environment is an authored but editable assembly, not a baked
 scene and not a realism showcase. Its permanent visual thesis is stark,
@@ -111,6 +112,21 @@ interprets jab and cross. Sword and bow semantics are declared but disabled.
 ETHER'S LAB rule:
 
 > Build one combat language. Let fists, swords and bows speak different dialects of it.
+
+## v0.7 embodiment grammar
+
+Semantic state must have a readable body. The avatar, skateboard, BMX, couch,
+Fusion table, and sparring datum are presented from gameplay/world state; the
+renderer cannot create mounts, hits, seats, or anchors by inference.
+
+- interaction entry and exit use `WorldAnchor` records owned by affordances;
+- the FightZone exposes both player and opponent anchors;
+- mobility silhouettes near spawn teach the `2`/`3` modes without a generic
+  debug menu;
+- skateboard/BMX meshes attach only while their deterministic locomotion mode
+  is active;
+- Car remains labeled and immobile until it has an authored representation;
+- combat and interaction framing remain third-person and full-body readable.
 
 ## Fidelity rule
 

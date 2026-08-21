@@ -73,6 +73,25 @@ const auto kSpecimenGeometry = std::to_array<WorldPrimitive>({
      5.02f, 0.73f, 4.30f, 1.25f, 0.22f, 0.82f,
      0.0f, 0.0f, 0.0f, 2, 1.40f, 0.0f, 0.0f},
 
+    // Mobility datum beside spawn: small physical silhouettes reinforce the
+    // 2/3 mode HUD without turning the room into a vehicle showroom.
+    {WorldPrimitiveKind::Mobility, MaterialRole::IndustrialDark,
+     -6.10f, 0.10f, 4.55f, 4.90f, 0.20f, 2.20f},
+    {WorldPrimitiveKind::Mobility, MaterialRole::SignalMagenta,
+     -7.05f, 0.52f, 4.55f, 0.78f, 0.10f, 1.55f},
+    {WorldPrimitiveKind::Mobility, MaterialRole::CrtCyan,
+     -7.05f, 0.40f, 4.03f, 0.92f, 0.08f, 0.14f,
+     0.0f, 0.0f, 0.0f, 2, 0.0f, 0.0f, 1.04f},
+    {WorldPrimitiveKind::Mobility, MaterialRole::CrtCyan,
+     -4.95f, 0.73f, 4.05f, 0.16f, 1.20f, 0.16f,
+     0.0f, 0.0f, 0.0f, 2, 0.0f, 0.0f, 1.00f},
+    {WorldPrimitiveKind::Mobility, MaterialRole::SignalMagenta,
+     -4.95f, 0.74f, 4.55f, 0.14f, 0.14f, 1.25f,
+     -0.45f, 0.0f, 0.0f},
+    {WorldPrimitiveKind::Signage, MaterialRole::SodiumAmber,
+     -8.28f, 1.10f, 4.55f, 0.12f, 2.20f, 0.12f,
+     0.0f, 0.0f, 0.0f, 2, 6.36f, 0.0f, 0.0f},
+
     // Plinths and sparse CRT signage.
     {WorldPrimitiveKind::Monument, MaterialRole::IndustrialDark,
      -6.15f, 1.15f, 6.45f, 1.85f, 2.30f, 1.35f},
@@ -132,10 +151,14 @@ constexpr auto kSpecimenAffordances = std::to_array<WorldAffordanceVolume>({
     {1001, "FUSION TABLE SEAT",
      WorldAffordance::Seat | WorldAffordance::CasinoAnchor |
          WorldAffordance::Terminal,
-     -0.75f, 0.75f, -0.50f, 2.50f, 1.25f, 2.45f},
+     -0.75f, 0.75f, -0.50f, 2.50f, 1.25f, 2.45f,
+     {0.0f, -0.34f, 1.72f, 3.14159265358979323846f},
+     {0.0f, 0.0f, 2.35f, 3.14159265358979323846f}},
     {1002, "VOID COUCH",
      affordanceMask(WorldAffordance::Seat),
-     4.0f, 7.4f, -0.50f, 2.50f, 3.0f, 5.6f},
+     4.0f, 7.4f, -0.50f, 2.50f, 3.0f, 5.6f,
+     {5.72f, -0.34f, 3.92f, 3.14159265358979323846f},
+     {5.72f, 0.0f, 3.05f, 3.14159265358979323846f}},
     {1101, "GALLERY RAMP",
      WorldAffordance::Rideable | WorldAffordance::Transition |
          WorldAffordance::Launch,
@@ -149,7 +172,9 @@ constexpr auto kSpecimenAffordances = std::to_array<WorldAffordanceVolume>({
      -2.30f, -1.90f, 1.80f, 3.20f, -2.9f, 2.9f},
     {1201, "SPARRING DATUM",
      WorldAffordance::FightZone | WorldAffordance::SparAnchor,
-     2.40f, 8.80f, -0.20f, 3.00f, -7.20f, -1.60f},
+     2.40f, 8.80f, -0.20f, 3.00f, -7.20f, -1.60f,
+     {4.35f, 0.0f, -5.15f, 1.57079632679f},
+     {5.90f, 0.0f, -5.15f, -1.57079632679f}},
     {1202, "SPARRING SPECTATOR MARK",
      affordanceMask(WorldAffordance::SpectatorZone),
      2.0f, 9.2f, -0.20f, 3.00f, -1.60f, -0.40f},
@@ -205,7 +230,19 @@ std::span<const WorldAffordanceVolume> BlackRoom::affordances() const noexcept
     return kSpecimenAffordances;
 }
 
-bool BlackRoom::hasAffordanceAt(
+const WorldAffordanceVolume* BlackRoom::firstAffordance(
+    WorldAffordance affordance
+) const noexcept
+{
+    for (const WorldAffordanceVolume& volume : kSpecimenAffordances) {
+        if (hasAffordance(volume.affordances, affordance)) {
+            return &volume;
+        }
+    }
+    return nullptr;
+}
+
+const WorldAffordanceVolume* BlackRoom::affordanceAt(
     WorldAffordance affordance,
     float x,
     float y,
@@ -215,10 +252,32 @@ bool BlackRoom::hasAffordanceAt(
     for (const WorldAffordanceVolume& volume : kSpecimenAffordances) {
         if (hasAffordance(volume.affordances, affordance) &&
             volume.contains(x, y, z)) {
-            return true;
+            return &volume;
         }
     }
-    return false;
+    return nullptr;
+}
+
+const WorldAffordanceVolume* BlackRoom::affordanceById(
+    std::uint32_t id
+) const noexcept
+{
+    for (const WorldAffordanceVolume& volume : kSpecimenAffordances) {
+        if (volume.id == id) {
+            return &volume;
+        }
+    }
+    return nullptr;
+}
+
+bool BlackRoom::hasAffordanceAt(
+    WorldAffordance affordance,
+    float x,
+    float y,
+    float z
+) const noexcept
+{
+    return affordanceAt(affordance, x, y, z) != nullptr;
 }
 
 RoomInteractionFocus BlackRoom::nearestInteraction(
@@ -229,29 +288,31 @@ RoomInteractionFocus BlackRoom::nearestInteraction(
         return {};
     }
 
-    struct Candidate {
-        RoomInteractionKind kind;
-        float x;
-        float z;
-        float radius;
-        std::string_view prompt;
-    };
-
-    constexpr std::array<Candidate, 2> candidates{{
-        {RoomInteractionKind::FusionTable, 0.0f, 2.05f, 1.45f,
-         "E SIT // FUSION TABLE"},
-        {RoomInteractionKind::LoungeCouch, 5.72f, 3.28f, 1.50f,
-         "E SIT // VOID COUCH"}
-    }};
-
     RoomInteractionFocus nearest;
     float nearestDistance = std::numeric_limits<float>::max();
-    for (const Candidate& candidate : candidates) {
-        const float dx = player.x - candidate.x;
-        const float dz = player.z - candidate.z;
+    for (const WorldAffordanceVolume& volume : kSpecimenAffordances) {
+        if (!hasAffordance(volume.affordances, WorldAffordance::Seat)) {
+            continue;
+        }
+        const float dx = player.x - volume.secondaryAnchor.x;
+        const float dz = player.z - volume.secondaryAnchor.z;
         const float distance = std::sqrt(dx * dx + dz * dz);
-        if (distance <= candidate.radius && distance < nearestDistance) {
-            nearest = {candidate.kind, distance, candidate.prompt};
+        constexpr float interactionRadius = 1.50f;
+        if (distance <= interactionRadius && distance < nearestDistance) {
+            const bool casino = hasAffordance(
+                volume.affordances,
+                WorldAffordance::CasinoAnchor
+            );
+            nearest = {
+                casino
+                    ? RoomInteractionKind::FusionTable
+                    : RoomInteractionKind::LoungeCouch,
+                volume.id,
+                distance,
+                casino
+                    ? std::string_view{"E SIT // FUSION TABLE"}
+                    : std::string_view{"E SIT // VOID COUCH"}
+            };
             nearestDistance = distance;
         }
     }
@@ -270,22 +331,26 @@ bool BlackRoom::engageNearest(PlayerState& player) const noexcept
     player.velocityZ = 0.0f;
     player.grounded = true;
     player.movementBlend = 0.0f;
+    player.activeAffordanceId = focus.affordanceId;
+
+    const WorldAffordanceVolume* volume = affordanceById(focus.affordanceId);
+    if (!volume) {
+        player.activeAffordanceId = 0;
+        return false;
+    }
+
+    player.x = volume->primaryAnchor.x;
+    player.y = volume->primaryAnchor.y;
+    player.z = volume->primaryAnchor.z;
+    player.yaw = volume->primaryAnchor.yaw;
 
     switch (focus.kind) {
         case RoomInteractionKind::FusionTable:
             player.activity = PlayerActivity::CasinoSeated;
-            player.x = 0.0f;
-            player.y = -0.34f;
-            player.z = 1.72f;
-            player.yaw = 3.14159265358979323846f;
             return true;
 
         case RoomInteractionKind::LoungeCouch:
             player.activity = PlayerActivity::CouchSeated;
-            player.x = 5.72f;
-            player.y = -0.34f;
-            player.z = 3.92f;
-            player.yaw = 3.14159265358979323846f;
             return true;
 
         case RoomInteractionKind::None:
@@ -300,20 +365,23 @@ bool BlackRoom::leaveInteraction(PlayerState& player) const noexcept
         return false;
     }
 
-    if (player.activity == PlayerActivity::CasinoSeated) {
-        player.x = 0.0f;
-        player.z = 2.35f;
-    } else {
-        player.x = 5.72f;
-        player.z = 3.05f;
+    const WorldAffordanceVolume* volume = affordanceById(
+        player.activeAffordanceId
+    );
+    if (!volume) {
+        return false;
     }
 
-    player.y = 0.0f;
+    player.x = volume->secondaryAnchor.x;
+    player.y = volume->secondaryAnchor.y;
+    player.z = volume->secondaryAnchor.z;
+    player.yaw = volume->secondaryAnchor.yaw;
     player.velocityX = 0.0f;
     player.velocityY = 0.0f;
     player.velocityZ = 0.0f;
     player.grounded = true;
     player.activity = PlayerActivity::Roaming;
+    player.activeAffordanceId = 0;
     return true;
 }
 

@@ -13,7 +13,10 @@ RMB   ORBIT CAMERA
 WHEEL ZOOM CAMERA
 Q     SWITCH SHOULDER
 R     RESET CAMERA
-1-4   LOCOMOTION
+1     ON FOOT
+2     SKATEBOARD (VISIBLE RIDE MODE)
+3     BMX (VISIBLE RIDE MODE)
+4     CAR (DEFERRED / IMMOBILE IN v0.7)
 [ / ] LOOK SENSITIVITY
 - / + AUDIO VOLUME
 
@@ -35,4 +38,6 @@ K     RECOVER AFTER KNOCKDOWN
 ESC   PAUSE / RESUME
 F10   QUIT
 
+Skateboard and BMX are early embodiment controllers, not full trick systems.
+Approaching a seat or spar datum dismounts supported ride modes to ON FOOT.
 Virtual credits only. No purchase or cash-out.

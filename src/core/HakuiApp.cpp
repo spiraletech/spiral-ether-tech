@@ -26,9 +26,6 @@ float gamepadAxis(Sint16 raw)
     return std::copysign(remapped, value);
 }
 
-constexpr hakui::combat::CombatVector kPlayerSparAnchor{4.35f, 0.0f, -5.15f};
-constexpr hakui::combat::CombatVector kOpponentSparAnchor{5.90f, 0.0f, -5.15f};
-
 const char* combatStateLabel(hakui::combat::CombatState state) noexcept
 {
     using hakui::combat::CombatState;
@@ -45,11 +42,22 @@ const char* combatStateLabel(hakui::combat::CombatState state) noexcept
     return "UNKNOWN";
 }
 
+const char* locomotionLabel(LocomotionMode mode) noexcept
+{
+    switch (mode) {
+        case LocomotionMode::OnFoot: return "ON FOOT";
+        case LocomotionMode::Skateboard: return "SKATEBOARD";
+        case LocomotionMode::BMX: return "BMX";
+        case LocomotionMode::Car: return "CAR DEFERRED";
+    }
+    return "UNKNOWN";
+}
+
 } // namespace
 
 bool HakuiApp::boot()
 {
-    SDL_Log("[HAKUI] booting native client v0.65-dev // DATA GRUNGE SPECIMEN 01");
+    SDL_Log("[HAKUI] booting native client v0.7-dev // EMBODIMENT PASS");
 
     if (!initPlatform() || !initGPU()) {
         return false;
@@ -94,13 +102,13 @@ bool HakuiApp::boot()
     SDL_Log("[HAKUI] DATA GRUNGE // ACTIVE");
     SDL_Log("[HAKUI] SPIRAL CORE // ONLINE");
     SDL_Log("[HAKUI] avatar skeleton // %zu bones loaded", avatarSkeleton_.boneCount());
-    SDL_Log("[HAKUI] v0.65 movement // acceleration + jump + collision + void recovery online");
+    SDL_Log("[HAKUI] v0.7 movement // foot + skateboard + BMX embodiment online");
     SDL_Log("[HAKUI] procedural locomotion // idle + walk + sprint + jump + seated online");
     SDL_Log("[HAKUI] BLACK ROOM // neon lounge + couch + fusion table + open void");
     SDL_Log("[HAKUI] controls // WASD move // SPACE jump // E interact/stand // SHIFT sprint");
     SDL_Log("[HAKUI] camera // RMB orbit // WHEEL zoom // Q shoulder // R reset");
     SDL_Log("[HAKUI] menu // ESC pause // [ ] look sensitivity // - + audio // F10 quit");
-    SDL_Log("[HAKUI] modes // 1-4 locomotion scaffolds");
+    SDL_Log("[HAKUI] modes // 1 foot // 2 visible skateboard // 3 visible BMX // 4 car deferred");
     SDL_Log("[HAKUI] FUSION TABLE // T dice // G cards // B bet 25 // H hit // J stand // I inspect");
     SDL_Log("[HAKUI] tabletop input is locked until seated // virtual credits only");
     SDL_Log("[HAKUI] combat grammar // C enter/leave spar // Z jab // X cross // V guard // K recover");
@@ -120,7 +128,7 @@ bool HakuiApp::initPlatform()
     }
 
     window_ = SDL_CreateWindow(
-        "SPIRAL OS: HAKUI ENGINE // v0.65-dev // DATA GRUNGE SPECIMEN 01",
+        "SPIRAL OS: HAKUI ENGINE // v0.7-dev // EMBODIMENT PASS",
         1280,
         720,
         SDL_WINDOW_RESIZABLE | SDL_WINDOW_HIGH_PIXEL_DENSITY
@@ -199,7 +207,7 @@ void HakuiApp::initSpiralCore()
     bootSignal.source = "hakui.client";
     bootSignal.destination = "spiral.core";
     bootSignal.topic = "client.boot";
-    bootSignal.payload = "hakui-v0.65-dev";
+    bootSignal.payload = "hakui-v0.7-dev";
 
     // A small initial charge marks the native client's transition to live
     // operation. Steam is telemetry/energy state, not gameplay policy.
@@ -214,7 +222,7 @@ void HakuiApp::initSpiralCore()
     initialState.topic = "client.state.initial";
     initialState.statePatch = {
         {"client.status", std::string("online")},
-        {"client.version", std::string("0.65-dev")},
+        {"client.version", std::string("0.7-dev")},
         {"avatar.rig.bones", static_cast<std::int64_t>(avatarSkeleton_.boneCount())},
         {"player.locomotion", std::string("on_foot")}
     };
@@ -223,7 +231,20 @@ void HakuiApp::initSpiralCore()
 
 void HakuiApp::switchLocomotion(LocomotionMode mode, std::string_view label)
 {
+    if (player_.activity != PlayerActivity::Roaming || combat_.active()) {
+        SDL_Log("[HAKUI] locomotion change blocked by active interaction");
+        return;
+    }
+
+    player_.velocityX = 0.0f;
+    player_.velocityY = 0.0f;
+    player_.velocityZ = 0.0f;
+    player_.movementBlend = 0.0f;
     locomotion_.switchTo(mode);
+
+    if (mode == LocomotionMode::Car) {
+        SDL_Log("[HAKUI] CAR // representation and controller deferred after v0.7");
+    }
 
     // Gameplay input remains immediate. We publish the resulting state change
     // after the fact; Ether Bus is reserved for transitions that actually need
@@ -344,8 +365,18 @@ void HakuiApp::handlePrimaryInteraction()
         return;
     }
 
-    if (!blackRoom_.engageNearest(player_)) {
+    const hakui::RoomInteractionFocus focus =
+        blackRoom_.nearestInteraction(player_);
+    if (!focus) {
         SDL_Log("[HAKUI] no interaction in range");
+        return;
+    }
+
+    if (player_.locomotion != LocomotionMode::OnFoot) {
+        switchLocomotion(LocomotionMode::OnFoot, "on_foot");
+    }
+    if (!blackRoom_.engageNearest(player_)) {
+        SDL_Log("[HAKUI] interaction anchor became unavailable");
         return;
     }
 
@@ -366,11 +397,14 @@ void HakuiApp::handlePrimaryInteraction()
 void HakuiApp::toggleCombat()
 {
     if (combat_.active()) {
+        const hakui::combat::CombatVector exitAnchor =
+            combat_.zone().playerAnchor;
         combat_.leave();
         combatAttackQueued_ = hakui::combat::AttackSemantic::None;
         combatRecoverQueued_ = false;
-        player_.x = 3.45f;
-        player_.z = kPlayerSparAnchor.z;
+        player_.x = exitAnchor.x - 0.90f;
+        player_.y = exitAnchor.y;
+        player_.z = exitAnchor.z;
         player_.yaw = 1.57079632679f;
         debugRenderer_.setCameraRole(CameraRole::GameplayFollow);
         audio_.play(HakuiAudioCue::Interact);
@@ -378,30 +412,43 @@ void HakuiApp::toggleCombat()
         return;
     }
 
-    if (player_.activity != PlayerActivity::Roaming || !player_.grounded ||
-        !blackRoom_.hasAffordanceAt(
+    const hakui::WorldAffordanceVolume* fightZone =
+        blackRoom_.affordanceAt(
             hakui::WorldAffordance::FightZone,
             player_.x,
             player_.y,
             player_.z
-        )) {
+        );
+    if (player_.activity != PlayerActivity::Roaming || !player_.grounded ||
+        !fightZone) {
         SDL_Log("[COMBAT] find the red/cyan SPARRING DATUM // C to enter");
         return;
     }
 
     const hakui::combat::CombatZone zone{
-        1201,
-        kPlayerSparAnchor,
-        kOpponentSparAnchor
+        fightZone->id,
+        {
+            fightZone->primaryAnchor.x,
+            fightZone->primaryAnchor.y,
+            fightZone->primaryAnchor.z
+        },
+        {
+            fightZone->secondaryAnchor.x,
+            fightZone->secondaryAnchor.y,
+            fightZone->secondaryAnchor.z
+        }
     };
+    if (player_.locomotion != LocomotionMode::OnFoot) {
+        switchLocomotion(LocomotionMode::OnFoot, "on_foot");
+    }
     if (!combat_.enter(zone)) {
         return;
     }
 
-    player_.x = kPlayerSparAnchor.x;
-    player_.y = kPlayerSparAnchor.y;
-    player_.z = kPlayerSparAnchor.z;
-    player_.yaw = 1.57079632679f;
+    player_.x = fightZone->primaryAnchor.x;
+    player_.y = fightZone->primaryAnchor.y;
+    player_.z = fightZone->primaryAnchor.z;
+    player_.yaw = fightZone->primaryAnchor.yaw;
     player_.velocityX = 0.0f;
     player_.velocityY = 0.0f;
     player_.velocityZ = 0.0f;
@@ -409,9 +456,9 @@ void HakuiApp::toggleCombat()
     opponentDecisionTimer_ = 1.15f;
     opponentCrossNext_ = false;
     debugRenderer_.setCombatTarget(
-        kOpponentSparAnchor.x,
-        kOpponentSparAnchor.y + 1.25f,
-        kOpponentSparAnchor.z
+        fightZone->secondaryAnchor.x,
+        fightZone->secondaryAnchor.y + 1.25f,
+        fightZone->secondaryAnchor.z
     );
     debugRenderer_.setCameraRole(CameraRole::CombatFrame);
     audio_.play(HakuiAudioCue::Interact);
@@ -459,7 +506,10 @@ void HakuiApp::updateCombat(float dt, const bool* keys)
     const CombatFrameResult frame = combat_.update(
         playerIntent,
         opponentIntent,
-        {kPlayerSparAnchor, kOpponentSparAnchor},
+        {
+            combat_.zone().playerAnchor,
+            combat_.zone().opponentAnchor
+        },
         dt
     );
     if (frame.playerAttackStarted || frame.opponentAttackStarted) {
@@ -504,11 +554,98 @@ void HakuiApp::updateCombat(float dt, const bool* keys)
 void HakuiApp::setPaused(bool paused)
 {
     paused_ = paused;
-    if (paused_ && cameraDragging_) {
-        cameraDragging_ = false;
-        SDL_SetWindowRelativeMouseMode(window_, false);
+    if (paused_) {
+        (void)setCameraCapture(false);
     }
     SDL_Log(paused_ ? "[HAKUI] PAUSED" : "[HAKUI] RESUMED");
+}
+
+bool HakuiApp::setCameraCapture(bool enabled)
+{
+    if (!window_) {
+        cameraDragging_ = false;
+        return false;
+    }
+
+    if (!enabled) {
+        const bool wasCaptured = SDL_GetWindowRelativeMouseMode(window_);
+        const bool released = !wasCaptured ||
+            SDL_SetWindowRelativeMouseMode(window_, false);
+        cameraDragging_ = false;
+        cameraCaptureWarmupFrames_ = 0;
+        float discardedX = 0.0f;
+        float discardedY = 0.0f;
+        (void)SDL_GetRelativeMouseState(&discardedX, &discardedY);
+        if (!released) {
+            SDL_LogWarn(
+                SDL_LOG_CATEGORY_INPUT,
+                "[CAMERA] relative mouse release failed: %s",
+                SDL_GetError()
+            );
+        }
+        return released;
+    }
+
+    if (paused_ ||
+        (SDL_GetWindowFlags(window_) & SDL_WINDOW_INPUT_FOCUS) == 0) {
+        cameraDragging_ = false;
+        return false;
+    }
+
+    if (!SDL_SetWindowRelativeMouseMode(window_, true)) {
+        cameraDragging_ = false;
+        SDL_LogWarn(
+            SDL_LOG_CATEGORY_INPUT,
+            "[CAMERA] relative mouse capture failed: %s",
+            SDL_GetError()
+        );
+        return false;
+    }
+
+    cameraDragging_ = SDL_GetWindowRelativeMouseMode(window_);
+    cameraCaptureWarmupFrames_ = cameraDragging_ ? 2 : 0;
+    float discardedX = 0.0f;
+    float discardedY = 0.0f;
+    (void)SDL_GetRelativeMouseState(&discardedX, &discardedY);
+    SDL_Log(
+        cameraDragging_
+            ? "[CAMERA] RMB orbit capture // ACTIVE"
+            : "[CAMERA] RMB orbit capture // FAILED"
+    );
+    return cameraDragging_;
+}
+
+void HakuiApp::updateCameraOrbitInput()
+{
+    if (paused_ || !cameraDragging_) {
+        return;
+    }
+
+    float deltaX = 0.0f;
+    float deltaY = 0.0f;
+    (void)SDL_GetRelativeMouseState(
+        &deltaX,
+        &deltaY
+    );
+    if (cameraCaptureWarmupFrames_ > 0) {
+        --cameraCaptureWarmupFrames_;
+        return;
+    }
+    constexpr float kMaximumCredibleRelativeDelta = 200.0f;
+    if (std::fabs(deltaX) > kMaximumCredibleRelativeDelta ||
+        std::fabs(deltaY) > kMaximumCredibleRelativeDelta) {
+        SDL_LogDebug(
+            SDL_LOG_CATEGORY_INPUT,
+            "[CAMERA] discarded relative-mode transition delta %.1f/%.1f",
+            deltaX,
+            deltaY
+        );
+        return;
+    }
+    if (std::isfinite(deltaX) && std::isfinite(deltaY) &&
+        (deltaX != 0.0f || deltaY != 0.0f)) {
+        debugRenderer_.orbitCamera(deltaX, deltaY);
+    }
 }
 
 void HakuiApp::openGamepad(SDL_JoystickID instanceId)
@@ -623,24 +760,18 @@ SDL_AppResult HakuiApp::handleEvent(const SDL_Event& event)
     }
 
     if (!paused_ && event.type == SDL_EVENT_MOUSE_BUTTON_DOWN &&
-        event.button.button == SDL_BUTTON_RIGHT) {
-        cameraDragging_ = true;
-        SDL_SetWindowRelativeMouseMode(window_, true);
+        event.button.button == SDL_BUTTON_RIGHT &&
+        event.button.windowID == SDL_GetWindowID(window_)) {
+        (void)setCameraCapture(true);
     }
 
     if (event.type == SDL_EVENT_MOUSE_BUTTON_UP &&
         event.button.button == SDL_BUTTON_RIGHT) {
-        cameraDragging_ = false;
-        SDL_SetWindowRelativeMouseMode(window_, false);
+        (void)setCameraCapture(false);
     }
 
-    if (event.type == SDL_EVENT_WINDOW_FOCUS_LOST && cameraDragging_) {
-        cameraDragging_ = false;
-        SDL_SetWindowRelativeMouseMode(window_, false);
-    }
-
-    if (!paused_ && event.type == SDL_EVENT_MOUSE_MOTION && cameraDragging_) {
-        debugRenderer_.orbitCamera(event.motion.xrel, event.motion.yrel);
+    if (event.type == SDL_EVENT_WINDOW_FOCUS_LOST) {
+        (void)setCameraCapture(false);
     }
 
     if (!paused_ && event.type == SDL_EVENT_MOUSE_WHEEL) {
@@ -714,25 +845,25 @@ SDL_AppResult HakuiApp::handleEvent(const SDL_Event& event)
                 break;
 
             case SDLK_1:
-                if (player_.activity == PlayerActivity::Roaming) {
+                if (player_.activity == PlayerActivity::Roaming && !combat_.active()) {
                     switchLocomotion(LocomotionMode::OnFoot, "on_foot");
                 }
                 break;
 
             case SDLK_2:
-                if (player_.activity == PlayerActivity::Roaming) {
+                if (player_.activity == PlayerActivity::Roaming && !combat_.active()) {
                     switchLocomotion(LocomotionMode::Skateboard, "skateboard");
                 }
                 break;
 
             case SDLK_3:
-                if (player_.activity == PlayerActivity::Roaming) {
+                if (player_.activity == PlayerActivity::Roaming && !combat_.active()) {
                     switchLocomotion(LocomotionMode::BMX, "bmx");
                 }
                 break;
 
             case SDLK_4:
-                if (player_.activity == PlayerActivity::Roaming) {
+                if (player_.activity == PlayerActivity::Roaming && !combat_.active()) {
                     switchLocomotion(LocomotionMode::Car, "car");
                 }
                 break;
@@ -793,7 +924,7 @@ void HakuiApp::updateHud()
         SDL_snprintf(
             title,
             sizeof(title),
-            "HAKUI v0.65 // PAUSED // ESC RESUME // F10 QUIT // LOOK %.4f // AUDIO %.0f%% // [ ] / - +",
+            "HAKUI v0.7 // PAUSED // ESC RESUME // F10 QUIT // LOOK %.4f // AUDIO %.0f%% // MOUSE RELEASED",
             debugRenderer_.lookSensitivity(),
             audio_.volume() * 100.0f
         );
@@ -801,7 +932,7 @@ void HakuiApp::updateHud()
         SDL_snprintf(
             title,
             sizeof(title),
-            "HAKUI v0.65 // SPAR %s // HP %.0f STA %.0f BAL %.0f // TARGET HP %.0f BAL %.0f // Z JAB // X CROSS // V GUARD // K RECOVER // C LEAVE",
+            "HAKUI v0.7 // SPAR %s // HP %.0f STA %.0f BAL %.0f // TARGET HP %.0f BAL %.0f // Z JAB // X CROSS // V GUARD // K RECOVER // C LEAVE",
             combatStateLabel(combat_.player().state),
             combat_.player().health,
             combat_.player().stamina,
@@ -816,7 +947,7 @@ void HakuiApp::updateHud()
         SDL_snprintf(
             title,
             sizeof(title),
-            "HAKUI v0.65 // FUSION TABLE // CREDITS %lld // HAND %d // DICE %d // T ROLL // G CARDS // B BET // H HIT // J STAND // E LEAVE",
+            "HAKUI v0.7 // FUSION TABLE // CREDITS %lld // HAND %d // DICE %d // T ROLL // G CARDS // B BET // H HIT // J STAND // E LEAVE",
             static_cast<long long>(terminal_->virtualCredits()),
             handValue,
             terminal_->lastDiceResult().total
@@ -825,14 +956,14 @@ void HakuiApp::updateHud()
         SDL_snprintf(
             title,
             sizeof(title),
-            "HAKUI v0.65 // VOID COUCH // AUM %s // E STAND // Q SHOULDER // ESC PAUSE",
+            "HAKUI v0.7 // VOID COUCH // AUM %s // E STAND // RMB ORBIT // Q SHOULDER // ESC PAUSE",
             aumPhase
         );
     } else if (player_.y < -0.45f) {
         SDL_snprintf(
             title,
             sizeof(title),
-            "HAKUI v0.65 // BLACK SPACE FALL // DEPTH %.1f // RECOVERY ARMED // RESPAWNS %u",
+            "HAKUI v0.7 // BLACK SPACE FALL // DEPTH %.1f // RECOVERY ARMED // RESPAWNS %u",
             -player_.y,
             player_.voidRespawns
         );
@@ -842,9 +973,10 @@ void HakuiApp::updateHud()
             SDL_snprintf(
                 title,
                 sizeof(title),
-                "HAKUI v0.65 // %.*s // SPACE JUMP // Q SHOULDER // STAMINA %.0f // AUM %s",
+                "HAKUI v0.7 // %.*s // E USE // RMB ORBIT // MODE %s // STAMINA %.0f // AUM %s",
                 static_cast<int>(focus.prompt.size()),
                 focus.prompt.data(),
+                locomotionLabel(player_.locomotion),
                 player_.stamina,
                 aumPhase
             );
@@ -856,17 +988,23 @@ void HakuiApp::updateHud()
             SDL_snprintf(
                 title,
                 sizeof(title),
-                "HAKUI v0.65 // SPARRING DATUM // C ENTER UNARMED PROOF // THIRD-PERSON FRAME // Q SHOULDER // ESC PAUSE"
+                "HAKUI v0.7 // SPARRING DATUM // C ENTER // DUMMY VISIBLE // Z/X ATTACK // V GUARD // K RECOVER"
             );
         } else {
             SDL_snprintf(
                 title,
                 sizeof(title),
-                "HAKUI v0.65 // DATA GRUNGE SPECIMEN 01 // X %.1f Y %.1f Z %.1f // STAMINA %.0f // SPACE JUMP // E INTERACT // AUM %s",
+                "HAKUI v0.7 // %s // X %.1f Y %.1f Z %.1f // STA %.0f // CAM %.2f/%.2f/%.1f SH %s // ORBIT %s // 1 FOOT 2 BOARD 3 BMX 4 CAR* // AUM %s",
+                locomotionLabel(player_.locomotion),
                 player_.x,
                 player_.y,
                 player_.z,
                 player_.stamina,
+                debugRenderer_.cameraYaw(),
+                debugRenderer_.cameraPitch(),
+                debugRenderer_.cameraDistance(),
+                debugRenderer_.cameraShoulderSide() > 0.0f ? "R" : "L",
+                cameraDragging_ ? "ACTIVE" : "READY",
                 aumPhase
             );
         }
@@ -878,6 +1016,7 @@ void HakuiApp::update(float dt)
 {
     if (!paused_) {
         world_.elapsedSeconds += dt;
+        updateCameraOrbitInput();
 
         // Spiral advances as part of the same native client heartbeat, but its
         // internals remain platform-independent.
@@ -935,10 +1074,14 @@ void HakuiApp::update(float dt)
 
         hakui::MovementStep movementStep;
         if (combat_.active()) {
-            player_.x = kPlayerSparAnchor.x;
-            player_.y = kPlayerSparAnchor.y;
-            player_.z = kPlayerSparAnchor.z;
-            player_.yaw = 1.57079632679f;
+            player_.x = combat_.zone().playerAnchor.x;
+            player_.y = combat_.zone().playerAnchor.y;
+            player_.z = combat_.zone().playerAnchor.z;
+            const hakui::WorldAffordanceVolume* activeZone =
+                blackRoom_.affordanceById(combat_.zone().worldAffordanceId);
+            player_.yaw = activeZone
+                ? activeZone->primaryAnchor.yaw
+                : 1.57079632679f;
             player_.velocityX = 0.0f;
             player_.velocityY = 0.0f;
             player_.velocityZ = 0.0f;
@@ -1041,15 +1184,28 @@ bool HakuiApp::render()
     HakuiSceneState scene;
     scene.paused = paused_;
     scene.combatActive = combat_.active();
+    const hakui::WorldAffordanceVolume* sparZone =
+        blackRoom_.firstAffordance(hakui::WorldAffordance::FightZone);
+    scene.sparDummyVisible = sparZone != nullptr;
+    if (sparZone) {
+        scene.opponentX = sparZone->secondaryAnchor.x;
+        scene.opponentY = sparZone->secondaryAnchor.y;
+        scene.opponentZ = sparZone->secondaryAnchor.z;
+        scene.opponentYaw = sparZone->secondaryAnchor.yaw;
+    }
     if (scene.combatActive) {
         scene.playerCombatState = combat_.player().state;
         scene.opponentCombatState = combat_.opponent().state;
         scene.playerAttack = combat_.player().pendingAttack;
         scene.opponentAttack = combat_.opponent().pendingAttack;
-        scene.opponentX = kOpponentSparAnchor.x;
-        scene.opponentY = kOpponentSparAnchor.y;
-        scene.opponentZ = kOpponentSparAnchor.z;
-        scene.opponentYaw = -1.57079632679f;
+        scene.opponentX = combat_.zone().opponentAnchor.x;
+        scene.opponentY = combat_.zone().opponentAnchor.y;
+        scene.opponentZ = combat_.zone().opponentAnchor.z;
+        const hakui::WorldAffordanceVolume* activeZone =
+            blackRoom_.affordanceById(combat_.zone().worldAffordanceId);
+        scene.opponentYaw = activeZone
+            ? activeZone->secondaryAnchor.yaw
+            : -1.57079632679f;
         scene.playerHitPulse = playerHitPulse_;
         scene.opponentHitPulse = opponentHitPulse_;
     }
@@ -1084,9 +1240,8 @@ void HakuiApp::shutdown()
 {
     SDL_Log("[HAKUI] shutting down");
 
-    if (window_ && cameraDragging_) {
-        SDL_SetWindowRelativeMouseMode(window_, false);
-        cameraDragging_ = false;
+    if (window_) {
+        (void)setCameraCapture(false);
     }
 
     // Optional capability modules detach before platform/runtime teardown.

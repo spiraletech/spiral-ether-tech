@@ -97,23 +97,44 @@ void sprint_consumes_and_rest_recovers_stamina()
     assert(nearlyEqual(player.stamina, 9.6f));
 }
 
-void non_on_foot_modes_do_not_apply_on_foot_motion()
+void embodied_modes_use_distinct_motion_and_car_remains_deferred()
 {
-    PlayerState player;
-    player.locomotion = LocomotionMode::BMX;
-    player.stamina = 50.0f;
     hakui::PlayerMovementController controller;
 
-    const auto step = controller.update(
-        player,
-        hakui::MovementInput{1.0f, 1.0f, true},
+    PlayerState skateboard;
+    skateboard.locomotion = LocomotionMode::Skateboard;
+    const auto skateStep = controller.update(
+        skateboard,
+        hakui::MovementInput{0.0f, 1.0f, false, true},
+        0.1f
+    );
+    assert(skateStep.moved);
+    assert(!skateStep.jumped);
+    assert(skateboard.grounded);
+
+    PlayerState bmx;
+    bmx.locomotion = LocomotionMode::BMX;
+    const auto bmxStep = controller.update(
+        bmx,
+        hakui::MovementInput{0.0f, 1.0f, false, true},
+        0.1f
+    );
+    assert(bmxStep.moved);
+    assert(!bmxStep.jumped);
+    assert(bmx.grounded);
+    assert(bmxStep.distance > skateStep.distance);
+
+    PlayerState car;
+    car.locomotion = LocomotionMode::Car;
+    const auto carStep = controller.update(
+        car,
+        hakui::MovementInput{1.0f, 1.0f, true, true},
         0.1f
     );
 
-    assert(!step.moved);
-    assert(nearlyEqual(player.x, 0.0f));
-    assert(nearlyEqual(player.z, 0.0f));
-    assert(player.stamina > 50.0f);
+    assert(!carStep.moved);
+    assert(nearlyEqual(car.x, 0.0f));
+    assert(nearlyEqual(car.z, 0.0f));
 }
 
 void invalid_input_cannot_poison_player_state()
@@ -223,8 +244,16 @@ void furniture_and_casino_use_contextual_seat_anchors()
     assert(table.kind == hakui::RoomInteractionKind::FusionTable);
     assert(room.engageNearest(player));
     assert(player.activity == PlayerActivity::CasinoSeated);
+    assert(player.activeAffordanceId == table.affordanceId);
+    const auto* tableVolume = room.affordanceById(table.affordanceId);
+    assert(tableVolume != nullptr);
+    assert(nearlyEqual(player.x, tableVolume->primaryAnchor.x));
+    assert(nearlyEqual(player.z, tableVolume->primaryAnchor.z));
     assert(room.leaveInteraction(player));
     assert(player.activity == PlayerActivity::Roaming);
+    assert(player.activeAffordanceId == 0);
+    assert(nearlyEqual(player.x, tableVolume->secondaryAnchor.x));
+    assert(nearlyEqual(player.z, tableVolume->secondaryAnchor.z));
 
     player.x = 5.72f;
     player.z = 3.28f;
@@ -232,6 +261,11 @@ void furniture_and_casino_use_contextual_seat_anchors()
     assert(couch.kind == hakui::RoomInteractionKind::LoungeCouch);
     assert(room.engageNearest(player));
     assert(player.activity == PlayerActivity::CouchSeated);
+    assert(player.activeAffordanceId == couch.affordanceId);
+    const auto* couchVolume = room.affordanceById(couch.affordanceId);
+    assert(couchVolume != nullptr);
+    assert(nearlyEqual(player.x, couchVolume->primaryAnchor.x));
+    assert(nearlyEqual(player.z, couchVolume->primaryAnchor.z));
 
     const auto seatedStep = hakui::PlayerMovementController{}.update(
         player,
@@ -340,6 +374,21 @@ void world_affordances_describe_system_neutral_actions()
         -3.0f,
         20.0f
     ));
+
+    const auto* fight = room.firstAffordance(hakui::WorldAffordance::FightZone);
+    assert(fight != nullptr);
+    assert(fight->id != 0);
+    assert(!nearlyEqual(fight->primaryAnchor.x, fight->secondaryAnchor.x));
+    assert(fight->contains(
+        fight->primaryAnchor.x,
+        fight->primaryAnchor.y,
+        fight->primaryAnchor.z
+    ));
+    assert(fight->contains(
+        fight->secondaryAnchor.x,
+        fight->secondaryAnchor.y,
+        fight->secondaryAnchor.z
+    ));
 }
 
 void renderer_rotations_are_stable()
@@ -404,7 +453,7 @@ int main()
     modular_world_grammar_contains_canonical_roles();
     player_can_traverse_ramp_to_elevated_platform();
     world_affordances_describe_system_neutral_actions();
-    non_on_foot_modes_do_not_apply_on_foot_motion();
+    embodied_modes_use_distinct_motion_and_car_remains_deferred();
     invalid_input_cannot_poison_player_state();
     renderer_rotations_are_stable();
     camera_relative_axes_match_screen_directions();

@@ -26,6 +26,7 @@ enum class WorldPrimitiveKind : std::uint8_t {
     Furniture,
     Casino,
     Terminal,
+    Mobility,
     Signage,
     Monument,
     VoidMarker
@@ -111,6 +112,13 @@ struct WorldPrimitive {
     float repeatZ = 0.0f;
 };
 
+struct WorldAnchor {
+    float x = 0.0f;
+    float y = 0.0f;
+    float z = 0.0f;
+    float yaw = 0.0f;
+};
+
 // Volumes and anchors are gameplay notation. They advertise possible actions;
 // the world layer never implements skate, vehicle, combat, casino, or AI rules.
 struct WorldAffordanceVolume {
@@ -123,6 +131,8 @@ struct WorldAffordanceVolume {
     float maximumY = 0.0f;
     float minimumZ = 0.0f;
     float maximumZ = 0.0f;
+    WorldAnchor primaryAnchor{};
+    WorldAnchor secondaryAnchor{};
 
     bool contains(float x, float y, float z) const noexcept
     {
