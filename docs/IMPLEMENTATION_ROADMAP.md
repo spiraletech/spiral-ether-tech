@@ -63,6 +63,49 @@ attachment visualization remain.
 
 Exit signal: on-foot movement drives a visible rig without breaking the dependency firewall.
 
+## M4.5 — v0.65 DATA GRUNGE specimen
+
+- Replace the generic room with modular powder-concrete/industrial geometry,
+  CRT accents, negative space, ramps, platforms, furniture, and monuments.
+- Describe rideable, grindable, transition, launch, landing, seating, casino,
+  terminal, combat, spectator, respawn, and void affordances without placing
+  system rules in the world layer.
+- Complete the movement → seating → table → sparring → void → pause loop.
+- Add third-person camera roles for follow, interaction, combat, and future
+  target/duel/spectator/director framing.
+- Add a weapon-agnostic combat simulation with unarmed as the only playable
+  discipline and disabled sword/bow extension seams.
+- Present deterministic combat events through full-body poses, HUD, sound, hit
+  reaction, knockdown, and recovery.
+
+Current state: implemented locally on `codex/data-grunge-v0.65`; native/manual
+visual QA and remote CI remain before merge authorization.
+
+Exit signal: launching the executable immediately reads as HAKUI, and the full
+acceptance path remains coherent in one specimen environment.
+
+## M4.6 — v0.7 embodiment pass
+
+- Move camera yaw, pitch, distance, shoulder, reset, and sensitivity rules into
+  a deterministic camera target independent of SDL/GPU code.
+- Repair native RMB relative-mouse capture and guarantee release on button-up,
+  focus loss, pause, and shutdown.
+- Resolve couch, table, and combat entry from authored affordance anchors.
+- Keep the sparring dummy visible and the FightZone physically reachable.
+- Add distinct skateboard/BMX motion profiles and attached procedural models.
+- Preserve on-foot animation and explicitly defer Car instead of presenting an
+  invisible implementation.
+- Complete one native acceptance session covering camera, movement, seating,
+  tabletop, combat, ride modes, void recovery, pause, and a setting change.
+
+Current state: implemented and verified locally on
+`codex/embodiment-v0.7`; seven deterministic CTests and the native client build
+pass. Window-targeted native smoke checks completed locally. Remote CI, review,
+packaging, and publication remain unauthorized.
+
+Exit signal: every system advertised in v0.7 is visible, controllable, and
+understandable; intentionally incomplete systems are labeled honestly.
+
 ## M5 — World persistence and replay
 
 - Define a versioned StateStore snapshot schema.

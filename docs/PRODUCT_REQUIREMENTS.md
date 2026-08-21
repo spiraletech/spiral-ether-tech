@@ -1,6 +1,6 @@
 # Hakui Product Requirements
 
-Status: working specification for the v1.0 playable proof.
+Status: working specification through the local v0.7 embodiment pass.
 
 Each requirement has a stable identifier so code, tests, issues, and release notes can refer to the same contract. A requirement is complete only when its acceptance criteria are automated or explicitly marked as a manual visual/audio check.
 
@@ -42,8 +42,10 @@ The player shall be able to select on-foot, skateboard, BMX, and vehicle modes. 
 Acceptance criteria:
 
 - Mode changes publish `locomotion.changed` and update `player.locomotion`.
-- The on-foot controller does not move a player in BMX, skateboard, or vehicle mode.
-- Each non-on-foot mode remains visibly identified as scaffolded until its own controller exists.
+- On-foot, skateboard, and BMX use distinct grounded motion profiles.
+- Skateboard and BMX cannot silently reuse on-foot jump behavior.
+- Car remains immobile and is visibly identified as deferred until it has a
+  physical representation and controller.
 
 Automated in part by: `hakui.gameplay_movement`.
 
@@ -96,6 +98,87 @@ Acceptance criteria:
 
 Automated by: `hakui.tabletop`.
 
+### HK-EXP-008 — Recognizable DATA GRUNGE world
+
+The default specimen shall be recognizable as HAKUI rather than a generic C++
+test room. It shall use modular architecture, strong silhouettes, deliberate
+negative space, restrained industrial materials, sparse CRT accents, and
+legible interaction landmarks.
+
+Acceptance criteria:
+
+- Layout is described with reusable `WorldPrimitive` records.
+- Materials are semantic roles that a later renderer/editor may reinterpret.
+- The specimen contains a plaza, ramp, elevated platform, void boundary,
+  seating, casino/terminal anchor, sparring datum, and sculptural monument.
+- Rendering consumes world description and never owns deterministic rules.
+
+Automated in part by: `hakui.gameplay_movement`. Visual identity remains a
+manual smoke check.
+
+### HK-EXP-009 — Integrated specimen loop
+
+One coherent executable session shall support movement, traversal, seating,
+tabletop interaction, sparring, black-space recovery, pause, and settings.
+
+Acceptance path:
+
+`spawn → orient → walk → sprint → jump → traverse → sit → stand → table session
+→ spar → fall → respawn → pause → change setting → resume`.
+
+### HK-EXP-010 — Extensible third-person combat proof
+
+The player shall be able to enter a semantic fight zone and complete a minimal
+unarmed exchange without coupling hit decisions to rendering.
+
+Acceptance criteria:
+
+- Combat state is separate from equipped discipline behavior.
+- Shared state owns intent, stamina, targeting, damage/hit results,
+  interruption, knockdown, and recovery.
+- Unarmed supports stance, jab, cross, guard, receive-hit, knockdown, recovery,
+  and exit.
+- Sword and bow semantics remain disabled extension points in v0.7.
+- Damage events identify source, target, discipline, semantic, amount, impact,
+  stagger, knockdown potential, and result.
+- The camera and procedural avatars remain third-person and full-body readable.
+
+Automated by: `hakui.combat`.
+
+### HK-EXP-011 — Reliable third-person camera control
+
+The avatar shall remain the visual center while native input provides a
+controllable orbit camera.
+
+Acceptance criteria:
+
+- RMB begins relative-mouse orbit and button-up stops it.
+- Yaw wraps safely and pitch remains within the authored limits.
+- Wheel zoom, shoulder swap, reset, and sensitivity adjustment remain usable.
+- Focus loss, pause, and shutdown release relative-mouse capture.
+- Resuming never leaves the cursor captured unless the player presses RMB again.
+- Camera rules remain independently testable without SDL or a GPU.
+
+Automated in part by: `hakui.camera`. Native input/capture is a smoke check.
+
+### HK-EXP-012 — Visible personal mobility embodiment
+
+Selectable personal-mobility modes shall have a physical representation and a
+distinct gameplay response.
+
+Acceptance criteria:
+
+- Skateboard mode attaches a grounded deck, trucks, and four readable wheels.
+- BMX mode attaches a frame, wheels, fork, handlebars, seat, and crank region.
+- Avatar height and pose adapt to the active ride.
+- Movement turns the avatar and ride together and advances wheel presentation.
+- Leaving a mode removes its mesh without stale state.
+- Ride modes dismount to on-foot before seating or sparring.
+- Advanced skateboard/BMX tricks remain outside v0.7 scope.
+
+Automated in part by: `hakui.gameplay_movement`. Mesh readability is a native
+visual smoke check.
+
 ## Engine requirements
 
 ### HK-ENG-001 — Dependency firewall
@@ -131,6 +214,19 @@ CrystalHost shall own capability memory, and CrystalGrid references shall detach
 
 Automated by: `spiral.logic` and, when enabled, `spiral.imvu_cal3d_backend`.
 
+### HK-ENG-006 — World/simulation/presentation separation
+
+The world shall advertise descriptive affordances while gameplay systems decide
+their meaning. Presentation may consume gameplay state/events but may not decide
+movement collision, casino outcomes, attacks, hits, damage, or respawn.
+
+Required flow:
+
+`WORLD DESCRIPTION → GAMEPLAY/SIMULATION → PRESENTATION → SDL RENDERER`.
+
+Automated in part by dependency firewalls plus `hakui.gameplay_movement`,
+`hakui.camera`, `hakui.combat`, and `hakui.tabletop`.
+
 ## Quality requirements
 
 ### HK-QLT-001 — Automated validation
@@ -155,18 +251,24 @@ Before a public v1.0 release, the repository shall include an owner-selected lic
 | --- | --- | --- |
 | HK-EXP-001 | Implemented, awaiting CI | `HakuiApp`, Windows native build job |
 | HK-EXP-002 | Implemented, awaiting CI | `PlayerMovementController`, gameplay spec |
-| HK-EXP-003 | Partial | Selection exists; three controllers remain |
+| HK-EXP-003 | Implemented in part locally | On-foot, skateboard, and BMX are distinct; car deferred |
 | HK-EXP-004 | Implemented, awaiting CI | `InteractionService`, interaction spec |
 | HK-EXP-005 | Partial | Debug renderer exists; smoke checklist/media remain |
 | HK-EXP-006 | Implemented, awaiting CI | Card deck, dice, blackjack, tabletop spec |
 | HK-EXP-007 | Implemented, awaiting CI | Game terminal, interaction routing, tabletop spec |
+| HK-EXP-008 | Implemented locally | `BlackRoom`, `WorldGeometry`, gameplay spec |
+| HK-EXP-009 | Implemented locally | Native v0.7 acceptance loop completed; remote CI pending |
+| HK-EXP-010 | Implemented locally | `CombatSimulation`, combat spec, native accessible spar presentation |
+| HK-EXP-011 | Implemented locally | `ThirdPersonCameraRig`, camera spec, native capture smoke |
+| HK-EXP-012 | Implemented locally | Distinct movement profiles and procedural ride models |
 | HK-ENG-001–005 | Implemented, awaiting CI | Firewall and Spiral specs |
+| HK-ENG-006 | Implemented locally | Semantic affordances and dependency-free combat/gameplay targets |
 | HK-QLT-001–003 | Implemented, awaiting CI | CMake, workflow, dependency manifest |
 | HK-QLT-004 | Partial | License and current media require owner input |
 
 ## Open owner decisions
 
 - First-party source license: MIT, Apache-2.0, or proprietary/no-license.
-- Target art direction and the first shippable avatar asset.
+- First shippable authored avatar asset within the established DATA GRUNGE direction.
 - Whether v1.0 networking is local-loopback proof, client/server authoritative, or deferred.
 - Supported release platforms beyond Windows.

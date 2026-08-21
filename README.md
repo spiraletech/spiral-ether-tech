@@ -1,10 +1,10 @@
-# PROJECT HAKUI — Native Client v0.5-dev
+# PROJECT HAKUI — Native Client v0.7-dev
 
 [![Hakui Build and Test](https://github.com/spiraletech/spiral-ether-tech/actions/workflows/native-build.yml/badge.svg)](https://github.com/spiraletech/spiral-ether-tech/actions/workflows/native-build.yml)
 [![C++20](https://img.shields.io/badge/C%2B%2B-20-00599C.svg)](https://en.cppreference.com/w/cpp/20)
 [![SDL3](https://img.shields.io/badge/SDL-3-17365D.svg)](https://www.libsdl.org/)
 
-Hakui is a custom C++20 social/action world client built around a dependency-free **Spiral engine core**, an SDL3 GPU client layer, first-party avatar + interaction systems, and optional capability crystals.
+Hakui is a custom C++20 social/action world client built around a dependency-free **Spiral engine core**, deterministic gameplay/combat layers, an SDL3 GPU client, first-party avatar + interaction systems, and optional capability crystals.
 
 The current milestone is architecture-first, but its dependency-free engine, gameplay, interaction layer, and avatar schema now have executable CTest contracts. GitHub Actions validates those contracts on Linux and Windows and compiles the native SDL3 client on Windows.
 
@@ -37,13 +37,69 @@ cmake --build build --config Release --target hakui --parallel
 
 The resulting executable is `hakui` (`hakui.exe` on Windows). Run it from the selected build-configuration directory used by your generator.
 
-## v0.5 playable-movement milestone
+## v0.7 embodiment pass
+
+v0.7 makes the systems advertised by the specimen physically readable and
+controllable. A dedicated deterministic third-person camera rig now owns safe
+yaw, clamped pitch, zoom, shoulder side, reset, and look sensitivity while SDL
+only supplies native input and capture state. RMB relative-mouse capture is
+released on button-up, focus loss, pause, and shutdown.
+
+The skateboard and BMX modes now use distinct GPU-independent motion profiles
+and visible procedural models. The board includes a deck, trucks, and four
+wheels; the BMX includes two spoked wheels, frame, fork, bars, seat, crank, and
+pedal region. Avatar stance and height change with each mode, and leaving a
+mode removes its model. `CAR` remains deliberately deferred and immobile—there
+is no invisible vehicle pretending to be implemented.
+
+World interactions now resolve authored semantic anchors for seating, the
+Fusion table, and sparring. The combat dummy is permanently visible at the
+FightZone datum, while attack and hit decisions stay in the deterministic
+combat layer. The local native acceptance loop is:
+
+```text
+launch → orbit/zoom → walk/sprint/jump → Fusion table → couch sit/stand
+       → spar/jab/cross/guard → take hit/knockdown/recover → leave
+       → ride skateboard → ride BMX → black-space fall/respawn
+       → pause/change sensitivity/resume
+```
+
+## v0.65 DATA GRUNGE vertical slice
+
+v0.65 turns the native proof into the first canonical HAKUI specimen. The world
+is described as reusable primitives, semantic material roles, and descriptive
+affordance volumes; deterministic systems interpret those descriptions, and the
+SDL renderer presents their results.
+
+The acceptance loop is:
+
+```text
+spawn → orient → walk/sprint/jump → ramp/platform traversal
+      → sit/stand → anchored Fusion table session
+      → enter spar → jab/cross/guard → hit/knockdown/recover → leave
+      → fall through black space → respawn → pause/settings/resume
+```
+
+Current world identity includes powder-concrete masses, deliberate negative
+space, a ramp and elevated unfinished gallery, CRT datum lines, sparse luminous
+signage, a void couch, a fictional Fusion terminal/card table, a sculptural
+monument, and a readable sparring datum. See
+[`docs/DATA_GRUNGE_WORLD_GRAMMAR.md`](docs/DATA_GRUNGE_WORLD_GRAMMAR.md).
+
+Combat is weapon-agnostic at its core. Unarmed is the only playable v0.65
+discipline; sword and bow semantics are declared extension seams, not partially
+implemented features. Hit decisions remain deterministic and renderer-free.
+
+## Native architecture
 
 ```text
 HAKUI CLIENT
 ├── SDL3 platform / input / GPU
 ├── debug 3D world renderer
-├── immediate gameplay locomotion
+├── semantic world description + affordances
+├── deterministic movement / interaction / tabletop
+├── generic combat simulation
+│   └── playable unarmed discipline
 ├── Hakui-owned avatar rig
 ├── Hakui interaction layer
 └── SpiralKernel heartbeat
@@ -76,14 +132,17 @@ Hakui's visible proof slice currently contains:
 
 - SDL3 GPU graphics pipeline
 - depth-tested 3D rendering
-- smooth third-person follow camera with right-mouse orbit, wheel zoom, and reset
+- third-person-first camera roles for follow, interactions, combat framing, and future target/duel/director framing
+- deterministic camera rig with native RMB capture, clamped orbit, wheel zoom, shoulder switch, reset, collision, and gamepad look
 - persistent player world transform
-- WASD on-foot movement
-- Shift sprint
-- camera-relative WASD steering
-- procedural cuboid humanoid with idle breathing, walk/run gait, body bob, and limb swing
-- world grid and skyline markers for readable motion and camera parallax
-- large world floor
+- acceleration/deceleration, camera-relative WASD movement, sprint, jump, collision, ramps, elevated surfaces, black-space fall, and respawn
+- camera-relative WASD steering with distinct on-foot, skateboard, and BMX motion profiles
+- procedural full-body avatar with idle/walk/run/jump/seated/combat poses and visible hit/knockdown response
+- attached procedural skateboard and BMX models with mode-specific riding poses and wheel motion
+- modular DATA GRUNGE specimen geometry and semantic 8-role material vocabulary
+- contextual couch/table seating and table-anchored casino controls
+- deterministic unarmed sparring with stance, jab, cross, guard, stamina, hit reaction, knockdown, and recovery
+- procedural footsteps, interaction, casino, void, and combat audio cues
 - AUM phase + Monolith event count + StateStore revision telemetry
 - locomotion state changes published into Router Bus / StateStore
 - a vendor-neutral Fusion Deck terminal with deterministic card and dice apps
@@ -280,6 +339,8 @@ spiral_logic_spec
 hakui_interaction_spec
 hakui_avatar_rig_spec
 hakui_gameplay_spec
+hakui_camera_spec
+hakui_combat_spec
 hakui_tabletop_spec
 imvu_cal3d_backend_spec
 ```
@@ -287,28 +348,44 @@ imvu_cal3d_backend_spec
 ## Controls
 
 ```text
-W A S D       move on foot
-Shift         sprint
+W A S D       move / steer current supported mode
+Shift         sprint / push / pedal
+Space         jump on foot
+RMB           orbit third-person camera
+Mouse wheel   zoom camera
+Q             switch shoulder
+R             reset camera framing
 1             on-foot mode
 2             skateboard mode
 3             BMX mode
-4             car mode
+4             car mode (explicitly deferred / immobile)
+E             sit, stand, or use nearest authored anchor
+C             enter / leave sparring datum
+Z / X         jab / cross
+V             hold guard
+K             recover after knockdown
 T             power/use terminal; roll dice when online
 G             open the 52-card table suite
 B             begin a round with 25 virtual credits
 H             hit
 J             stand
 I             inspect the terminal
-Esc           quit
+Esc           pause / resume
+F10           quit
 ```
 
 The tabletop suite uses fictional virtual credits only. It has no real-money purchase, deposit, cash-out, marketplace, or external gambling integration. Terminal models—Nebula Tower, Orchard Glass, and Fusion Deck—are original in-world identities and do not represent real hardware companies.
 
-Only on-foot physics is implemented in the visible proof slice; the other locomotion states are scaffolds.
+On-foot, skateboard, and BMX movement are implemented in the v0.7 proof slice.
+Advanced tricks, grinds, manuals, bunny hops, and vehicle simulation remain
+future work. Car mode is visibly labeled `CAR DEFERRED` and does not move.
 
 ## Dependency firewall
 
-CMake scans first-party Spiral Core, avatar-rig, gameplay, interaction, and tabletop sources and rejects direct SDL3, Cal3D, Boost, or RapidXML includes in those layers. The explicit optional crystal backend directory is the deliberate legacy-runtime exception.
+CMake scans first-party Spiral Core, avatar-rig, gameplay, camera, combat,
+interaction, and tabletop sources and rejects direct SDL3, Cal3D, Boost, or
+RapidXML includes in those layers. The explicit optional crystal backend
+directory is the deliberate legacy-runtime exception.
 
 ## Vocabulary map
 
