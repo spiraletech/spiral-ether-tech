@@ -9,6 +9,7 @@
 #include <vector>
 
 #include "input/HakuiInput.hpp"
+#include "social/ChatSystem.hpp"
 #include "world/WorldGeometry.hpp"
 
 namespace hakui::observer {
@@ -20,7 +21,7 @@ struct Vec3 {
 };
 
 struct BuildObservation {
-    std::string hakuiVersion = "0.85-dev";
+    std::string hakuiVersion = "0.86-dev";
     std::string configuration = "unknown";
     std::string gitCommit = "unknown";
     std::string gitBranch = "unknown";
@@ -138,12 +139,44 @@ struct RideControlObservation {
     float preloadSaturationTime = 0.0f;
 };
 
+struct SeatAnchorObservation {
+    std::uint32_t id = 0;
+    std::uint32_t furnitureAffordanceId = 0;
+    std::string label;
+    Vec3 localPosition{};
+    float localYaw = 0.0f;
+    Vec3 worldPosition{};
+    float worldYaw = 0.0f;
+    bool occupied = false;
+    std::string poseProfile;
+};
+
+struct SocialObservation {
+    std::string inputOwner = "GameplayInput";
+    bool chatInputActive = false;
+    std::string chatBuffer;
+    std::size_t recentMessageCount = 0;
+    std::uint64_t lastMessageId = 0;
+    std::string lastMessageText;
+    std::uint32_t lastSpeakerId = 0;
+    std::string speechIntent = "Neutral";
+    bool bubbleActive = false;
+    float bubbleRemaining = 0.0f;
+    Vec3 bubbleAnchorPosition{};
+    std::string currentSocialGesture = "None";
+    std::string lastChannel = "System";
+    std::string lastMessageSource = "SystemAI";
+    std::string bubbleStyle = "LocalSpeech";
+    std::string environmentModifier = "None";
+};
+
 struct CaptureContext {
     BuildObservation build;
-    std::string worldVersion = "black-room.v0.85";
+    std::string worldVersion = "black-room.v0.86";
     std::string environmentId = "data-grunge.black-room";
     std::span<const WorldPrimitive> geometry;
     std::span<const WorldAffordanceVolume> affordances;
+    std::vector<SeatAnchorObservation> seatAnchors;
     Vec3 spawn{};
     float voidResetHeight = -12.0f;
     std::vector<EntityObservation> entities;
@@ -151,6 +184,7 @@ struct CaptureContext {
     std::uint32_t connectedGamepads = 0;
     bool rideEligible = false;
     RideControlObservation rideControl;
+    SocialObservation social;
     std::string currentInteractionIntent = "none";
     CameraObservation camera;
     RuntimeObservation runtime;

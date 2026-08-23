@@ -207,6 +207,22 @@ std::string worldJson(const CaptureContext& context)
                << ",\"z\":" << volume.secondaryAnchor.z << ",\"yaw\":" << volume.secondaryAnchor.yaw
                << "}}" << (index + 1 == context.affordances.size() ? "\n" : ",\n");
     }
+    output << "  ],\n  \"seat_anchors\": [\n";
+    for (std::size_t index = 0; index < context.seatAnchors.size(); ++index) {
+        const SeatAnchorObservation& seat = context.seatAnchors[index];
+        output << "    {\"id\":" << seat.id
+               << ",\"furniture_affordance_id\":"
+               << seat.furnitureAffordanceId
+               << ",\"label\":\"" << jsonEscape(seat.label)
+               << "\",\"local_position\":" << vec3Json(seat.localPosition)
+               << ",\"local_yaw\":" << seat.localYaw
+               << ",\"world_position\":" << vec3Json(seat.worldPosition)
+               << ",\"world_yaw\":" << seat.worldYaw
+               << ",\"occupied\":" << (seat.occupied ? "true" : "false")
+               << ",\"pose_profile\":\"" << jsonEscape(seat.poseProfile)
+               << "\"}"
+               << (index + 1 == context.seatAnchors.size() ? "\n" : ",\n");
+    }
     output << "  ]\n}\n";
     return output.str();
 }
@@ -287,6 +303,8 @@ std::string inputJson(const CaptureContext& context)
     std::ostringstream output;
     output << "{\n  \"active_input_device\": \""
            << input::InputResolver::deviceName(activeDevice)
+           << "\",\n  \"input_ownership\": \""
+           << jsonEscape(context.social.inputOwner)
            << "\",\n  \"controller_layout\": \""
            << input::InputResolver::controllerLayoutName(
                context.input.controllerLayout
@@ -374,6 +392,36 @@ std::string inputJson(const CaptureContext& context)
                << (index + 1 == input::actionCount ? "\n" : ",\n");
     }
     output << "  ]\n}\n";
+    return output.str();
+}
+
+std::string socialJson(const SocialObservation& social)
+{
+    std::ostringstream output;
+    output << std::fixed << std::setprecision(4)
+           << "{\n  \"input_owner\": \"" << jsonEscape(social.inputOwner)
+           << "\",\n  \"chat_input_active\": "
+           << (social.chatInputActive ? "true" : "false")
+           << ",\n  \"chat_buffer\": \"" << jsonEscape(social.chatBuffer)
+           << "\",\n  \"recent_message_count\": " << social.recentMessageCount
+           << ",\n  \"last_message_id\": " << social.lastMessageId
+           << ",\n  \"last_message_text\": \""
+           << jsonEscape(social.lastMessageText)
+           << "\",\n  \"last_speaker_id\": " << social.lastSpeakerId
+           << ",\n  \"last_channel\": \"" << jsonEscape(social.lastChannel)
+           << "\",\n  \"last_message_source\": \""
+           << jsonEscape(social.lastMessageSource)
+           << "\",\n  \"speech_intent\": \"" << jsonEscape(social.speechIntent)
+           << "\",\n  \"bubble_active\": "
+           << (social.bubbleActive ? "true" : "false")
+           << ",\n  \"bubble_remaining\": " << social.bubbleRemaining
+           << ",\n  \"bubble_anchor_position\": "
+           << vec3Json(social.bubbleAnchorPosition)
+           << ",\n  \"bubble_style\": \"" << jsonEscape(social.bubbleStyle)
+           << "\",\n  \"environment_modifier\": \""
+           << jsonEscape(social.environmentModifier)
+           << "\",\n  \"current_social_gesture\": \""
+           << jsonEscape(social.currentSocialGesture) << "\"\n}\n";
     return output.str();
 }
 
@@ -580,6 +628,7 @@ ExportResult ExpertObserver::capture(
         !write("WorldSnapshot.json", worldJson(context)) ||
         !write("EntitySnapshot.json", entitiesJson(context.entities)) ||
         !write("InputSnapshot.json", inputJson(context)) ||
+        !write("SocialSnapshot.json", socialJson(context.social)) ||
         !write("CameraSnapshot.json", cameraJson(context.camera)) ||
         !write("RuntimeSnapshot.json", runtimeJson(context.runtime)) ||
         !write("Runtime.log", runtimeLog(context.runtime)) ||
@@ -615,6 +664,7 @@ ExportResult ExpertObserver::capture(
              << "    \"world\": \"WorldSnapshot.json\",\n"
              << "    \"entities\": \"EntitySnapshot.json\",\n"
              << "    \"input\": \"InputSnapshot.json\",\n"
+             << "    \"social\": \"SocialSnapshot.json\",\n"
              << "    \"camera\": \"CameraSnapshot.json\",\n"
              << "    \"runtime_state\": \"RuntimeSnapshot.json\",\n"
              << "    \"map\": \"MapSnapshot.svg\",\n"

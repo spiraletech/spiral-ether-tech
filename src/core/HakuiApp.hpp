@@ -19,6 +19,7 @@
 #include "player/RideableMovementController.hpp"
 #include "player/PlayerState.hpp"
 #include "render/DebugWorldRenderer.hpp"
+#include "social/ChatSystem.hpp"
 #include "spiral/SpiralKernel.hpp"
 #include "systems/LocomotionRouter.hpp"
 #include "world/WorldState.hpp"
@@ -46,6 +47,9 @@ private:
     void updateCombat(float dt, const hakui::input::DisciplineIntent& intent);
     bool setCameraCapture(bool enabled);
     void setPaused(bool paused);
+    void beginChatInput();
+    void commitChatInput();
+    void cancelChatInput();
     void openGamepad(SDL_JoystickID instanceId);
     void updateHud();
     void update(float dt);
@@ -92,6 +96,7 @@ private:
     WorldState world_;
     hakui::BlackRoom blackRoom_;
     hakui::combat::CombatSimulation combat_;
+    hakui::social::ChatSystem chat_;
     PlayerState player_;
     hakui::PlayerMovementController movement_;
     hakui::RideableMovementController rideable_;

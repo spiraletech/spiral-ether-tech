@@ -2,10 +2,12 @@
 
 #include <algorithm>
 #include <array>
+#include <cctype>
 #include <cmath>
 #include <cstddef>
 #include <cstdint>
 #include <cstring>
+#include <string>
 #include <vector>
 
 #include "avatar/AvatarGroundContact.hpp"
@@ -128,6 +130,92 @@ float smoothToward(float current, float target, float response, float deltaSecon
 {
     const float blend = 1.0f - std::exp(-response * std::max(deltaSeconds, 0.0f));
     return current + (target - current) * blend;
+}
+
+using GlyphRows = std::array<std::uint8_t, 7>;
+
+GlyphRows glyphRows(char source) noexcept
+{
+    const char character = static_cast<char>(std::toupper(
+        static_cast<unsigned char>(source)
+    ));
+    switch (character) {
+    case 'A': return {14,17,17,31,17,17,17};
+    case 'B': return {30,17,17,30,17,17,30};
+    case 'C': return {14,17,16,16,16,17,14};
+    case 'D': return {30,17,17,17,17,17,30};
+    case 'E': return {31,16,16,30,16,16,31};
+    case 'F': return {31,16,16,30,16,16,16};
+    case 'G': return {14,17,16,23,17,17,15};
+    case 'H': return {17,17,17,31,17,17,17};
+    case 'I': return {31,4,4,4,4,4,31};
+    case 'J': return {7,2,2,2,18,18,12};
+    case 'K': return {17,18,20,24,20,18,17};
+    case 'L': return {16,16,16,16,16,16,31};
+    case 'M': return {17,27,21,21,17,17,17};
+    case 'N': return {17,25,21,19,17,17,17};
+    case 'O': return {14,17,17,17,17,17,14};
+    case 'P': return {30,17,17,30,16,16,16};
+    case 'Q': return {14,17,17,17,21,18,13};
+    case 'R': return {30,17,17,30,20,18,17};
+    case 'S': return {15,16,16,14,1,1,30};
+    case 'T': return {31,4,4,4,4,4,4};
+    case 'U': return {17,17,17,17,17,17,14};
+    case 'V': return {17,17,17,17,17,10,4};
+    case 'W': return {17,17,17,21,21,21,10};
+    case 'X': return {17,17,10,4,10,17,17};
+    case 'Y': return {17,17,10,4,4,4,4};
+    case 'Z': return {31,1,2,4,8,16,31};
+    case '0': return {14,17,19,21,25,17,14};
+    case '1': return {4,12,4,4,4,4,14};
+    case '2': return {14,17,1,2,4,8,31};
+    case '3': return {30,1,1,14,1,1,30};
+    case '4': return {2,6,10,18,31,2,2};
+    case '5': return {31,16,16,30,1,1,30};
+    case '6': return {14,16,16,30,17,17,14};
+    case '7': return {31,1,2,4,8,8,8};
+    case '8': return {14,17,17,14,17,17,14};
+    case '9': return {14,17,17,15,1,1,14};
+    case '?': return {14,17,1,2,4,0,4};
+    case '!': return {4,4,4,4,4,0,4};
+    case '.': return {0,0,0,0,0,6,6};
+    case ',': return {0,0,0,0,6,6,4};
+    case ':': return {0,6,6,0,6,6,0};
+    case '-': return {0,0,0,31,0,0,0};
+    case '_': return {0,0,0,0,0,0,31};
+    case '>': return {16,8,4,2,4,8,16};
+    case '/': return {1,2,2,4,8,8,16};
+    case '\'': return {4,4,2,0,0,0,0};
+    default: return {};
+    }
+}
+
+std::string fontDisplayText(std::string_view utf8, std::size_t maximum)
+{
+    std::string output;
+    output.reserve(std::min(maximum, utf8.size()));
+    std::size_t offset = 0;
+    while (offset < utf8.size() && output.size() < maximum) {
+        const unsigned char lead = static_cast<unsigned char>(utf8[offset]);
+        if (lead < 0x80u) {
+            output.push_back(lead >= 0x20u && lead <= 0x7eu
+                ? static_cast<char>(lead) : '?');
+            ++offset;
+            continue;
+        }
+        std::size_t length = (lead & 0xe0u) == 0xc0u ? 2u
+            : (lead & 0xf0u) == 0xe0u ? 3u
+            : (lead & 0xf8u) == 0xf0u ? 4u : 1u;
+        output.push_back('?');
+        offset = std::min(offset + length, utf8.size());
+    }
+    if (offset < utf8.size() && maximum >= 3) {
+        if (output.size() > maximum - 3) {
+            output.resize(maximum - 3);
+        }
+        output += "...";
+    }
+    return output;
 }
 
 } // namespace
@@ -302,7 +390,7 @@ bool DebugWorldRenderer::init(SDL_GPUDevice* device, SDL_Window* window)
         return false;
     }
 
-    SDL_Log("[HAKUI] v0.85 DATA GRUNGE renderer // body mechanics online");
+    SDL_Log("[HAKUI] v0.86 DATA GRUNGE renderer // social language online");
     return true;
 }
 
@@ -632,6 +720,97 @@ bool DebugWorldRenderer::render(
                        const Vec3& dimensions,
                        Uint32 palette = Shell) {
         drawModel(multiply(translation(position), scale(dimensions)), palette);
+    };
+
+    auto drawWorldText = [&](std::string_view text,
+                             const Mat4& root,
+                             float cellWidth,
+                             float cellHeight,
+                             float depth,
+                             std::size_t charactersPerLine,
+                             Uint32 palette) {
+        std::size_t column = 0;
+        std::size_t line = 0;
+        for (const char character : text) {
+            if (character == '\n' || column >= charactersPerLine) {
+                ++line;
+                column = 0;
+                if (character == '\n') {
+                    continue;
+                }
+            }
+            const GlyphRows rows = glyphRows(character);
+            for (std::size_t row = 0; row < rows.size(); ++row) {
+                for (std::size_t bit = 0; bit < 5; ++bit) {
+                    if ((rows[row] & (1u << (4u - bit))) == 0) {
+                        continue;
+                    }
+                    const float x = (
+                        static_cast<float>(column * 6 + bit) + 0.5f
+                    ) * cellWidth;
+                    const float y = -(
+                        static_cast<float>(line * 9 + row) + 0.5f
+                    ) * cellHeight;
+                    drawModel(
+                        multiply(
+                            root,
+                            multiply(
+                                translation({x, y, 0.0f}),
+                                scale({cellWidth * 0.82f,
+                                       cellHeight * 0.82f,
+                                       depth})
+                            )
+                        ),
+                        palette
+                    );
+                }
+            }
+            ++column;
+        }
+    };
+
+    auto drawClipModel = [&](const Mat4& clipModel, Uint32 palette) {
+        SDL_PushGPUVertexUniformData(
+            commands, 0, clipModel.m, sizeof(clipModel.m)
+        );
+        SDL_DrawGPUPrimitives(
+            pass,
+            kCubeVertexCount,
+            1,
+            palette * kCubeVertexCount,
+            0
+        );
+    };
+
+    auto drawClipText = [&](std::string_view text,
+                            float originX,
+                            float originY,
+                            float cellWidth,
+                            float cellHeight,
+                            Uint32 palette) {
+        for (std::size_t column = 0; column < text.size(); ++column) {
+            const GlyphRows rows = glyphRows(text[column]);
+            for (std::size_t row = 0; row < rows.size(); ++row) {
+                for (std::size_t bit = 0; bit < 5; ++bit) {
+                    if ((rows[row] & (1u << (4u - bit))) == 0) {
+                        continue;
+                    }
+                    const float x = originX +
+                        static_cast<float>(column * 6 + bit) * cellWidth;
+                    const float y = originY -
+                        static_cast<float>(row) * cellHeight;
+                    drawClipModel(
+                        multiply(
+                            translation({x, y, 0.005f}),
+                            scale({cellWidth * 0.84f,
+                                   cellHeight * 0.84f,
+                                   0.002f})
+                        ),
+                        palette
+                    );
+                }
+            }
+        }
     };
 
     // The renderer consumes a semantic world description. Layout, repetition,
@@ -999,6 +1178,40 @@ bool DebugWorldRenderer::render(
     const bool rideBail = (ridingSkateboard || ridingBmx) &&
         scene.rideable.phase == hakui::RidePhase::Crash;
     const bool mounted = (ridingSkateboard || ridingBmx) && !rideBail;
+    const bool socialAllowed = !mounted && !rideBail && !scene.combatActive;
+    const float socialWeight = socialAllowed
+        ? std::clamp(scene.socialGestureWeight, 0.0f, 1.0f)
+        : 0.0f;
+    float socialTorsoPitch = 0.0f;
+    float socialTorsoRoll = 0.0f;
+    float socialHeadPitch = 0.0f;
+    float socialHeadRoll = 0.0f;
+    using hakui::social::SocialGesture;
+    switch (scene.socialGesture) {
+    case SocialGesture::Nod:
+        socialHeadPitch = 0.16f * socialWeight;
+        break;
+    case SocialGesture::HeadTilt:
+        socialHeadRoll = 0.13f * socialWeight;
+        break;
+    case SocialGesture::DisagreementTilt:
+        socialHeadRoll = -0.14f * socialWeight;
+        socialTorsoRoll = -0.025f * socialWeight;
+        break;
+    case SocialGesture::LaughPulse:
+        socialHeadPitch = -0.08f * socialWeight;
+        socialTorsoPitch = 0.07f * socialWeight;
+        break;
+    case SocialGesture::ExcitedPulse:
+        socialTorsoPitch = -0.055f * socialWeight;
+        break;
+    case SocialGesture::ConversationalIdle:
+        socialTorsoRoll = 0.018f * socialWeight;
+        break;
+    case SocialGesture::GreetingWave:
+    case SocialGesture::None:
+        break;
+    }
     const float gait = std::sin(player.gaitPhase);
     const float counterGait = std::sin(player.gaitPhase + kPi);
     const float groundedBlend = player.grounded ? 1.0f : 0.20f;
@@ -1402,12 +1615,13 @@ bool DebugWorldRenderer::render(
                 multiply(
                     rotationX(
                         airborneLean + expressiveRideLean +
-                        (mounted ? scene.rideable.body.torsoLean : 0.0f)
+                        (mounted ? scene.rideable.body.torsoLean : 0.0f) +
+                        socialTorsoPitch
                     ),
                     multiply(
                         rotationZ(
                             bodySway + expressiveRideSway + impactLean +
-                            bodyAssistVisual
+                            bodyAssistVisual + socialTorsoRoll
                         ),
                         scale({0.92f, 0.94f, 0.48f})
                     )
@@ -1441,6 +1655,10 @@ bool DebugWorldRenderer::render(
             leftArmAngle = 0.52f;
             rightArmAngle = 0.20f;
         }
+    }
+    if (socialAllowed &&
+        scene.socialGesture == SocialGesture::GreetingWave) {
+        rightArmAngle = -1.05f - 0.42f * socialWeight;
     }
     if (mounted && ridingBmx) {
         contactArm(
@@ -1495,18 +1713,106 @@ bool DebugWorldRenderer::render(
     const float headYaw = mounted
         ? scene.rideable.body.headYawRelativeToBoard
         : 0.0f;
-    orientedLocalBox(
+    const auto socialHeadBox = [&](const Vec3& position,
+                                   const Vec3& dimensions,
+                                   Uint32 palette) {
+        drawModel(
+            multiply(
+                avatarRoot,
+                multiply(
+                    translation(position),
+                    multiply(
+                        rotationY(headYaw),
+                        multiply(
+                            rotationX(socialHeadPitch),
+                            multiply(rotationZ(socialHeadRoll), scale(dimensions))
+                        )
+                    )
+                )
+            ),
+            palette
+        );
+    };
+    socialHeadBox(
         {0.0f, 2.28f + idleBreath - rideCompression, 0.0f},
         {0.22f, 0.18f, 0.22f},
-        headYaw,
         Cyan
     );
-    orientedLocalBox(
+    socialHeadBox(
         {0.0f, 2.60f + idleBreath - rideCompression, 0.0f},
         {0.56f, 0.58f, 0.52f},
-        headYaw,
         Shell
     );
+
+    if (scene.chatBubbleActive && !scene.chatBubbleText.empty()) {
+        const std::string display = fontDisplayText(scene.chatBubbleText, 36);
+        constexpr std::size_t charactersPerLine = 18;
+        const std::size_t lineCount = std::max<std::size_t>(
+            1,
+            (display.size() + charactersPerLine - 1) / charactersPerLine
+        );
+        const std::size_t longestLine = std::min(
+            display.size(), charactersPerLine
+        );
+        const float distanceScale = std::clamp(
+            cameraDistance_ / 9.5f, 0.82f, 1.42f
+        );
+        const float cellWidth = 0.026f * distanceScale;
+        const float cellHeight = 0.034f * distanceScale;
+        const float panelWidth = std::max(
+            1.20f * distanceScale,
+            (static_cast<float>(longestLine * 6) + 3.0f) * cellWidth
+        );
+        const float panelHeight = (
+            static_cast<float>(lineCount * 9) + 3.0f
+        ) * cellHeight;
+        const float bubbleYaw = std::atan2(
+            cameraEyeX_ - player.x,
+            cameraEyeZ_ - player.z
+        );
+        const Mat4 bubbleRoot = multiply(
+            translation({
+                player.x,
+                player.y + groundContact.visualRootAbovePlayerBase +
+                    3.34f - rideCompression,
+                player.z
+            }),
+            rotationY(bubbleYaw)
+        );
+        drawModel(
+            multiply(
+                bubbleRoot,
+                multiply(
+                    translation({panelWidth * 0.5f, -panelHeight * 0.5f, 0.05f}),
+                    scale({panelWidth, panelHeight, 0.075f})
+                )
+            ),
+            Void
+        );
+        const Uint32 bubbleAccent = scene.speechIntent ==
+            hakui::social::SpeechIntent::Excited ? Magenta : Cyan;
+        drawModel(
+            multiply(
+                bubbleRoot,
+                multiply(
+                    translation({panelWidth * 0.5f, 0.015f, 0.0f}),
+                    scale({panelWidth, 0.045f, 0.085f})
+                )
+            ),
+            bubbleAccent
+        );
+        drawWorldText(
+            display,
+            multiply(bubbleRoot, translation({cellWidth * 1.5f,
+                                               -cellHeight * 1.8f,
+                                               -0.006f})),
+            cellWidth,
+            cellHeight,
+            0.045f,
+            charactersPerLine,
+            Shell
+        );
+    }
 
     if (scene.sparDummyVisible) {
         using hakui::combat::AttackSemantic;
@@ -1596,6 +1902,27 @@ bool DebugWorldRenderer::render(
         // native HUD title until the dedicated glyph atlas lands.
         drawBox({0.0f, 3.25f, 2.2f}, {4.8f, 0.12f, 0.12f}, Danger);
         drawBox({0.0f, 2.85f, 2.2f}, {2.8f, 0.08f, 0.08f}, Amber);
+    }
+
+    if (scene.chatInputActive) {
+        std::string entry = "CHAT//> ";
+        entry += fontDisplayText(scene.chatInputBuffer, 44);
+        entry += "_";
+        drawClipModel(
+            multiply(
+                translation({0.0f, -0.82f, 0.016f}),
+                scale({1.82f, 0.24f, 0.004f})
+            ),
+            Void
+        );
+        drawClipModel(
+            multiply(
+                translation({0.0f, -0.695f, 0.012f}),
+                scale({1.82f, 0.018f, 0.004f})
+            ),
+            Cyan
+        );
+        drawClipText(entry, -0.84f, -0.765f, 0.0042f, 0.017f, Shell);
     }
 
     SDL_EndGPURenderPass(pass);

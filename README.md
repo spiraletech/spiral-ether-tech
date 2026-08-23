@@ -1,4 +1,4 @@
-# PROJECT HAKUI — Native Client v0.85-dev
+# PROJECT HAKUI — Native Client v0.86-dev
 
 [![Hakui Build and Test](https://github.com/spiraletech/spiral-ether-tech/actions/workflows/native-build.yml/badge.svg)](https://github.com/spiraletech/spiral-ether-tech/actions/workflows/native-build.yml)
 [![C++20](https://img.shields.io/badge/C%2B%2B-20-00599C.svg)](https://en.cppreference.com/w/cpp/20)
@@ -36,6 +36,28 @@ cmake --build build --config Release --target hakui --parallel
 ```
 
 The resulting executable is `hakui` (`hakui.exe` on Windows). Run it from the selected build-configuration directory used by your generator.
+
+## v0.86 social chat + interaction overhaul
+
+v0.86 turns typed language into a deterministic local world event. `Enter`
+opens an SDL text-input context; Unicode-aware editing, bounded message length,
+commit/cancel behavior, and a 48-message history live in the GPU-independent
+social layer. While chat owns input, typed gameplay keys cannot move, fight,
+interact, ride, orbit, pause, or invoke developer actions. The previously active
+controller prompt family is restored when text entry ends.
+
+Local avatar messages produce camera-facing, distance-clamped DATA GRUNGE chat
+bubbles and conservative speech intents such as Greeting, Question, Agreement,
+Laugh, and Excited. Those intents drive subtle, short social gestures below
+locomotion, ride, combat, and interaction authority. System messages remain
+distinct and do not impersonate the avatar; NPC, SystemAI, and Saelis sources
+exist only as future-safe semantics.
+
+The couch regression is corrected at the same foundation: left and right slots
+now share one local-to-world transform/reservation/pelvis path, interaction
+chooses the nearest free slot, both sides have authored cushions, and observer
+snapshots export both resolved slots plus chat state. Remote publication remains
+separate from this local milestone.
 
 ## v0.85 body mechanics + social embodiment
 
@@ -469,6 +491,7 @@ hakui_avatar_rig
 hakui_interaction
 hakui_gameplay
 hakui_input
+hakui_social
 hakui_observer
 hakui_tabletop
 hakui
@@ -485,6 +508,7 @@ hakui_avatar_rig_spec
 hakui_gameplay_spec
 hakui_rideable_spec
 hakui_input_spec
+hakui_social_spec
 hakui_observer_spec
 hakui_camera_spec
 hakui_combat_spec
@@ -507,6 +531,9 @@ Left Ctrl     balance / manual
 C             cancel / dismount / enter or leave sparring
 R             recover / camera reset
 Esc           pause / resume
+Enter         open chat; send while chat owns input
+Backspace     edit chat buffer
+Escape        cancel chat entry without opening pause
 F12           capture read-only Expert Observer bundle
 
 GAMEPAD

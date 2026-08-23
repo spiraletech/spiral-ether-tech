@@ -270,6 +270,28 @@ Exit signal: the skater reads as sideways and connected, preload/air/landing
 mechanics are visible, BMX limbs explain the machine, and couch seating chooses
 a reservable side slot instead of the center.
 
+## M4.86 — v0.86 social chat + interaction overhaul
+
+- Repair left/right couch selection and presentation while preserving the same
+  local-slot-to-world reservation and pelvis-alignment pipeline on both sides.
+- Add a dependency-free social-language layer for bounded local/system history,
+  Unicode-aware editing, bubble lifetime, speech intent, and gesture selection.
+- Give SDL text input exclusive `ChatInput` ownership so typed gameplay and
+  developer keys cannot leak into avatar, ride, combat, camera, or interaction.
+- Render camera-facing avatar bubbles, a compact lower-edge entry surface, and
+  subtle social gestures beneath all physical animation authorities.
+- Extend Expert Observer with every couch slot plus complete chat, source,
+  intent, bubble-anchor, lifetime, and gesture diagnostics.
+
+Current state: implemented locally on `codex/social-chat-interaction-v0.86`;
+dependency-free specifications and the native SDL client compile locally.
+Remote operations remain unauthorized.
+
+Exit signal: the player can chat while roaming or seated, typing never moves the
+avatar, local speech becomes an avatar-attached world event, system text remains
+distinct, both couch slots survive repeated cycles, and all v0.85 systems retain
+authority.
+
 ## M5 — World persistence and replay
 
 - Define a versioned StateStore snapshot schema.

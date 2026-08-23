@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.25)
 
 project(Hakui
-    VERSION 0.85.0
+    VERSION 0.86.0
     DESCRIPTION "Project Hakui native client"
     LANGUAGES CXX
 )
@@ -32,6 +32,9 @@ include(cmake/HakuiGameplay.cmake)
 
 # Platform-neutral player intent, binding, prompt, and device-activity rules.
 include(cmake/HakuiInput.cmake)
+
+# Deterministic local language events, bounded history, and social reactions.
+include(cmake/HakuiSocial.cmake)
 
 # Read-only, deterministic expert inspection schemas and exporters.
 include(cmake/HakuiObserver.cmake)
@@ -151,6 +154,7 @@ if(HAKUI_BUILD_NATIVE_CLIENT)
             hakui_interaction
             hakui_gameplay
             hakui_input
+            hakui_social
             hakui_observer
             hakui_camera
             hakui_combat

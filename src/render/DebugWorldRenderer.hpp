@@ -1,6 +1,7 @@
 #pragma once
 
 #include <span>
+#include <string_view>
 
 #include <SDL3/SDL.h>
 
@@ -8,6 +9,7 @@
 #include "combat/CombatSimulation.hpp"
 #include "player/PlayerState.hpp"
 #include "player/RideableMovementController.hpp"
+#include "social/ChatSystem.hpp"
 #include "world/WorldGeometry.hpp"
 
 enum class CameraRole {
@@ -49,6 +51,17 @@ struct HakuiSceneState {
     float opponentHitPulse = 0.0f;
     float playerStanceBlend = 0.0f;
     float opponentStanceBlend = 0.0f;
+    bool chatInputActive = false;
+    std::string_view chatInputBuffer{};
+    bool chatBubbleActive = false;
+    std::string_view chatBubbleText{};
+    float chatBubbleRemaining = 0.0f;
+    float chatBubbleTotal = 0.0f;
+    hakui::social::SpeechIntent speechIntent =
+        hakui::social::SpeechIntent::Neutral;
+    hakui::social::SocialGesture socialGesture =
+        hakui::social::SocialGesture::None;
+    float socialGestureWeight = 0.0f;
     hakui::RideableState rideable{};
 };
 

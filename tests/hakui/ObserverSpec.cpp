@@ -51,11 +51,17 @@ int main()
 
     CaptureContext context;
     context.build = {
-        "0.85-dev", "spec", "abc123", "codex/body-mechanics-social-seating-v0.85",
+        "0.86-dev", "spec", "abc123", "codex/social-chat-interaction-v0.86",
         "2026-08-23", "test", "none"
     };
     context.geometry = geometry;
     context.affordances = affordances;
+    context.seatAnchors = {
+        {100201, 7001, "VOID COUCH LEFT", {-0.82f, 0.0f, 0.0f},
+         0.0f, {6.54f, 0.0f, 3.92f}, 3.14159f, false, "LoungeRelaxed"},
+        {100202, 7001, "VOID COUCH RIGHT", {0.82f, 0.0f, 0.0f},
+         0.0f, {4.90f, 0.0f, 3.92f}, 3.14159f, true, "LoungeRelaxed"}
+    };
     context.spawn = {0.0f, 0.0f, 2.0f};
     context.entities.push_back({
         1,
@@ -118,6 +124,20 @@ int main()
     context.rideControl.popPreparing = true;
     context.rideControl.popPreload = 0.75f;
     context.rideControl.preloadSaturationTime = 0.42f;
+    context.social.inputOwner = "ChatInput";
+    context.social.chatInputActive = true;
+    context.social.chatBuffer = "hello";
+    context.social.recentMessageCount = 2;
+    context.social.lastMessageId = 42;
+    context.social.lastMessageText = "hello?";
+    context.social.lastSpeakerId = 1;
+    context.social.speechIntent = "Question";
+    context.social.bubbleActive = true;
+    context.social.bubbleRemaining = 2.75f;
+    context.social.bubbleAnchorPosition = {0.0f, 3.34f, 2.0f};
+    context.social.currentSocialGesture = "HeadTilt";
+    context.social.lastChannel = "Local";
+    context.social.lastMessageSource = "HumanPlayer";
     context.camera.position = {2.0f, 3.0f, 6.0f};
     context.camera.target = {0.0f, 1.25f, 2.0f};
     context.runtime.recentEvents = {"[0.000] [boot] WORLD ONLINE"};
@@ -149,6 +169,7 @@ int main()
         "WorldSnapshot.json",
         "EntitySnapshot.json",
         "InputSnapshot.json",
+        "SocialSnapshot.json",
         "CameraSnapshot.json",
         "RuntimeSnapshot.json",
         "MapSnapshot.svg",
@@ -164,12 +185,20 @@ int main()
     const std::string world = readText(result.bundlePath / "WorldSnapshot.json");
     const std::string input = readText(result.bundlePath / "InputSnapshot.json");
     const std::string entities = readText(result.bundlePath / "EntitySnapshot.json");
+    const std::string social = readText(result.bundlePath / "SocialSnapshot.json");
     const std::string map = readText(result.bundlePath / "MapSnapshot.svg");
     assert(manifest.find("hakui.expert-observer.v1") != std::string::npos);
     assert(manifest.find("read_only_observer") != std::string::npos);
     assert(world.find("primitive.0001") != std::string::npos);
     assert(world.find("CasinoAnchor") != std::string::npos);
+    assert(world.find("\"seat_anchors\"") != std::string::npos);
+    assert(world.find("VOID COUCH LEFT") != std::string::npos);
+    assert(world.find("\"world_position\":{\"x\":6.5400") !=
+           std::string::npos);
+    assert(world.find("\"occupied\":true") != std::string::npos);
     assert(input.find("semantic_action_map") != std::string::npos);
+    assert(input.find("\"input_ownership\": \"ChatInput\"") !=
+           std::string::npos);
     assert(input.find("\"ride_control\"") != std::string::npos);
     assert(input.find("\"detected_flick\": \"RIGHT\"") != std::string::npos);
     assert(input.find("\"pop_intent\": true") != std::string::npos);
@@ -196,6 +225,14 @@ int main()
     assert(entities.find("\"preload_pose_weight\":0.7500") !=
            std::string::npos);
     assert(entities.find("\"seat_anchor_id\":0") != std::string::npos);
+    assert(social.find("\"chat_input_active\": true") != std::string::npos);
+    assert(social.find("\"chat_buffer\": \"hello\"") != std::string::npos);
+    assert(social.find("\"last_message_id\": 42") != std::string::npos);
+    assert(social.find("\"speech_intent\": \"Question\"") !=
+           std::string::npos);
+    assert(social.find("\"bubble_active\": true") != std::string::npos);
+    assert(social.find("\"current_social_gesture\": \"HeadTilt\"") !=
+           std::string::npos);
     assert(map.find("<svg") != std::string::npos);
     assert(map.find("FUSION TABLE") != std::string::npos);
 

@@ -87,14 +87,16 @@ public:
     const SeatAnchor* seatAnchorById(std::uint32_t id) const noexcept;
     ResolvedSeatAnchor resolvedSeatAnchor(std::uint32_t id) const noexcept;
     bool seatOccupied(std::uint32_t id) const noexcept;
+    float seatAlignmentError(const PlayerState& player) const noexcept;
     RoomInteractionFocus nearestInteraction(const PlayerState& player) const noexcept;
     bool engageNearest(PlayerState& player) noexcept;
     bool leaveInteraction(PlayerState& player) noexcept;
 
 private:
     SeatAnchor* mutableSeatAnchorById(std::uint32_t id) noexcept;
-    const SeatAnchor* firstAvailableSeat(
-        std::uint32_t furnitureAffordanceId
+    const SeatAnchor* nearestAvailableSeat(
+        std::uint32_t furnitureAffordanceId,
+        const PlayerState& player
     ) const noexcept;
 
     static const std::array<HorizontalCollider, 5> colliders_;

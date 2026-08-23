@@ -1,6 +1,6 @@
 # Hakui Product Requirements
 
-Status: working specification through the local v0.85 body-mechanics and social-embodiment pass.
+Status: working specification through the local v0.86 social-chat and interaction-overhaul pass.
 
 Each requirement has a stable identifier so code, tests, issues, and release notes can refer to the same contract. A requirement is complete only when its acceptance criteria are automated or explicitly marked as a manual visual/audio check.
 
@@ -312,6 +312,34 @@ Automated in part by: `hakui.gameplay_movement`, `hakui.rideable_movement`, and
 `hakui.observer`. Final silhouette/contact quality remains a native multi-angle
 visual smoke check.
 
+### HK-EXP-018 — Local social language as a world event
+
+The local player shall be able to type a bounded message that becomes an
+avatar-attached world event without allowing text input to trigger gameplay.
+
+Acceptance criteria:
+
+- Enter opens SDL text input, Enter commits once, Escape cancels, Backspace
+  removes one UTF-8 codepoint, and the limit is 180 codepoints.
+- `ChatInput` exclusively owns keyboard text while active; movement, camera,
+  interaction, combat, ride, pause, and developer controls receive no input.
+- Local and System messages share a bounded semantic history while retaining
+  channel, speaker, timestamp, source, and conservative speech intent.
+- Local avatar speech creates one camera-facing, avatar-attached bubble with
+  centralized min/max/reading-speed lifetime. System text does not impersonate
+  the avatar.
+- Social gesture output is lower priority than locomotion, ride, combat, and
+  interaction poses and remains usable while seated in either couch slot.
+- Observer snapshots expose input ownership, input buffer, history count, last
+  message/source/channel/intent, bubble lifetime/anchor, gesture, and every
+  resolved couch slot.
+- HumanPlayer, NPC, SystemAI, and Saelis are source semantics only; networking,
+  generative dialogue, weather modifiers, moderation, and accounts are out of
+  scope for v0.86.
+
+Automated in part by: `hakui.social`, `hakui.gameplay_movement`, and
+`hakui.observer`. SDL text entry and bubble legibility remain native smoke checks.
+
 ## Engine requirements
 
 ### HK-ENG-001 — Dependency firewall
@@ -399,6 +427,7 @@ Before a public v1.0 release, the repository shall include an owner-selected lic
 | HK-EXP-015 | Implemented locally | `RideControlInterpreter`, semantic controller-family prompts, rideable/input/observer specs |
 | HK-EXP-016 | Implemented locally | Deterministic trick physics/landing/bail, hierarchical ride anchors, observer diagnostics |
 | HK-EXP-017 | Implemented locally | Deterministic body-pose vocabulary, articulated renderer, reservable furniture seat slots, observer diagnostics |
+| HK-EXP-018 | Implemented locally | `ChatSystem`, exclusive native text context, avatar bubbles/gestures, social and couch observer diagnostics |
 | HK-ENG-001–005 | Implemented, awaiting CI | Firewall and Spiral specs |
 | HK-ENG-006 | Implemented locally | Semantic affordances and dependency-free combat/gameplay targets |
 | HK-QLT-001–003 | Implemented, awaiting CI | CMake, workflow, dependency manifest |

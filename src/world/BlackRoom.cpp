@@ -71,7 +71,10 @@ const auto kSpecimenGeometry = std::to_array<WorldPrimitive>({
      4.22f, 0.82f, 4.62f, 0.28f, 0.85f, 1.50f,
      0.0f, 0.0f, 0.0f, 2, 3.0f, 0.0f, 0.0f},
     {WorldPrimitiveKind::Furniture, MaterialRole::PowderConcrete,
-     5.02f, 0.73f, 4.30f, 1.25f, 0.22f, 0.82f,
+     4.90f, 0.73f, 4.30f, 1.25f, 0.22f, 0.82f,
+     0.0f, 0.0f, 0.0f, 2, 1.40f, 0.0f, 0.0f},
+    {WorldPrimitiveKind::Furniture, MaterialRole::PowderConcrete,
+     6.54f, 0.73f, 4.30f, 1.25f, 0.22f, 0.82f,
      0.0f, 0.0f, 0.0f, 2, 1.40f, 0.0f, 0.0f},
 
     // Mobility datum beside spawn: small physical silhouettes reinforce the
@@ -340,17 +343,27 @@ SeatAnchor* BlackRoom::mutableSeatAnchorById(std::uint32_t id) noexcept
     return nullptr;
 }
 
-const SeatAnchor* BlackRoom::firstAvailableSeat(
-    std::uint32_t furnitureAffordanceId
+const SeatAnchor* BlackRoom::nearestAvailableSeat(
+    std::uint32_t furnitureAffordanceId,
+    const PlayerState& player
 ) const noexcept
 {
+    const SeatAnchor* nearest = nullptr;
+    float nearestDistanceSquared = std::numeric_limits<float>::max();
     for (const SeatAnchor& anchor : seatAnchors_) {
         if (anchor.furnitureAffordanceId == furnitureAffordanceId &&
             !anchor.occupied) {
-            return &anchor;
+            const ResolvedSeatAnchor resolved = resolvedSeatAnchor(anchor.id);
+            const float dx = player.x - resolved.worldPosition.x;
+            const float dz = player.z - resolved.worldPosition.z;
+            const float distanceSquared = dx * dx + dz * dz;
+            if (distanceSquared < nearestDistanceSquared) {
+                nearest = &anchor;
+                nearestDistanceSquared = distanceSquared;
+            }
         }
     }
-    return nullptr;
+    return nearest;
 }
 
 ResolvedSeatAnchor BlackRoom::resolvedSeatAnchor(std::uint32_t id) const noexcept
@@ -390,6 +403,23 @@ bool BlackRoom::seatOccupied(std::uint32_t id) const noexcept
     return seat && seat->occupied;
 }
 
+float BlackRoom::seatAlignmentError(const PlayerState& player) const noexcept
+{
+    if (!player.seatOccupancy || player.activeSeatAnchorId == 0) {
+        return 0.0f;
+    }
+    const ResolvedSeatAnchor resolved = resolvedSeatAnchor(
+        player.activeSeatAnchorId
+    );
+    if (resolved.id == 0) {
+        return std::numeric_limits<float>::infinity();
+    }
+    const float dx = player.x - resolved.worldPosition.x;
+    const float dy = player.y - resolved.worldPosition.y;
+    const float dz = player.z - resolved.worldPosition.z;
+    return std::sqrt(dx * dx + dy * dy + dz * dz);
+}
+
 RoomInteractionFocus BlackRoom::nearestInteraction(
     const PlayerState& player
 ) const noexcept
@@ -404,7 +434,7 @@ RoomInteractionFocus BlackRoom::nearestInteraction(
         if (!hasAffordance(volume.affordances, WorldAffordance::Seat)) {
             continue;
         }
-        const SeatAnchor* seat = firstAvailableSeat(volume.id);
+        const SeatAnchor* seat = nearestAvailableSeat(volume.id, player);
         if (!seat) {
             continue;
         }

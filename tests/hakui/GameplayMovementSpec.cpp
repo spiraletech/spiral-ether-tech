@@ -305,6 +305,61 @@ void furniture_and_casino_use_contextual_seat_anchors()
     assert(room.leaveInteraction(secondPlayer));
 }
 
+void couch_slots_resolve_select_reserve_and_release_symmetrically()
+{
+    hakui::BlackRoom room;
+    const auto left = room.resolvedSeatAnchor(100201);
+    const auto right = room.resolvedSeatAnchor(100202);
+    const auto* couch = room.affordanceById(1002);
+    assert(couch != nullptr);
+    assert(left.id == 100201);
+    assert(right.id == 100202);
+    assert(left.poseProfile == hakui::SeatPoseProfile::LoungeRelaxed);
+    assert(right.poseProfile == hakui::SeatPoseProfile::LoungeRelaxed);
+    assert(nearlyEqual(left.worldPosition.x, 6.54f));
+    assert(nearlyEqual(right.worldPosition.x, 4.90f));
+    assert(nearlyEqual(left.worldPosition.z, couch->primaryAnchor.z));
+    assert(nearlyEqual(right.worldPosition.z, couch->primaryAnchor.z));
+    assert(nearlyEqual(left.worldPosition.yaw, couch->primaryAnchor.yaw));
+    assert(nearlyEqual(right.worldPosition.yaw, couch->primaryAnchor.yaw));
+
+    // Both pelvis targets remain within the authored couch footprint.
+    assert(left.worldPosition.x >= 4.10f && left.worldPosition.x <= 7.35f);
+    assert(right.worldPosition.x >= 4.10f && right.worldPosition.x <= 7.35f);
+    assert(left.worldPosition.z >= 3.80f && left.worldPosition.z <= 5.45f);
+    assert(right.worldPosition.z >= 3.80f && right.worldPosition.z <= 5.45f);
+
+    for (int cycle = 0; cycle < 8; ++cycle) {
+        PlayerState leftPlayer;
+        leftPlayer.x = 6.54f;
+        leftPlayer.z = 3.28f;
+        const auto leftFocus = room.nearestInteraction(leftPlayer);
+        assert(leftFocus.seatAnchorId == left.id);
+        assert(room.engageNearest(leftPlayer));
+        assert(leftPlayer.activity == PlayerActivity::CouchSeated);
+        assert(leftPlayer.activeSeatAnchorId == left.id);
+        assert(nearlyEqual(room.seatAlignmentError(leftPlayer), 0.0f));
+        assert(nearlyEqual(leftPlayer.yaw, left.worldPosition.yaw));
+        assert(room.seatOccupied(left.id));
+        assert(room.leaveInteraction(leftPlayer));
+        assert(!room.seatOccupied(left.id));
+
+        PlayerState rightPlayer;
+        rightPlayer.x = 4.90f;
+        rightPlayer.z = 3.28f;
+        const auto rightFocus = room.nearestInteraction(rightPlayer);
+        assert(rightFocus.seatAnchorId == right.id);
+        assert(room.engageNearest(rightPlayer));
+        assert(rightPlayer.activity == PlayerActivity::CouchSeated);
+        assert(rightPlayer.activeSeatAnchorId == right.id);
+        assert(nearlyEqual(room.seatAlignmentError(rightPlayer), 0.0f));
+        assert(nearlyEqual(rightPlayer.yaw, right.worldPosition.yaw));
+        assert(room.seatOccupied(right.id));
+        assert(room.leaveInteraction(rightPlayer));
+        assert(!room.seatOccupied(right.id));
+    }
+}
+
 void modular_world_grammar_contains_canonical_roles()
 {
     hakui::BlackRoom room;
@@ -497,6 +552,7 @@ int main()
     room_colliders_block_horizontal_motion();
     black_space_fall_recovers_at_checkpoint();
     furniture_and_casino_use_contextual_seat_anchors();
+    couch_slots_resolve_select_reserve_and_release_symmetrically();
     modular_world_grammar_contains_canonical_roles();
     player_can_traverse_ramp_to_elevated_platform();
     world_affordances_describe_system_neutral_actions();
