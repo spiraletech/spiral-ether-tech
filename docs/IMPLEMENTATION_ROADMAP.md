@@ -154,6 +154,25 @@ Exit signal: keyboard/mouse and hot-swapped SDL gamepads speak one coherent
 intent language, advanced rides fail clearly without a controller, and the BMX
 front assembly stays visibly and structurally forward while steering.
 
+## M4.81 — v0.81 cleanup + Expert AI eyes
+
+- Remove shoulder switching from current player bindings and prompts while
+  preserving orbit, zoom, camera collision, ride framing, and combat framing.
+- Resolve visual avatar height through named embodiment ground-contact profiles.
+- Route the Fusion table through universal Interact and one contextual action.
+- Export a versioned, read-only F12 inspection bundle containing build, world,
+  entity, input, camera, runtime, map, current-frame, log, and doctrine views.
+- Keep semantic export deterministic and SDL-free; isolate Win32 frame capture
+  at the native presentation boundary.
+
+Current state: implemented locally on `codex/cleanup-observer-v0.81`; ten
+deterministic CTests and the native SDL client compile locally. Remote
+operations remain unauthorized.
+
+Exit signal: HAKUI stands correctly on authored contact surfaces, interaction
+controls are quieter, and one F12 snapshot lets an external expert compare
+semantic truth with the actual rendered frame.
+
 ## M5 — World persistence and replay
 
 - Define a versioned StateStore snapshot schema.

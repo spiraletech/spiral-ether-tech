@@ -1,4 +1,4 @@
-# PROJECT HAKUI — Native Client v0.8-dev
+# PROJECT HAKUI — Native Client v0.81-dev
 
 [![Hakui Build and Test](https://github.com/spiraletech/spiral-ether-tech/actions/workflows/native-build.yml/badge.svg)](https://github.com/spiraletech/spiral-ether-tech/actions/workflows/native-build.yml)
 [![C++20](https://img.shields.io/badge/C%2B%2B-20-00599C.svg)](https://en.cppreference.com/w/cpp/20)
@@ -36,6 +36,22 @@ cmake --build build --config Release --target hakui --parallel
 ```
 
 The resulting executable is `hakui` (`hakui.exe` on Windows). Run it from the selected build-configuration directory used by your generator.
+
+## v0.81 cleanup + Expert AI observability
+
+v0.81 removes shoulder switching from the player-facing camera grammar, gives
+the procedural avatar explicit OnFoot, Skateboard, BMX, Seated, Combat, and
+Knockdown ground-contact profiles, and routes the Fusion table entirely through
+the universal `Interact` action. Casino actions are now contextual while seated;
+the normal world namespace no longer exposes dedicated dice/card/bet/hit/stand
+keys.
+
+`F12` writes a compact, timestamped, read-only inspection bundle under
+`HAKUI-OBSERVE/`. It contains versioned build, world, entity, input, camera, and
+runtime JSON; a semantic top-down SVG; the current rendered PNG frame; a bounded
+runtime log; and the machine-readable HAKUI doctrine. The observer owns no
+gameplay authority and cannot mutate the world, execute commands, or write Git
+state.
 
 ## v0.8 control nervous system
 
@@ -182,7 +198,7 @@ Hakui's visible proof slice currently contains:
 - SDL3 GPU graphics pipeline
 - depth-tested 3D rendering
 - third-person-first camera roles for follow, interactions, combat framing, and future target/duel/director framing
-- deterministic camera rig with native RMB capture, clamped orbit, wheel zoom, shoulder switch, reset, collision, and gamepad look
+- deterministic camera rig with native RMB capture, clamped orbit, wheel zoom, reset, collision, and gamepad look; shoulder switching is dormant and not player-facing
 - persistent player world transform
 - acceleration/deceleration, camera-relative WASD movement, sprint, jump, collision, ramps, elevated surfaces, black-space fall, and respawn
 - camera-relative WASD steering with distinct on-foot, skateboard, and BMX motion profiles
@@ -376,6 +392,7 @@ hakui_avatar_rig
 hakui_interaction
 hakui_gameplay
 hakui_input
+hakui_observer
 hakui_tabletop
 hakui
 ```
@@ -391,6 +408,7 @@ hakui_avatar_rig_spec
 hakui_gameplay_spec
 hakui_rideable_spec
 hakui_input_spec
+hakui_observer_spec
 hakui_camera_spec
 hakui_combat_spec
 hakui_tabletop_spec
@@ -411,8 +429,8 @@ F             context / grind
 Left Ctrl     balance / manual
 C             cancel / dismount / enter or leave sparring
 R             recover / camera reset
-Tab           switch shoulder
 Esc           pause / resume
+F12           capture read-only Expert Observer bundle
 
 GAMEPAD
 Left stick    move / steer
@@ -424,14 +442,15 @@ LB / LT       guard / balance
 RB            context / grind
 RT            accelerate
 Start         pause / resume
-D-pad         on-foot / skateboard / BMX / contextual table controls
+D-pad         on-foot / skateboard / BMX discipline switching
 ```
 
 Advanced skateboard and BMX activation is controller-native. Without a
 connected SDL gamepad, HAKUI presents a clear ride-input message. `F9` enables a
 developer-only keyboard fallback; `1–4`, `Z/X`, `V`, and `M` remain marked
-internal bindings rather than player-facing defaults. See the packaged
-`START_HERE.txt` for the table and developer mappings.
+internal bindings rather than player-facing defaults. The Fusion table uses
+`Interact`/West for its displayed contextual action and `Cancel`/East to leave.
+See the packaged `START_HERE.txt` for the developer mappings.
 
 The tabletop suite uses fictional virtual credits only. It has no real-money purchase, deposit, cash-out, marketplace, or external gambling integration. Terminal models—Nebula Tower, Orchard Glass, and Fusion Deck—are original in-world identities and do not represent real hardware companies.
 
@@ -442,8 +461,8 @@ physics, and vehicle simulation remain future work. Car mode is visibly labeled
 
 ## Dependency firewall
 
-CMake scans first-party Spiral Core, avatar-rig, gameplay, camera, combat,
-interaction, and tabletop sources and rejects direct SDL3, Cal3D, Boost, or
+CMake scans first-party Spiral Core, avatar-rig, gameplay, input, observer,
+camera, combat, interaction, and tabletop sources and rejects direct SDL3, Cal3D, Boost, or
 RapidXML includes in those layers. The explicit optional crystal backend
 directory is the deliberate legacy-runtime exception.
 

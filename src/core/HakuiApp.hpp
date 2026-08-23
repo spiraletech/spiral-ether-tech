@@ -1,5 +1,6 @@
 #pragma once
 
+#include <filesystem>
 #include <memory>
 #include <string>
 #include <string_view>
@@ -12,6 +13,7 @@
 #include "games/GameTerminal.hpp"
 #include "interaction/InteractionService.hpp"
 #include "input/SdlInputBridge.hpp"
+#include "observer/ExpertObserver.hpp"
 #include "player/PlayerMovementController.hpp"
 #include "player/RideableMovementController.hpp"
 #include "player/PlayerState.hpp"
@@ -36,7 +38,8 @@ private:
     void requestRideLocomotion(LocomotionMode mode, std::string_view label);
     void showInputStatus(std::string message, float seconds = 2.8f);
     void interactWithTerminal(hakui::InteractionVerb verb);
-    void handleCasinoAction(hakui::input::Action action);
+    void handleCasinoContextAction();
+    void leaveCurrentInteraction();
     void handlePrimaryInteraction();
     void toggleCombat();
     void updateCombat(float dt, const hakui::input::DisciplineIntent& intent);
@@ -46,6 +49,9 @@ private:
     void updateHud();
     void update(float dt);
     bool render();
+    void recordObserverEvent(std::string_view category, std::string_view message);
+    hakui::observer::CaptureContext buildObserverContext() const;
+    void captureExpertSnapshot();
 
     SDL_Window* window_ = nullptr;
     SDL_GPUDevice* gpu_ = nullptr;
@@ -65,6 +71,8 @@ private:
     float playerHitPulse_ = 0.0f;
     float opponentHitPulse_ = 0.0f;
     bool opponentCrossNext_ = false;
+    bool expertCaptureRequested_ = false;
+    std::filesystem::path lastObserverBundle_;
 
     // Spiral is the client's orchestration spine. It remains independent from
     // SDL/rendering and from optional legacy avatar backends.
@@ -85,4 +93,5 @@ private:
     hakui::PlayerMovementController movement_;
     hakui::RideableMovementController rideable_;
     LocomotionRouter locomotion_{player_};
+    hakui::observer::RuntimeEventJournal observerJournal_{96};
 };

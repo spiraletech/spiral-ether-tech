@@ -1,6 +1,6 @@
 # Hakui Product Requirements
 
-Status: working specification through the local v0.8 control-nervous-system pass.
+Status: working specification through the local v0.81 cleanup and Expert AI observer pass.
 
 Each requirement has a stable identifier so code, tests, issues, and release notes can refer to the same contract. A requirement is complete only when its acceptance criteria are automated or explicitly marked as a manual visual/audio check.
 
@@ -154,7 +154,8 @@ Acceptance criteria:
 
 - RMB begins relative-mouse orbit and button-up stops it.
 - Yaw wraps safely and pitch remains within the authored limits.
-- Wheel zoom, shoulder swap, reset, and sensitivity adjustment remain usable.
+- Wheel zoom, reset, and sensitivity adjustment remain usable; shoulder
+  switching has no player-facing binding or prompt.
 - Focus loss, pause, and shutdown release relative-mouse capture.
 - Resuming never leaves the cursor captured unless the player presses RMB again.
 - Camera rules remain independently testable without SDL or a GPU.
@@ -200,6 +201,29 @@ Acceptance criteria:
 
 Automated in part by: `hakui.input`, `hakui.avatar_rig`,
 `hakui.gameplay_movement`, `hakui.rideable_movement`, and `hakui.combat`.
+
+### HK-EXP-014 — Read-only Expert AI inspection contract
+
+The running native client shall export a compact, versioned diagnostic bundle
+without granting the observer gameplay, process, source-control, or publication
+authority.
+
+Acceptance criteria:
+
+- F12 requests one timestamped bundle beneath `HAKUI-OBSERVE` while runtime
+  simulation continues normally.
+- The manifest references parseable build, world, entity, input, camera, and
+  runtime JSON plus a bounded log, top-down semantic SVG, doctrine, and current
+  rendered PNG frame.
+- Stable object/entity identifiers, affordances, transforms, attachment
+  semantics, current interaction intent, and input prompts are represented.
+- The deterministic exporter compiles and tests without SDL or a GPU; native
+  frame capture exists only at the platform/presentation boundary.
+- The observer cannot inject input, mutate world state, execute commands, or
+  perform source-control/network operations.
+
+Automated in part by: `hakui.observer`. Current-frame fidelity remains a native
+visual smoke check.
 
 ## Engine requirements
 
@@ -284,6 +308,7 @@ Before a public v1.0 release, the repository shall include an owner-selected lic
 | HK-EXP-011 | Implemented locally | `ThirdPersonCameraRig`, camera spec, native capture smoke |
 | HK-EXP-012 | Implemented locally | `RideableMovementController`, rideable spec, distinct procedural models |
 | HK-EXP-013 | Implemented locally | `HakuiInput`, `SdlInputBridge`, discipline interpreter, semantic HUD prompts, ride attachment spec |
+| HK-EXP-014 | Implemented locally | `ExpertObserver`, native F12 frame capture, observer spec, versioned read-only bundle |
 | HK-ENG-001–005 | Implemented, awaiting CI | Firewall and Spiral specs |
 | HK-ENG-006 | Implemented locally | Semantic affordances and dependency-free combat/gameplay targets |
 | HK-QLT-001–003 | Implemented, awaiting CI | CMake, workflow, dependency manifest |

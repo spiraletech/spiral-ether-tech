@@ -97,6 +97,9 @@ int main()
     assert(InputResolver::prompt(Action::Jump, InputDevice::Gamepad) == "SOUTH");
     assert(InputResolver::prompt(Action::Balance, InputDevice::KeyboardMouse) ==
            "LCTRL");
-    assert(InputResolver::prompt(Action::CardHit, InputDevice::Gamepad) == "SOUTH");
+    assert(InputResolver::prompt(
+        Action::CaptureExpertSnapshot,
+        InputDevice::KeyboardMouse
+    ) == "F12*");
     return 0;
 }

@@ -8,6 +8,7 @@
 #include <cstring>
 #include <vector>
 
+#include "avatar/AvatarGroundContact.hpp"
 #include "avatar/RideAttachmentRig.hpp"
 #include "render/Math3D.hpp"
 
@@ -229,6 +230,14 @@ float DebugWorldRenderer::cameraShoulderSide() const noexcept
     return cameraRig_.shoulderSide();
 }
 
+float DebugWorldRenderer::cameraWorldX() const noexcept { return cameraEyeX_; }
+float DebugWorldRenderer::cameraWorldY() const noexcept { return cameraEyeY_; }
+float DebugWorldRenderer::cameraWorldZ() const noexcept { return cameraEyeZ_; }
+float DebugWorldRenderer::cameraTargetX() const noexcept { return cameraTargetX_; }
+float DebugWorldRenderer::cameraTargetY() const noexcept { return cameraTargetY_; }
+float DebugWorldRenderer::cameraTargetZ() const noexcept { return cameraTargetZ_; }
+float DebugWorldRenderer::fieldOfViewDegrees() const noexcept { return 50.0f; }
+
 void DebugWorldRenderer::setCameraRole(CameraRole role)
 {
     if (cameraRole_ == role) {
@@ -293,7 +302,7 @@ bool DebugWorldRenderer::init(SDL_GPUDevice* device, SDL_Window* window)
         return false;
     }
 
-    SDL_Log("[HAKUI] v0.8 DATA GRUNGE renderer // control nervous system online");
+    SDL_Log("[HAKUI] v0.81 DATA GRUNGE renderer // expert-observable presentation online");
     return true;
 }
 
@@ -586,6 +595,17 @@ bool DebugWorldRenderer::render(
         cameraTarget.z + eyeOffset.z
     };
     cameraEye.y = std::max(cameraEye.y, cameraTarget.y > -0.5f ? 0.28f : cameraEye.y);
+    if (cameraTarget.y > -0.5f && cameraTarget.z < 8.0f) {
+        // The proportional sweep above preserves camera distance where it can,
+        // while this final interior-face cap handles the degenerate case where
+        // a smoothed target is already on a shell boundary. Without this cap,
+        // the minimum sweep fraction can leave the eye inside the wall.
+        cameraEye.x = std::clamp(cameraEye.x, -9.45f, 9.45f);
+        cameraEye.z = std::min(cameraEye.z, 7.40f);
+    }
+    cameraEyeX_ = cameraEye.x;
+    cameraEyeY_ = cameraEye.y;
+    cameraEyeZ_ = cameraEye.z;
 
     const Mat4 view = lookAtLH(cameraEye, cameraTarget, {0.0f, 1.0f, 0.0f});
     const Mat4 projection = perspectiveLH(
@@ -929,12 +949,25 @@ bool DebugWorldRenderer::render(
 
     const bool playerKnockedDown = scene.combatActive &&
         scene.playerCombatState == hakui::combat::CombatState::KnockedDown;
-    const float embodimentLift = ridingSkateboard ? 0.23f : (ridingBmx ? 0.42f : 0.0f);
+    hakui::EmbodimentProfileId embodiment =
+        hakui::EmbodimentProfileId::OnFoot;
+    if (playerKnockedDown) {
+        embodiment = hakui::EmbodimentProfileId::Knockdown;
+    } else if (scene.combatActive) {
+        embodiment = hakui::EmbodimentProfileId::Combat;
+    } else if (seated) {
+        embodiment = hakui::EmbodimentProfileId::Seated;
+    } else if (ridingSkateboard) {
+        embodiment = hakui::EmbodimentProfileId::Skateboard;
+    } else if (ridingBmx) {
+        embodiment = hakui::EmbodimentProfileId::Bmx;
+    }
+    const hakui::AvatarGroundContactProfile& groundContact =
+        hakui::avatarGroundContactProfile(embodiment);
     const Mat4 avatarRoot = multiply(
         translation({
             player.x,
-            player.y + bodyBob + embodimentLift +
-                (playerKnockedDown ? 0.34f : 0.0f),
+            player.y + bodyBob + groundContact.visualRootAbovePlayerBase,
             player.z
         }),
         multiply(

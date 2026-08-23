@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.25)
 
 project(Hakui
-    VERSION 0.8.0
+    VERSION 0.81.0
     DESCRIPTION "Project Hakui native client"
     LANGUAGES CXX
 )
@@ -32,6 +32,9 @@ include(cmake/HakuiGameplay.cmake)
 
 # Platform-neutral player intent, binding, prompt, and device-activity rules.
 include(cmake/HakuiInput.cmake)
+
+# Read-only, deterministic expert inspection schemas and exporters.
+include(cmake/HakuiObserver.cmake)
 
 # Deterministic third-person orbit/framing math, independent from SDL.
 include(cmake/HakuiCamera.cmake)
@@ -82,11 +85,41 @@ if(HAKUI_BUILD_NATIVE_CLIENT)
 
     FetchContent_MakeAvailable(SDL3)
 
+    execute_process(
+        COMMAND git -c safe.directory=${CMAKE_CURRENT_SOURCE_DIR} rev-parse --short=12 HEAD
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        OUTPUT_VARIABLE HAKUI_GIT_SHA
+        OUTPUT_STRIP_TRAILING_WHITESPACE
+        ERROR_QUIET
+    )
+    execute_process(
+        COMMAND git -c safe.directory=${CMAKE_CURRENT_SOURCE_DIR} branch --show-current
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        OUTPUT_VARIABLE HAKUI_GIT_BRANCH
+        OUTPUT_STRIP_TRAILING_WHITESPACE
+        ERROR_QUIET
+    )
+    if(NOT HAKUI_GIT_SHA)
+        set(HAKUI_GIT_SHA "unknown")
+    endif()
+    if(NOT HAKUI_GIT_BRANCH)
+        set(HAKUI_GIT_BRANCH "detached-or-unknown")
+    endif()
+    string(TIMESTAMP HAKUI_BUILD_TIMESTAMP "%Y-%m-%dT%H:%M:%SZ" UTC)
+    if(CMAKE_BUILD_TYPE)
+        set(HAKUI_BUILD_CONFIGURATION ${CMAKE_BUILD_TYPE})
+    else()
+        set(HAKUI_BUILD_CONFIGURATION "default")
+    endif()
+
     add_executable(hakui
         src/main.cpp
 
         src/core/HakuiApp.cpp
         src/core/HakuiApp.hpp
+
+        src/observer/NativeFrameCapture.cpp
+        src/observer/NativeFrameCapture.hpp
 
         src/input/SdlInputBridge.cpp
         src/input/SdlInputBridge.hpp
@@ -118,6 +151,7 @@ if(HAKUI_BUILD_NATIVE_CLIENT)
             hakui_interaction
             hakui_gameplay
             hakui_input
+            hakui_observer
             hakui_camera
             hakui_combat
             hakui_tabletop
@@ -135,6 +169,17 @@ if(HAKUI_BUILD_NATIVE_CLIENT)
         src
         "${sdl3_SOURCE_DIR}/test"
     )
+
+    target_compile_definitions(hakui PRIVATE
+        HAKUI_GIT_SHA="${HAKUI_GIT_SHA}"
+        HAKUI_GIT_BRANCH="${HAKUI_GIT_BRANCH}"
+        HAKUI_BUILD_TIMESTAMP="${HAKUI_BUILD_TIMESTAMP}"
+        HAKUI_BUILD_CONFIGURATION="${HAKUI_BUILD_CONFIGURATION}"
+    )
+
+    if(WIN32)
+        target_link_libraries(hakui PRIVATE gdiplus)
+    endif()
 
     if(MSVC)
         target_compile_options(hakui PRIVATE /W4 /permissive-)

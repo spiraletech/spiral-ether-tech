@@ -81,6 +81,13 @@ public:
     float cameraPitch() const noexcept;
     float cameraDistance() const noexcept;
     float cameraShoulderSide() const noexcept;
+    float cameraWorldX() const noexcept;
+    float cameraWorldY() const noexcept;
+    float cameraWorldZ() const noexcept;
+    float cameraTargetX() const noexcept;
+    float cameraTargetY() const noexcept;
+    float cameraTargetZ() const noexcept;
+    float fieldOfViewDegrees() const noexcept;
     void setCameraRole(CameraRole role);
     void frameInteraction(InteractionFrame frame);
     void setCombatTarget(float x, float y, float z) noexcept;
@@ -109,6 +116,9 @@ private:
     float cameraTargetX_ = 0.0f;
     float cameraTargetY_ = 1.25f;
     float cameraTargetZ_ = 0.0f;
+    float cameraEyeX_ = 0.0f;
+    float cameraEyeY_ = 0.0f;
+    float cameraEyeZ_ = 0.0f;
     hakui::camera::ThirdPersonCameraRig cameraRig_{};
     CameraRole cameraRole_ = CameraRole::GameplayFollow;
     InteractionFrame interactionFrame_ = InteractionFrame::None;

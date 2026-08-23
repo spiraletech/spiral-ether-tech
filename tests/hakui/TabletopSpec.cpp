@@ -105,6 +105,8 @@ void terminals_route_use_play_and_dice_through_interactions()
         7001
     );
     assert(interactions.registerTarget(terminal));
+    assert(terminal->nextContextAction() ==
+           hakui::games::TerminalContextAction::PowerOn);
 
     hakui::InteractionRequest request;
     request.actor = 1;
@@ -113,12 +115,19 @@ void terminals_route_use_play_and_dice_through_interactions()
     assert(interactions.interact(request).handled);
     assert(terminal->powered());
     assert(terminal->virtualCredits() == 250);
+    assert(terminal->nextContextAction() ==
+           hakui::games::TerminalContextAction::OpenCards);
 
     request.verb = hakui::InteractionVerb::Play;
     assert(interactions.interact(request).handled);
     assert(terminal->activeApp() == hakui::games::TerminalApp::CardTable52);
+    assert(terminal->nextContextAction() ==
+           hakui::games::TerminalContextAction::Bet25);
     assert(terminal->beginCardRound(25));
     if (terminal->cardTable().phase() == hakui::games::BlackjackPhase::PlayerTurn) {
+        const auto next = terminal->nextContextAction();
+        assert(next == hakui::games::TerminalContextAction::Hit ||
+               next == hakui::games::TerminalContextAction::Stand);
         assert(terminal->standCardTable());
     }
     assert(terminal->cardTable().phase() == hakui::games::BlackjackPhase::Settled);

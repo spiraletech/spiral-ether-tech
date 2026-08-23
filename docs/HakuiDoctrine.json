@@ -1,0 +1,16 @@
+{
+  "schema": "hakui.doctrine.v1",
+  "third_person_first": true,
+  "avatar_identity_priority": "high",
+  "expressive_movement_priority": "high",
+  "semantic_world_architecture": "required",
+  "controller_native_ride_disciplines": true,
+  "data_grunge_identity": "required",
+  "generic_engine_demo_aesthetic": "avoid",
+  "reference_pillars": {
+    "avatar_social_expression": "identity and rooms",
+    "embodied_world_progression": "activities and physical presence",
+    "multi_discipline_movement": "continuous on-foot, skateboard and BMX",
+    "hakui": "original DATA GRUNGE synthesis"
+  }
+}

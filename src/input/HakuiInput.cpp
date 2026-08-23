@@ -52,8 +52,6 @@ constexpr auto kActionBindings = std::to_array<ActionBinding>({
     {Action::Pause, PhysicalControl::PadStart},
     {Action::Quit, PhysicalControl::KeyQuit},
     {Action::OrbitCamera, PhysicalControl::MouseOrbit},
-    {Action::CameraShoulder, PhysicalControl::KeyCameraShoulder},
-    {Action::CameraShoulder, PhysicalControl::PadDpadDown},
     {Action::CameraReset, PhysicalControl::KeyRecover},
     {Action::CameraReset, PhysicalControl::PadRightStick},
     {Action::SelectOnFoot, PhysicalControl::KeyModeOnFoot},
@@ -63,23 +61,12 @@ constexpr auto kActionBindings = std::to_array<ActionBinding>({
     {Action::SelectBmx, PhysicalControl::KeyModeBmx},
     {Action::SelectBmx, PhysicalControl::PadDpadRight},
     {Action::SelectCar, PhysicalControl::KeyModeCar},
-    {Action::TerminalUse, PhysicalControl::KeyTerminalUse},
-    {Action::TerminalUse, PhysicalControl::PadDpadUp},
-    {Action::CardSuite, PhysicalControl::KeyCardSuite},
-    {Action::CardSuite, PhysicalControl::PadDpadLeft},
-    {Action::Bet, PhysicalControl::KeyBet},
-    {Action::Bet, PhysicalControl::PadDpadDown},
-    {Action::CardHit, PhysicalControl::KeyCardHit},
-    {Action::CardHit, PhysicalControl::PadSouth},
-    {Action::CardStand, PhysicalControl::KeyCardStand},
-    {Action::CardStand, PhysicalControl::PadNorth},
-    {Action::Inspect, PhysicalControl::KeyInspect},
-    {Action::Inspect, PhysicalControl::PadDpadRight},
     {Action::LookSlower, PhysicalControl::KeyLookSlower},
     {Action::LookFaster, PhysicalControl::KeyLookFaster},
     {Action::VolumeDown, PhysicalControl::KeyVolumeDown},
     {Action::VolumeUp, PhysicalControl::KeyVolumeUp},
-    {Action::ToggleRideFallback, PhysicalControl::KeyToggleRideFallback}
+    {Action::ToggleRideFallback, PhysicalControl::KeyToggleRideFallback},
+    {Action::CaptureExpertSnapshot, PhysicalControl::KeyExpertSnapshot}
 });
 
 constexpr auto kAxisBindings = std::to_array<AxisBinding>({
@@ -245,23 +232,17 @@ std::string_view InputResolver::actionName(Action action) noexcept
         case Action::Pause: return "PAUSE";
         case Action::Quit: return "QUIT";
         case Action::OrbitCamera: return "ORBIT";
-        case Action::CameraShoulder: return "SWITCH SHOULDER";
         case Action::CameraReset: return "RESET CAMERA";
         case Action::SelectOnFoot: return "ON FOOT";
         case Action::SelectSkateboard: return "SKATEBOARD";
         case Action::SelectBmx: return "BMX";
         case Action::SelectCar: return "CAR";
-        case Action::TerminalUse: return "TERMINAL";
-        case Action::CardSuite: return "CARDS";
-        case Action::Bet: return "BET";
-        case Action::CardHit: return "HIT";
-        case Action::CardStand: return "STAND";
-        case Action::Inspect: return "INSPECT";
         case Action::LookSlower: return "LOOK SLOWER";
         case Action::LookFaster: return "LOOK FASTER";
         case Action::VolumeDown: return "VOLUME DOWN";
         case Action::VolumeUp: return "VOLUME UP";
         case Action::ToggleRideFallback: return "DEV RIDE FALLBACK";
+        case Action::CaptureExpertSnapshot: return "CAPTURE EXPERT SNAPSHOT";
         case Action::Count: break;
     }
     return "ACTION";
@@ -288,16 +269,9 @@ std::string_view InputResolver::prompt(
             case Action::Accelerate: return "RT";
             case Action::Pause: return "START";
             case Action::CameraReset: return "R3";
-            case Action::CameraShoulder: return "DPAD DOWN";
             case Action::SelectOnFoot: return "DPAD UP";
             case Action::SelectSkateboard: return "DPAD LEFT";
             case Action::SelectBmx: return "DPAD RIGHT";
-            case Action::TerminalUse: return "DPAD UP";
-            case Action::CardSuite: return "DPAD LEFT";
-            case Action::Bet: return "DPAD DOWN";
-            case Action::CardHit: return "SOUTH";
-            case Action::CardStand: return "NORTH";
-            case Action::Inspect: return "DPAD RIGHT";
             default: return "--";
         }
     }
@@ -319,18 +293,12 @@ std::string_view InputResolver::prompt(
         case Action::Pause: return "ESC";
         case Action::Quit: return "F10";
         case Action::OrbitCamera: return "RMB";
-        case Action::CameraShoulder: return "TAB";
         case Action::SelectOnFoot: return "1*";
         case Action::SelectSkateboard: return "2*";
         case Action::SelectBmx: return "3*";
         case Action::SelectCar: return "4*";
         case Action::ToggleRideFallback: return "F9*";
-        case Action::TerminalUse: return "T";
-        case Action::CardSuite: return "G";
-        case Action::Bet: return "B";
-        case Action::CardHit: return "H";
-        case Action::CardStand: return "J";
-        case Action::Inspect: return "I";
+        case Action::CaptureExpertSnapshot: return "F12*";
         case Action::LookSlower: return "[";
         case Action::LookFaster: return "]";
         case Action::VolumeDown: return "-";

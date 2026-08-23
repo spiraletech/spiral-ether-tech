@@ -130,4 +130,34 @@ DiceResult GameTerminal::lastDiceResult() const { return lastDice_; }
 std::int64_t GameTerminal::virtualCredits() const noexcept { return cardTable_.credits(); }
 std::int64_t GameTerminal::lastDiceReward() const noexcept { return lastDiceReward_; }
 
+TerminalContextAction GameTerminal::nextContextAction() const noexcept
+{
+    if (!powered_) {
+        return TerminalContextAction::PowerOn;
+    }
+    if (activeApp_ != TerminalApp::CardTable52) {
+        return TerminalContextAction::OpenCards;
+    }
+    if (cardTable_.phase() != BlackjackPhase::PlayerTurn) {
+        return TerminalContextAction::Bet25;
+    }
+    return BlackjackTable::handValue(cardTable_.playerHand()) < 17
+        ? TerminalContextAction::Hit
+        : TerminalContextAction::Stand;
+}
+
+std::string_view GameTerminal::contextActionLabel(
+    TerminalContextAction action
+) noexcept
+{
+    switch (action) {
+        case TerminalContextAction::PowerOn: return "POWER ON";
+        case TerminalContextAction::OpenCards: return "OPEN CARDS";
+        case TerminalContextAction::Bet25: return "BET 25";
+        case TerminalContextAction::Hit: return "HIT";
+        case TerminalContextAction::Stand: return "STAND";
+    }
+    return "INTERACT";
+}
+
 } // namespace hakui::games

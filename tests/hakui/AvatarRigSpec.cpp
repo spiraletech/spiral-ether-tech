@@ -1,9 +1,11 @@
 #include <cassert>
+#include <cmath>
 #include <cstddef>
 #include <string_view>
 #include <unordered_set>
 
 #include "avatar/HakuiSkeleton.hpp"
+#include "avatar/AvatarGroundContact.hpp"
 #include "avatar/RideAttachmentRig.hpp"
 
 namespace {
@@ -83,6 +85,31 @@ void rideable_anchors_use_a_stable_forward_convention()
     assert(leftGrip->z == rightGrip->z);
 }
 
+void embodiment_profiles_agree_with_authored_contact_surfaces()
+{
+    using namespace hakui;
+    constexpr EmbodimentProfileId profiles[] = {
+        EmbodimentProfileId::OnFoot,
+        EmbodimentProfileId::Skateboard,
+        EmbodimentProfileId::Bmx,
+        EmbodimentProfileId::Seated,
+        EmbodimentProfileId::Combat,
+        EmbodimentProfileId::Knockdown
+    };
+    for (const EmbodimentProfileId id : profiles) {
+        const AvatarGroundContactProfile& profile = avatarGroundContactProfile(id);
+        assert(profile.id == id);
+        assert(!embodimentProfileName(id).empty());
+        assert(std::fabs(standingFootContactError(profile)) < 0.0001f);
+    }
+    assert(avatarGroundContactProfile(EmbodimentProfileId::OnFoot)
+               .feetConstrainGroundContact);
+    assert(avatarGroundContactProfile(EmbodimentProfileId::Skateboard)
+               .contact == GroundContactKind::BoardDeck);
+    assert(!avatarGroundContactProfile(EmbodimentProfileId::Bmx)
+                .feetConstrainGroundContact);
+}
+
 } // namespace
 
 int main()
@@ -90,5 +117,6 @@ int main()
     default_humanoid_is_complete_and_rebuildable();
     hierarchy_and_attachment_references_are_valid();
     rideable_anchors_use_a_stable_forward_convention();
+    embodiment_profiles_agree_with_authored_contact_surfaces();
     return 0;
 }

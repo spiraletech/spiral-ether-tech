@@ -13,6 +13,7 @@ namespace hakui::games {
 
 enum class TerminalModel { NebulaTower, OrchardGlass, FusionDeck };
 enum class TerminalApp { Home, CardTable52, DiceLab };
+enum class TerminalContextAction { PowerOn, OpenCards, Bet25, Hit, Stand };
 
 constexpr std::string_view terminalModelName(TerminalModel model) noexcept
 {
@@ -49,6 +50,10 @@ public:
     DiceResult lastDiceResult() const;
     std::int64_t virtualCredits() const noexcept;
     std::int64_t lastDiceReward() const noexcept;
+    TerminalContextAction nextContextAction() const noexcept;
+    static std::string_view contextActionLabel(
+        TerminalContextAction action
+    ) noexcept;
 
 private:
     hakui::EntityId id_ = 0;
