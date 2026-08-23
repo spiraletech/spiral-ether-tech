@@ -67,8 +67,10 @@ InputFrame SdlInputBridge::sample(
     bool mouseOrbiting
 ) noexcept
 {
+    (void)deltaSeconds;
     PhysicalInputFrame physical;
     physical.activeDevice = devices_.activeDevice();
+    physical.controllerLayout = controllerLayout(gamepad);
     physical.gamepadAvailable = gamepad != nullptr && devices_.gamepadAvailable();
     physical.gamepadConnected = gamepadConnected_;
     physical.gamepadDisconnected = gamepadDisconnected_;
@@ -145,13 +147,11 @@ InputFrame SdlInputBridge::sample(
         );
         physical.set(
             PhysicalControl::PadLookX,
-            normalizedStick(SDL_GetGamepadAxis(gamepad, SDL_GAMEPAD_AXIS_RIGHTX)) *
-                520.0f * deltaSeconds
+            rawStick(SDL_GetGamepadAxis(gamepad, SDL_GAMEPAD_AXIS_RIGHTX))
         );
         physical.set(
             PhysicalControl::PadLookY,
-            normalizedStick(SDL_GetGamepadAxis(gamepad, SDL_GAMEPAD_AXIS_RIGHTY)) *
-                420.0f * deltaSeconds
+            rawStick(SDL_GetGamepadAxis(gamepad, SDL_GAMEPAD_AXIS_RIGHTY))
         );
         physical.set(
             PhysicalControl::PadLeftTrigger,
@@ -282,9 +282,36 @@ float SdlInputBridge::normalizedStick(Sint16 raw) noexcept
     );
 }
 
+float SdlInputBridge::rawStick(Sint16 raw) noexcept
+{
+    return std::clamp(
+        static_cast<float>(raw) / 32767.0f,
+        -1.0f,
+        1.0f
+    );
+}
+
 float SdlInputBridge::normalizedTrigger(Sint16 raw) noexcept
 {
     return std::clamp(static_cast<float>(raw) / 32767.0f, 0.0f, 1.0f);
+}
+
+ControllerLayout SdlInputBridge::controllerLayout(SDL_Gamepad* gamepad) noexcept
+{
+    if (!gamepad) {
+        return ControllerLayout::Generic;
+    }
+    switch (SDL_GetGamepadType(gamepad)) {
+        case SDL_GAMEPAD_TYPE_XBOX360:
+        case SDL_GAMEPAD_TYPE_XBOXONE:
+            return ControllerLayout::Xbox;
+        case SDL_GAMEPAD_TYPE_PS3:
+        case SDL_GAMEPAD_TYPE_PS4:
+        case SDL_GAMEPAD_TYPE_PS5:
+            return ControllerLayout::PlayStation;
+        default:
+            return ControllerLayout::Generic;
+    }
 }
 
 void SdlInputBridge::latch(PhysicalControl control) noexcept

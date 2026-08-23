@@ -13,6 +13,7 @@
 #include "games/GameTerminal.hpp"
 #include "interaction/InteractionService.hpp"
 #include "input/SdlInputBridge.hpp"
+#include "input/RideControlInterpreter.hpp"
 #include "observer/ExpertObserver.hpp"
 #include "player/PlayerMovementController.hpp"
 #include "player/RideableMovementController.hpp"
@@ -85,6 +86,8 @@ private:
     HakuiAudio audio_;
     hakui::input::SdlInputBridge inputBridge_;
     hakui::input::InputFrame inputFrame_{};
+    hakui::input::RideControlInterpreter rideControls_{};
+    hakui::input::RideControlFrame rideControlFrame_{};
     DebugWorldRenderer debugRenderer_;
     WorldState world_;
     hakui::BlackRoom blackRoom_;

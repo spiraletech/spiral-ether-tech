@@ -12,6 +12,12 @@ enum class InputDevice : std::uint8_t {
     Gamepad
 };
 
+enum class ControllerLayout : std::uint8_t {
+    Generic,
+    Xbox,
+    PlayStation
+};
+
 // Platform-neutral physical controls. SDL scancodes, mouse events, and
 // controller mappings terminate in the native adapter before reaching here.
 enum class PhysicalControl : std::uint8_t {
@@ -80,6 +86,8 @@ enum class Action : std::uint8_t {
     Grind,
     Balance,
     Accelerate,
+    SpinLeft,
+    SpinRight,
     Dismount,
     Recover,
     Pause,
@@ -104,6 +112,8 @@ enum class Axis : std::uint8_t {
     MoveForward,
     LookRight,
     LookDown,
+    RightStickX,
+    RightStickY,
     Zoom,
     Accelerate,
     Count
@@ -133,6 +143,7 @@ struct PhysicalInputFrame {
     std::array<float, physicalControlCount> values{};
     std::array<bool, physicalControlCount> pressed{};
     InputDevice activeDevice = InputDevice::KeyboardMouse;
+    ControllerLayout controllerLayout = ControllerLayout::Generic;
     bool gamepadAvailable = false;
     bool gamepadConnected = false;
     bool gamepadDisconnected = false;
@@ -156,6 +167,7 @@ struct InputFrame {
     std::array<ActionState, actionCount> actions{};
     std::array<float, axisCount> axes{};
     InputDevice activeDevice = InputDevice::KeyboardMouse;
+    ControllerLayout controllerLayout = ControllerLayout::Generic;
     bool gamepadAvailable = false;
     bool gamepadConnected = false;
     bool gamepadDisconnected = false;
@@ -179,6 +191,8 @@ struct DisciplineIntent {
     bool guard = false;
     bool grind = false;
     bool balance = false;
+    bool spinLeft = false;
+    bool spinRight = false;
     bool recover = false;
 };
 
@@ -195,8 +209,13 @@ public:
     InputFrame resolve(const PhysicalInputFrame& physical) const noexcept;
 
     static std::string_view actionName(Action action) noexcept;
-    static std::string_view prompt(Action action, InputDevice device) noexcept;
+    static std::string_view prompt(
+        Action action,
+        InputDevice device,
+        ControllerLayout layout = ControllerLayout::Generic
+    ) noexcept;
     static std::string_view deviceName(InputDevice device) noexcept;
+    static std::string_view controllerLayoutName(ControllerLayout layout) noexcept;
 };
 
 class DeviceActivityTracker {

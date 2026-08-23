@@ -37,9 +37,9 @@ void settleLanding(
 )
 {
     for (int frame = 0; frame < 240 && !player.grounded; ++frame) {
-        input.hopPressed = false;
-        input.flipLeftPressed = false;
-        input.flipRightPressed = false;
+        input.popPressed = false;
+        input.trick = {};
+        input.stylePressed = false;
         (void)controller.update(
             player,
             input,
@@ -72,7 +72,7 @@ int main()
     }
     assert(boardController.state().speed > 3.0f);
 
-    boardInput.hopPressed = true;
+    boardInput.popPressed = true;
     RideableFrame ollie = boardController.update(
         skateboard,
         boardInput,
@@ -84,8 +84,8 @@ int main()
     assert(boardController.state().phase == RidePhase::Airborne);
     assert(boardController.state().combo[0] == RideTrick::Ollie);
 
-    boardInput.hopPressed = false;
-    boardInput.flipLeftPressed = true;
+    boardInput.popPressed = false;
+    boardInput.trick = {RideTrickDirection::Left, -1.0f, 0.0f, 1.0f, 0.12f, true};
     RideableFrame flip = boardController.update(
         skateboard,
         boardInput,
@@ -100,7 +100,7 @@ int main()
     assert(boardController.state().landingQuality != LandingQuality::None);
     assert(boardController.state().comboCount >= 3);
 
-    boardInput.flipLeftPressed = false;
+    boardInput.trick = {};
     boardInput.manualHeld = true;
     skateboard.x = 0.0f;
     skateboard.z = 0.0f;
@@ -127,6 +127,8 @@ int main()
     assert(groundGrind.grindStarted);
     assert(boardController.state().phase == RidePhase::Grinding);
     assert(boardController.state().activeTrick == RideTrick::BoardGrind);
+    assert(boardController.state().activeGrindAttachment ==
+           RideGrindAttachment::BoardTrucks);
 
     PlayerState bmx;
     bmx.locomotion = LocomotionMode::BMX;
@@ -142,7 +144,7 @@ int main()
             1.0f / 60.0f
         );
     }
-    bmxInput.hopPressed = true;
+    bmxInput.popPressed = true;
     const RideableFrame hop = bmxController.update(
         bmx,
         bmxInput,
@@ -153,7 +155,18 @@ int main()
     assert(hop.movement.jumped);
     assert(bmxController.state().activeTrick == RideTrick::BunnyHop);
 
-    bmxInput.hopPressed = false;
+    bmxInput.popPressed = false;
+    bmxInput.trick = {RideTrickDirection::Up, 0.0f, -1.0f, 1.0f, 0.12f, true};
+    const RideableFrame barspin = bmxController.update(
+        bmx,
+        bmxInput,
+        testEnvironment(),
+        kAffordances,
+        1.0f / 60.0f
+    );
+    assert(barspin.trickStarted);
+    assert(bmxController.state().activeTrick == RideTrick::BmxBarspin);
+    bmxInput.trick = {};
     bmxInput.grindHeld = true;
     bmx.x = 0.0f;
     bmx.z = 0.0f;
@@ -169,7 +182,41 @@ int main()
     assert(peg.grindStarted);
     assert(bmxController.state().phase == RidePhase::Grinding);
     assert(bmxController.state().activeTrick == RideTrick::PegGrind);
+    assert(bmxController.state().activeGrindAttachment ==
+           RideGrindAttachment::BmxPegs);
     assert(std::fabs(bmx.y - 0.45f) < 0.001f);
+
+    PlayerState perpendicular;
+    perpendicular.locomotion = LocomotionMode::Skateboard;
+    perpendicular.velocityX = 5.0f;
+    perpendicular.velocityZ = 0.0f;
+    perpendicular.x = 0.0f;
+    perpendicular.z = 0.0f;
+    RideableMovementController perpendicularController;
+    RideableInput perpendicularInput;
+    perpendicularInput.grindHeld = true;
+    const RideableFrame rejectedGrind = perpendicularController.update(
+        perpendicular,
+        perpendicularInput,
+        testEnvironment(),
+        kAffordances,
+        1.0f / 60.0f
+    );
+    assert(!rejectedGrind.grindStarted);
+
+    boardInput.spinRight = true;
+    skateboard.grounded = false;
+    skateboard.y = 2.0f;
+    const float previousYaw = skateboard.yaw;
+    (void)boardController.update(
+        skateboard,
+        boardInput,
+        testEnvironment(),
+        kAffordances,
+        1.0f / 30.0f
+    );
+    assert(boardController.state().spinVelocity > 0.0f);
+    assert(skateboard.yaw > previousYaw);
 
     bmxController.reset();
     assert(bmxController.state().discipline == RideDiscipline::None);

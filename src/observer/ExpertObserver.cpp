@@ -251,6 +251,10 @@ std::string inputJson(const CaptureContext& context)
     std::ostringstream output;
     output << "{\n  \"active_input_device\": \""
            << input::InputResolver::deviceName(activeDevice)
+           << "\",\n  \"controller_layout\": \""
+           << input::InputResolver::controllerLayoutName(
+               context.input.controllerLayout
+           )
            << "\",\n  \"connected_gamepads\": " << context.connectedGamepads
            << ",\n  \"gamepad_available\": "
            << (context.input.gamepadAvailable ? "true" : "false")
@@ -261,7 +265,48 @@ std::string inputJson(const CaptureContext& context)
            << (context.input.gamepadConnected ? "true" : "false")
            << ",\"disconnected_this_frame\":"
            << (context.input.gamepadDisconnected ? "true" : "false")
-           << "},\n  \"semantic_action_map\": [\n";
+           << "},\n  \"ride_control\": {\n"
+           << "    \"active_discipline\": \""
+           << jsonEscape(context.rideControl.activeDiscipline)
+           << "\",\n    \"activation_held\": "
+           << (context.rideControl.activationHeld ? "true" : "false")
+           << ",\n    \"capture_active\": "
+           << (context.rideControl.captureActive ? "true" : "false")
+           << ",\n    \"raw_right_stick\": {\"x\":" << std::fixed
+           << std::setprecision(4) << context.rideControl.rawRightStickX
+           << ",\"y\":" << context.rideControl.rawRightStickY
+           << "},\n    \"normalized_trick_vector\": {\"x\":"
+           << context.rideControl.normalizedTrickX << ",\"y\":"
+           << context.rideControl.normalizedTrickY
+           << "},\n    \"detected_flick\": \""
+           << jsonEscape(context.rideControl.detectedFlick)
+           << "\",\n    \"grind_held\": "
+           << (context.rideControl.grindHeld ? "true" : "false")
+           << ",\n    \"balance_held\": "
+           << (context.rideControl.balanceHeld ? "true" : "false")
+           << ",\n    \"propulsion\": " << context.rideControl.propulsion
+           << ",\n    \"spin_left\": "
+           << (context.rideControl.spinLeft ? "true" : "false")
+           << ",\n    \"spin_right\": "
+           << (context.rideControl.spinRight ? "true" : "false")
+           << ",\n    \"right_stick_owner\": \""
+           << jsonEscape(context.rideControl.rightStickOwner)
+           << "\",\n    \"ride_state\": \""
+           << jsonEscape(context.rideControl.rideState)
+           << "\",\n    \"tuning\": {\"camera_deadzone\":"
+           << context.rideControl.cameraDeadzone
+           << ",\"trick_deadzone\":" << context.rideControl.trickDeadzone
+           << ",\"flick_activation_threshold\":"
+           << context.rideControl.flickActivationThreshold
+           << ",\"flick_release_threshold\":"
+           << context.rideControl.flickReleaseThreshold
+           << ",\"minimum_flick_duration\":"
+           << context.rideControl.minimumFlickDuration
+           << ",\"maximum_flick_duration\":"
+           << context.rideControl.maximumFlickDuration
+           << ",\"maximum_tap_duration\":"
+           << context.rideControl.maximumTapDuration << "}\n"
+           << "  },\n  \"semantic_action_map\": [\n";
     for (std::size_t index = 0; index < input::actionCount; ++index) {
         const input::Action action = static_cast<input::Action>(index);
         const input::ActionState& state = context.input.action(action);
@@ -269,7 +314,11 @@ std::string inputJson(const CaptureContext& context)
                << "\",\"keyboard_binding\":\""
                << input::InputResolver::prompt(action, input::InputDevice::KeyboardMouse)
                << "\",\"controller_binding\":\""
-               << input::InputResolver::prompt(action, input::InputDevice::Gamepad)
+               << input::InputResolver::prompt(
+                   action,
+                   input::InputDevice::Gamepad,
+                   context.input.controllerLayout
+               )
                << "\",\"held\":" << (state.held ? "true" : "false")
                << ",\"pressed\":" << (state.pressed ? "true" : "false")
                << ",\"value\":" << std::fixed << std::setprecision(4) << state.value << '}'
@@ -325,6 +374,7 @@ std::string doctrineJson()
   "expressive_movement_priority": "high",
   "semantic_world_architecture": "required",
   "controller_native_ride_disciplines": true,
+  "one_controller_grammar": true,
   "data_grunge_identity": "required",
   "generic_engine_demo_aesthetic": "avoid",
   "reference_pillars": {

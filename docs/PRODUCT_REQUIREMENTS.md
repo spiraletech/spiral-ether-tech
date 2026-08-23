@@ -1,6 +1,6 @@
 # Hakui Product Requirements
 
-Status: working specification through the local v0.81 cleanup and Expert AI observer pass.
+Status: working specification through the local v0.82 canonical controller overhaul.
 
 Each requirement has a stable identifier so code, tests, issues, and release notes can refer to the same contract. A requirement is complete only when its acceptance criteria are automated or explicitly marked as a manual visual/audio check.
 
@@ -225,6 +225,31 @@ Acceptance criteria:
 Automated in part by: `hakui.observer`. Current-frame fidelity remains a native
 visual smoke check.
 
+### HK-EXP-015 — Canonical advanced-ride controller grammar
+
+Skateboard and BMX shall interpret one controller-native intent language while
+retaining discipline-specific physical and expressive results.
+
+Acceptance criteria:
+
+- South taps produce a normal pop; South-held right-stick gestures classify
+  eight deterministic flick directions and resolve a discipline-specific trick.
+- The right stick has exactly one owner at a time: camera or trick capture.
+- Gesture completion, pause, disconnect, dismount, locomotion switch, and void
+  respawn restore camera ownership without stale axes or actions.
+- North is the permanent semantic grind action; LT is balance, RT propulsion,
+  LB/RB body spin, West style, and East cancel/dismount while riding.
+- Grind entry validates an authored grindable affordance, distance, speed,
+  approach alignment, ride state, and discipline attachment opportunity.
+- PlayStation-, Xbox-, and generic SDL prompt families present the same actions
+  without exposing hardware names to gameplay consumers.
+- Expert Observer input snapshots include discipline, activation/capture state,
+  raw and normalized right-stick values, flick direction, grind, balance,
+  propulsion, spin, ownership, ride state, and centralized tuning.
+
+Automated in part by: `hakui.input`, `hakui.rideable_movement`, and
+`hakui.observer`. Hardware-specific control feel remains a native smoke check.
+
 ## Engine requirements
 
 ### HK-ENG-001 — Dependency firewall
@@ -309,6 +334,7 @@ Before a public v1.0 release, the repository shall include an owner-selected lic
 | HK-EXP-012 | Implemented locally | `RideableMovementController`, rideable spec, distinct procedural models |
 | HK-EXP-013 | Implemented locally | `HakuiInput`, `SdlInputBridge`, discipline interpreter, semantic HUD prompts, ride attachment spec |
 | HK-EXP-014 | Implemented locally | `ExpertObserver`, native F12 frame capture, observer spec, versioned read-only bundle |
+| HK-EXP-015 | Implemented locally | `RideControlInterpreter`, semantic controller-family prompts, rideable/input/observer specs |
 | HK-ENG-001–005 | Implemented, awaiting CI | Firewall and Spiral specs |
 | HK-ENG-006 | Implemented locally | Semantic affordances and dependency-free combat/gameplay targets |
 | HK-QLT-001–003 | Implemented, awaiting CI | CMake, workflow, dependency manifest |

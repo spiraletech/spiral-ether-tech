@@ -50,7 +50,7 @@ int main()
 
     CaptureContext context;
     context.build = {
-        "0.81-dev", "spec", "abc123", "codex/cleanup-observer-v0.81",
+        "0.82-dev", "spec", "abc123", "codex/controller-overhaul-v0.82",
         "2026-08-23", "test", "none"
     };
     context.geometry = geometry;
@@ -78,6 +78,14 @@ int main()
         {{"LeftFootAnchor", "player.1", {-0.18f, 0.0f, 0.0f}}}
     });
     context.currentInteractionIntent = "INTERACT";
+    context.input.controllerLayout = input::ControllerLayout::PlayStation;
+    context.rideControl = {
+        "SKATEBOARD", true, true,
+        0.8f, -0.2f, 0.76f, -0.14f,
+        "RIGHT", true, true, 0.8f, false, true,
+        "TRICK_CAPTURE", "AIR",
+        0.16f, 0.22f, 0.68f, 0.30f, 0.035f, 0.55f, 0.24f
+    };
     context.camera.position = {2.0f, 3.0f, 6.0f};
     context.camera.target = {0.0f, 1.25f, 2.0f};
     context.runtime.recentEvents = {"[0.000] [boot] WORLD ONLINE"};
@@ -129,6 +137,11 @@ int main()
     assert(world.find("primitive.0001") != std::string::npos);
     assert(world.find("CasinoAnchor") != std::string::npos);
     assert(input.find("semantic_action_map") != std::string::npos);
+    assert(input.find("\"ride_control\"") != std::string::npos);
+    assert(input.find("\"detected_flick\": \"RIGHT\"") != std::string::npos);
+    assert(input.find("\"right_stick_owner\": \"TRICK_CAPTURE\"") != std::string::npos);
+    assert(input.find("\"controller_layout\": \"PLAYSTATION-STYLE\"") != std::string::npos);
+    assert(input.find("TRIANGLE") != std::string::npos);
     assert(input.find("CAPTURE EXPERT SNAPSHOT") != std::string::npos);
     assert(map.find("<svg") != std::string::npos);
     assert(map.find("FUSION TABLE") != std::string::npos);

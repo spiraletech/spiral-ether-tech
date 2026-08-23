@@ -2,6 +2,7 @@
 #include <cmath>
 
 #include "input/HakuiInput.hpp"
+#include "input/RideControlInterpreter.hpp"
 
 namespace {
 
@@ -39,6 +40,7 @@ int main()
     gamepad.set(PhysicalControl::PadMoveX, -0.45f);
     gamepad.set(PhysicalControl::PadMoveY, 0.75f);
     gamepad.set(PhysicalControl::PadSouth, 1.0f, true);
+    gamepad.set(PhysicalControl::PadNorth, 1.0f, true);
     gamepad.set(PhysicalControl::PadRightShoulder, 1.0f);
     gamepad.set(PhysicalControl::PadLeftShoulder, 1.0f);
     gamepad.set(PhysicalControl::PadLeftTrigger, 0.65f);
@@ -50,6 +52,8 @@ int main()
     assert(padFrame.action(Action::Jump).pressed);
     assert(padFrame.action(Action::Grind).held);
     assert(padFrame.action(Action::Balance).held);
+    assert(padFrame.action(Action::SpinLeft).held);
+    assert(padFrame.action(Action::SpinRight).held);
     assert(padFrame.action(Action::Accelerate).held);
     assert(nearlyEqual(padFrame.axis(Axis::Accelerate), 0.82f));
 
@@ -95,11 +99,157 @@ int main()
     assert(InputResolver::prompt(Action::Interact, InputDevice::KeyboardMouse) == "E");
     assert(InputResolver::prompt(Action::Interact, InputDevice::Gamepad) == "WEST");
     assert(InputResolver::prompt(Action::Jump, InputDevice::Gamepad) == "SOUTH");
+    assert(InputResolver::prompt(
+        Action::Jump,
+        InputDevice::Gamepad,
+        ControllerLayout::PlayStation
+    ) == "CROSS");
+    assert(InputResolver::prompt(
+        Action::Grind,
+        InputDevice::Gamepad,
+        ControllerLayout::PlayStation
+    ) == "TRIANGLE");
+    assert(InputResolver::prompt(
+        Action::Jump,
+        InputDevice::Gamepad,
+        ControllerLayout::Xbox
+    ) == "A");
+    assert(InputResolver::prompt(
+        Action::Grind,
+        InputDevice::Gamepad,
+        ControllerLayout::Xbox
+    ) == "Y");
+    assert(InputResolver::prompt(
+        Action::Grind,
+        InputDevice::Gamepad,
+        ControllerLayout::Generic
+    ) == "NORTH");
+    assert(InputResolver::prompt(
+        Action::SpinLeft,
+        InputDevice::Gamepad,
+        ControllerLayout::PlayStation
+    ) == "L1");
+    assert(InputResolver::prompt(
+        Action::Accelerate,
+        InputDevice::Gamepad,
+        ControllerLayout::Xbox
+    ) == "RT");
     assert(InputResolver::prompt(Action::Balance, InputDevice::KeyboardMouse) ==
            "LCTRL");
     assert(InputResolver::prompt(
         Action::CaptureExpertSnapshot,
         InputDevice::KeyboardMouse
     ) == "F12*");
+
+    constexpr struct DirectionCase {
+        float x;
+        float y;
+        FlickDirection expected;
+    } directions[] = {
+        {-1.0f, 0.0f, FlickDirection::Left},
+        {1.0f, 0.0f, FlickDirection::Right},
+        {0.0f, -1.0f, FlickDirection::Up},
+        {0.0f, 1.0f, FlickDirection::Down},
+        {-0.8f, -0.8f, FlickDirection::UpLeft},
+        {0.8f, -0.8f, FlickDirection::UpRight},
+        {-0.8f, 0.8f, FlickDirection::DownLeft},
+        {0.8f, 0.8f, FlickDirection::DownRight}
+    };
+    for (const DirectionCase& direction : directions) {
+        assert(RideControlInterpreter::classifyDirection(
+            direction.x,
+            direction.y
+        ) == direction.expected);
+    }
+    float deadzoneX = 1.0f;
+    float deadzoneY = 1.0f;
+    RideControlInterpreter::radialDeadzone(
+        0.10f, 0.10f, 0.22f, deadzoneX, deadzoneY
+    );
+    assert(nearlyEqual(deadzoneX, 0.0f));
+    assert(nearlyEqual(deadzoneY, 0.0f));
+    RideControlInterpreter::radialDeadzone(
+        0.80f, 0.0f, 0.20f, deadzoneX, deadzoneY
+    );
+    assert(nearlyEqual(deadzoneX, 0.75f));
+    assert(nearlyEqual(deadzoneY, 0.0f));
+
+    RideControlInterpreter rideControls;
+    PhysicalInputFrame captureStart;
+    captureStart.activeDevice = InputDevice::Gamepad;
+    captureStart.gamepadAvailable = true;
+    captureStart.set(PhysicalControl::PadSouth, 1.0f, true);
+    RideControlFrame capture = rideControls.update(
+        resolver.resolve(captureStart),
+        true,
+        0.016f
+    );
+    assert(capture.captureActive);
+    assert(capture.rightStickOwner == RightStickOwner::TrickCapture);
+    assert(!capture.standardPop);
+
+    PhysicalInputFrame flickPeak;
+    flickPeak.activeDevice = InputDevice::Gamepad;
+    flickPeak.gamepadAvailable = true;
+    flickPeak.set(PhysicalControl::PadSouth, 1.0f);
+    flickPeak.set(PhysicalControl::PadLookX, 0.92f);
+    capture = rideControls.update(resolver.resolve(flickPeak), true, 0.06f);
+    assert(capture.captureActive);
+
+    PhysicalInputFrame flickRelease;
+    flickRelease.activeDevice = InputDevice::Gamepad;
+    flickRelease.gamepadAvailable = true;
+    flickRelease.set(PhysicalControl::PadSouth, 1.0f);
+    capture = rideControls.update(resolver.resolve(flickRelease), true, 0.06f);
+    assert(capture.trickResolved);
+    assert(capture.standardPop);
+    assert(capture.trick.direction == FlickDirection::Right);
+    assert(capture.rightStickOwner == RightStickOwner::Camera);
+
+    PhysicalInputFrame activationRelease;
+    activationRelease.activeDevice = InputDevice::Gamepad;
+    activationRelease.gamepadAvailable = true;
+    capture = rideControls.update(
+        resolver.resolve(activationRelease),
+        true,
+        0.016f
+    );
+    assert(!capture.captureActive);
+    assert(capture.rightStickOwner == RightStickOwner::Camera);
+
+    PhysicalInputFrame tapStart = captureStart;
+    capture = rideControls.update(resolver.resolve(tapStart), true, 0.016f);
+    assert(capture.captureActive);
+    capture = rideControls.update(
+        resolver.resolve(activationRelease),
+        true,
+        0.08f
+    );
+    assert(capture.standardPop);
+    assert(!capture.trickResolved);
+
+    PhysicalInputFrame disconnected;
+    disconnected.activeDevice = InputDevice::Gamepad;
+    disconnected.gamepadDisconnected = true;
+    capture = rideControls.update(resolver.resolve(disconnected), true, 0.016f);
+    assert(!capture.captureActive);
+    assert(capture.rightStickOwner == RightStickOwner::Camera);
+
+    capture = rideControls.update(
+        resolver.resolve(activationRelease),
+        true,
+        0.016f
+    );
+    capture = rideControls.update(resolver.resolve(captureStart), true, 0.016f);
+    assert(capture.rightStickOwner == RightStickOwner::TrickCapture);
+    capture = rideControls.update(resolver.resolve(activationRelease), false, 0.016f);
+    assert(!capture.captureActive);
+    assert(capture.rightStickOwner == RightStickOwner::Camera);
+
+    capture = rideControls.update(resolver.resolve(captureStart), true, 0.016f);
+    assert(capture.rightStickOwner == RightStickOwner::TrickCapture);
+    rideControls.reset();
+    assert(!rideControls.diagnostics().captureActive);
+    assert(rideControls.diagnostics().rightStickOwner == RightStickOwner::Camera);
     return 0;
 }

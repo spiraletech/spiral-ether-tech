@@ -10,6 +10,7 @@ namespace {
 constexpr float kMaximumDeltaSeconds = 0.10f;
 constexpr float kMinimumTrickSpeed = 0.75f;
 constexpr float kComboHoldSeconds = 2.75f;
+constexpr float kMinimumGrindAlignment = 0.42f;
 
 RideDiscipline disciplineFor(LocomotionMode mode) noexcept
 {
@@ -68,6 +69,11 @@ RideableFrame RideableMovementController::update(
         std::clamp(input.movement.right, -1.0f, 1.0f),
         6.0f * dt
     );
+    state_.propulsion = approach(
+        state_.propulsion,
+        std::clamp(input.propulsion, 0.0f, 1.0f),
+        5.0f * dt
+    );
 
     if (state_.phase == RidePhase::Crash) {
         player.velocityX = approach(player.velocityX, 0.0f, 18.0f * dt);
@@ -90,7 +96,7 @@ RideableFrame RideableMovementController::update(
     }
 
     MovementInput movementInput = input.movement;
-    movementInput.jumpPressed = input.hopPressed &&
+    movementInput.jumpPressed = input.popPressed &&
         state_.phase != RidePhase::Grinding &&
         state_.phase != RidePhase::Manual;
     const float preLandingVelocity = player.velocityY;
@@ -148,17 +154,32 @@ RideableFrame RideableMovementController::update(
     if (!player.grounded) {
         state_.phase = RidePhase::Airborne;
         state_.airSeconds += dt;
-        const RideTrick airTrick = discipline == RideDiscipline::Skateboard
-            ? (input.flipLeftPressed
-                ? RideTrick::Kickflip
-                : (input.flipRightPressed ? RideTrick::Heelflip : RideTrick::None))
-            : ((input.flipLeftPressed || input.flipRightPressed)
-                ? RideTrick::BmxTabletop
-                : RideTrick::None);
+        RideTrick airTrick = input.trick.valid
+            ? trickFor(discipline, input.trick.direction)
+            : RideTrick::None;
+        if (airTrick == RideTrick::None && input.stylePressed) {
+            airTrick = discipline == RideDiscipline::Skateboard
+                ? RideTrick::BoardGrab
+                : RideTrick::BmxTabletop;
+        }
         if (airTrick != RideTrick::None && !state_.flipCommitted) {
             state_.flipCommitted = true;
+            state_.lastTrickDirection = input.trick.direction;
             beginTrick(airTrick, frame);
         }
+
+        const float spinIntent = static_cast<float>(input.spinRight) -
+            static_cast<float>(input.spinLeft);
+        const float spinResponse = discipline == RideDiscipline::Skateboard
+            ? 7.4f
+            : 5.8f;
+        state_.spinVelocity = approach(
+            state_.spinVelocity,
+            spinIntent * spinResponse,
+            13.0f * dt
+        );
+        state_.bodySpinRadians += state_.spinVelocity * dt;
+        player.yaw += state_.spinVelocity * dt;
 
         const WorldAffordanceVolume* grind = nearby(
             WorldAffordance::Grindable,
@@ -166,11 +187,14 @@ RideableFrame RideableMovementController::update(
             affordances,
             0.55f
         );
-        if (input.grindHeld && grind && state_.speed >= kMinimumTrickSpeed &&
+        if (input.grindHeld && grind && validGrindApproach(*grind, player) &&
             player.velocityY <= 1.0f) {
             state_.phase = RidePhase::Grinding;
             state_.phaseSeconds = 0.0f;
             state_.activeAffordanceId = grind->id;
+            state_.activeGrindAttachment = discipline == RideDiscipline::Skateboard
+                ? RideGrindAttachment::BoardTrucks
+                : RideGrindAttachment::BmxPegs;
             state_.balance = 100.0f;
             state_.balanceOffset = 0.0f;
             player.grounded = true;
@@ -195,10 +219,13 @@ RideableFrame RideableMovementController::update(
             affordances,
             0.45f
         );
-        if (grind) {
+        if (grind && validGrindApproach(*grind, player)) {
             state_.phase = RidePhase::Grinding;
             state_.phaseSeconds = 0.0f;
             state_.activeAffordanceId = grind->id;
+            state_.activeGrindAttachment = discipline == RideDiscipline::Skateboard
+                ? RideGrindAttachment::BoardTrucks
+                : RideGrindAttachment::BmxPegs;
             state_.balance = 100.0f;
             state_.balanceOffset = 0.0f;
             player.y = grind->primaryAnchor.y;
@@ -224,6 +251,7 @@ RideableFrame RideableMovementController::update(
             state_.phase = player.grounded ? RidePhase::Grounded : RidePhase::Airborne;
             state_.phaseSeconds = 0.0f;
             state_.activeAffordanceId = 0;
+            state_.activeGrindAttachment = RideGrindAttachment::None;
         } else {
             state_.activeAffordanceId = grind->id;
             updateBalance(
@@ -299,6 +327,7 @@ RideableFrame RideableMovementController::update(
         state_.phase = RidePhase::Landing;
         state_.phaseSeconds = 0.0f;
         state_.activeAffordanceId = 0;
+        state_.activeGrindAttachment = RideGrindAttachment::None;
         state_.activeTrick = RideTrick::Land;
         appendCombo(RideTrick::Land);
         frame.landed = true;
@@ -307,6 +336,9 @@ RideableFrame RideableMovementController::update(
     if (state_.phase == RidePhase::Landing && state_.phaseSeconds >= 0.38f) {
         state_.phase = RidePhase::Grounded;
         state_.phaseSeconds = 0.0f;
+    }
+    if (player.grounded && state_.phase != RidePhase::Grinding) {
+        state_.spinVelocity = approach(state_.spinVelocity, 0.0f, 18.0f * dt);
     }
     if (state_.phase == RidePhase::Grounded && state_.comboWindowSeconds <= 0.0f) {
         state_.comboCount = 0;
@@ -347,7 +379,14 @@ std::string_view RideableMovementController::trickLabel(RideTrick trick) noexcep
         case RideTrick::BunnyHop: return "BUNNY HOP";
         case RideTrick::Kickflip: return "KICKFLIP";
         case RideTrick::Heelflip: return "HEELFLIP";
+        case RideTrick::PopShove: return "POP SHOVE";
+        case RideTrick::VarialFlip: return "VARIAL FLIP";
+        case RideTrick::BoardGrab: return "BOARD GRAB";
         case RideTrick::BmxTabletop: return "TABLETOP";
+        case RideTrick::BmxTailwhipLeft: return "TAILWHIP LEFT";
+        case RideTrick::BmxTailwhipRight: return "TAILWHIP RIGHT";
+        case RideTrick::BmxBarspin: return "BARSPIN";
+        case RideTrick::BmxCrankflip: return "CRANKFLIP";
         case RideTrick::BoardGrind: return "BOARD GRIND";
         case RideTrick::PegGrind: return "PEG GRIND";
         case RideTrick::BoardManual: return "BOARD MANUAL";
@@ -430,6 +469,7 @@ void RideableMovementController::beginBail(
     state_.activeTrick = RideTrick::Bail;
     state_.landingQuality = LandingQuality::Bail;
     state_.activeAffordanceId = 0;
+    state_.activeGrindAttachment = RideGrindAttachment::None;
     state_.balance = 0.0f;
     appendCombo(RideTrick::Bail);
     player.velocityX *= 0.22f;
@@ -452,6 +492,67 @@ void RideableMovementController::updateBalance(
         0.0f,
         100.0f
     );
+}
+
+bool RideableMovementController::validGrindApproach(
+    const WorldAffordanceVolume& grind,
+    const PlayerState& player
+) const noexcept
+{
+    const RideGrindAttachment opportunity =
+        state_.discipline == RideDiscipline::Skateboard
+            ? RideGrindAttachment::BoardTrucks
+            : state_.discipline == RideDiscipline::BMX
+                ? RideGrindAttachment::BmxPegs
+                : RideGrindAttachment::None;
+    if (opportunity == RideGrindAttachment::None ||
+        state_.phase == RidePhase::Crash ||
+        state_.speed < kMinimumTrickSpeed) {
+        return false;
+    }
+    const float xSpan = grind.maximumX - grind.minimumX;
+    const float zSpan = grind.maximumZ - grind.minimumZ;
+    const float inverseSpeed = 1.0f / std::max(state_.speed, 0.001f);
+    const float velocityX = player.velocityX * inverseSpeed;
+    const float velocityZ = player.velocityZ * inverseSpeed;
+    const float alignment = xSpan >= zSpan
+        ? std::fabs(velocityX)
+        : std::fabs(velocityZ);
+    return alignment >= kMinimumGrindAlignment;
+}
+
+RideTrick RideableMovementController::trickFor(
+    RideDiscipline discipline,
+    RideTrickDirection direction
+) noexcept
+{
+    if (discipline == RideDiscipline::Skateboard) {
+        switch (direction) {
+            case RideTrickDirection::Left: return RideTrick::Kickflip;
+            case RideTrickDirection::Right: return RideTrick::Heelflip;
+            case RideTrickDirection::Up:
+            case RideTrickDirection::Down: return RideTrick::PopShove;
+            case RideTrickDirection::UpLeft:
+            case RideTrickDirection::UpRight:
+            case RideTrickDirection::DownLeft:
+            case RideTrickDirection::DownRight: return RideTrick::VarialFlip;
+            case RideTrickDirection::None: return RideTrick::None;
+        }
+    }
+    if (discipline == RideDiscipline::BMX) {
+        switch (direction) {
+            case RideTrickDirection::Left: return RideTrick::BmxTailwhipLeft;
+            case RideTrickDirection::Right: return RideTrick::BmxTailwhipRight;
+            case RideTrickDirection::Up: return RideTrick::BmxBarspin;
+            case RideTrickDirection::Down: return RideTrick::BmxCrankflip;
+            case RideTrickDirection::UpLeft:
+            case RideTrickDirection::UpRight:
+            case RideTrickDirection::DownLeft:
+            case RideTrickDirection::DownRight: return RideTrick::BmxTabletop;
+            case RideTrickDirection::None: return RideTrick::None;
+        }
+    }
+    return RideTrick::None;
 }
 
 } // namespace hakui

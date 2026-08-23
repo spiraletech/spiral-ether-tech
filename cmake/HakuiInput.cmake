@@ -10,10 +10,13 @@ hakui_enforce_first_party_firewall(
     "Hakui Input"
     ${CMAKE_CURRENT_LIST_DIR}/../src/input/HakuiInput.hpp
     ${CMAKE_CURRENT_LIST_DIR}/../src/input/HakuiInput.cpp
+    ${CMAKE_CURRENT_LIST_DIR}/../src/input/RideControlInterpreter.hpp
+    ${CMAKE_CURRENT_LIST_DIR}/../src/input/RideControlInterpreter.cpp
 )
 
 add_library(hakui_input STATIC
     ${CMAKE_CURRENT_LIST_DIR}/../src/input/HakuiInput.cpp
+    ${CMAKE_CURRENT_LIST_DIR}/../src/input/RideControlInterpreter.cpp
 )
 
 target_include_directories(hakui_input

@@ -173,6 +173,30 @@ Exit signal: HAKUI stands correctly on authored contact surfaces, interaction
 controls are quieter, and one F12 snapshot lets an external expert compare
 semantic truth with the actual rendered frame.
 
+## M4.82 — v0.82 canonical controller overhaul
+
+- Give skateboard and BMX one semantic ride grammar: South pop/capture, eight-
+  way right-stick flick, North grind, LT balance, RT propulsion, LB/RB spin,
+  West style, and East dismount.
+- Centralize ride camera/trick deadzones, activation/release thresholds, timing,
+  gesture classification, and ownership in a deterministic SDL-free layer.
+- Reset right-stick ownership on gesture completion, pause, disconnect,
+  dismount, locomotion switch, and void respawn.
+- Resolve prompts for PlayStation-, Xbox-, and generic SDL controller families
+  while gameplay continues to consume semantic actions only.
+- Validate grind affordance, proximity, speed, approach alignment, ride state,
+  and attachment opportunity before entering a grind.
+- Extend Expert Observer input snapshots with complete ride-control diagnostics
+  and tuning values.
+
+Current state: implemented locally on `codex/controller-overhaul-v0.82`; ten
+deterministic CTests and the native SDL client compile locally. Remote
+operations remain unauthorized.
+
+Exit signal: skateboard and BMX feel like distinct machines speaking the same
+controller language, right-stick ownership can never become stuck, and the
+entire interpretation path is visible in one read-only snapshot.
+
 ## M5 — World persistence and replay
 
 - Define a versioned StateStore snapshot schema.

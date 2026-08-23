@@ -1,4 +1,4 @@
-# PROJECT HAKUI — Native Client v0.81-dev
+# PROJECT HAKUI — Native Client v0.82-dev
 
 [![Hakui Build and Test](https://github.com/spiraletech/spiral-ether-tech/actions/workflows/native-build.yml/badge.svg)](https://github.com/spiraletech/spiral-ether-tech/actions/workflows/native-build.yml)
 [![C++20](https://img.shields.io/badge/C%2B%2B-20-00599C.svg)](https://en.cppreference.com/w/cpp/20)
@@ -36,6 +36,24 @@ cmake --build build --config Release --target hakui --parallel
 ```
 
 The resulting executable is `hakui` (`hakui.exe` on Windows). Run it from the selected build-configuration directory used by your generator.
+
+## v0.82 canonical controller overhaul
+
+v0.82 gives skateboard and BMX one controller-native ride grammar. `South`
+press owns the right stick for a bounded trick-capture window; a tap resolves a
+normal pop, while a held activation plus an eight-way right-stick flick resolves
+a discipline-specific trick and returns ownership to the camera deterministically.
+`North` is always grind, `LT` balance, `RT` propulsion, `LB/RB` body spin,
+`West` style, and `East` cancel/dismount. PlayStation-, Xbox-, and generic SDL
+controllers resolve the same semantic actions through controller-family prompts.
+
+The GPU-independent ride interpreter centralizes camera/trick deadzones,
+activation and release thresholds, gesture timing, direction classification,
+and reset behavior. Pause, disconnect, dismount, mode changes, and void respawn
+all clear capture ownership. Grind entry now validates the authored grindable
+affordance, proximity, speed, approach alignment, ride state, and discipline
+attachment opportunity. `F12` input snapshots expose the full ride-control
+state and tuning without granting the observer authority.
 
 ## v0.81 cleanup + Expert AI observability
 
@@ -434,13 +452,14 @@ F12           capture read-only Expert Observer bundle
 
 GAMEPAD
 Left stick    move / steer
-Right stick   camera
-South         jump / ollie / bunny hop
+Right stick   camera; eight-way ride trick while South owns capture
+South         jump on foot; tap pop / hold + right-stick flick while riding
 East          cancel / dismount
-West / North  primary / secondary discipline action
-LB / LT       guard / balance
-RB            context / grind
-RT            accelerate
+West          interact / primary / ride style
+North         secondary on foot/combat; grind while riding
+LB / RB       ride body spin left / right
+LT            guard on foot/combat; ride balance
+RT            accelerate / ride propulsion
 Start         pause / resume
 D-pad         on-foot / skateboard / BMX discipline switching
 ```

@@ -5,6 +5,7 @@
   "expressive_movement_priority": "high",
   "semantic_world_architecture": "required",
   "controller_native_ride_disciplines": true,
+  "one_controller_grammar": true,
   "data_grunge_identity": "required",
   "generic_engine_demo_aesthetic": "avoid",
   "reference_pillars": {

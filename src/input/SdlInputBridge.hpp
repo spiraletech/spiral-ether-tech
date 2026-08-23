@@ -29,7 +29,9 @@ private:
     static PhysicalControl keyboardControl(SDL_Scancode scancode) noexcept;
     static PhysicalControl gamepadControl(SDL_GamepadButton button) noexcept;
     static float normalizedStick(Sint16 raw) noexcept;
+    static float rawStick(Sint16 raw) noexcept;
     static float normalizedTrigger(Sint16 raw) noexcept;
+    static ControllerLayout controllerLayout(SDL_Gamepad* gamepad) noexcept;
 
     void latch(PhysicalControl control) noexcept;
 

@@ -33,21 +33,19 @@ constexpr auto kActionBindings = std::to_array<ActionBinding>({
     {Action::SecondaryAction, PhysicalControl::PadNorth},
     {Action::Guard, PhysicalControl::KeyGuard},
     {Action::Guard, PhysicalControl::KeyGuardLegacy},
-    {Action::Guard, PhysicalControl::PadLeftShoulder},
     {Action::Guard, PhysicalControl::PadLeftTrigger},
     {Action::Context, PhysicalControl::KeyContext},
-    {Action::Context, PhysicalControl::PadRightShoulder},
     {Action::Grind, PhysicalControl::KeyContext},
-    {Action::Grind, PhysicalControl::PadRightShoulder},
+    {Action::Grind, PhysicalControl::PadNorth},
     {Action::Balance, PhysicalControl::KeyBalance},
     {Action::Balance, PhysicalControl::KeyBalanceLegacy},
-    {Action::Balance, PhysicalControl::PadLeftShoulder},
     {Action::Balance, PhysicalControl::PadLeftTrigger},
     {Action::Accelerate, PhysicalControl::KeyAccelerate},
     {Action::Accelerate, PhysicalControl::PadRightTrigger},
-    {Action::Accelerate, PhysicalControl::PadLeftStick},
+    {Action::SpinLeft, PhysicalControl::PadLeftShoulder},
+    {Action::SpinRight, PhysicalControl::PadRightShoulder},
     {Action::Recover, PhysicalControl::KeyRecover},
-    {Action::Recover, PhysicalControl::PadNorth},
+    {Action::Recover, PhysicalControl::PadRightStick},
     {Action::Pause, PhysicalControl::KeyPause},
     {Action::Pause, PhysicalControl::PadStart},
     {Action::Quit, PhysicalControl::KeyQuit},
@@ -77,9 +75,9 @@ constexpr auto kAxisBindings = std::to_array<AxisBinding>({
     {Axis::MoveForward, PhysicalControl::KeyMoveBackward, -1.0f},
     {Axis::MoveForward, PhysicalControl::PadMoveY, 1.0f},
     {Axis::LookRight, PhysicalControl::MouseLookX, 1.0f},
-    {Axis::LookRight, PhysicalControl::PadLookX, 1.0f},
     {Axis::LookDown, PhysicalControl::MouseLookY, 1.0f},
-    {Axis::LookDown, PhysicalControl::PadLookY, 1.0f},
+    {Axis::RightStickX, PhysicalControl::PadLookX, 1.0f},
+    {Axis::RightStickY, PhysicalControl::PadLookY, 1.0f},
     {Axis::Zoom, PhysicalControl::MouseWheel, 1.0f},
     {Axis::Accelerate, PhysicalControl::KeyAccelerate, 1.0f},
     {Axis::Accelerate, PhysicalControl::PadRightTrigger, 1.0f}
@@ -173,6 +171,8 @@ DisciplineIntent DisciplineInterpreter::interpret(
         discipline == ActiveDiscipline::Bmx;
     intent.grind = rideDiscipline && frame.action(Action::Grind).held;
     intent.balance = rideDiscipline && frame.action(Action::Balance).held;
+    intent.spinLeft = rideDiscipline && frame.action(Action::SpinLeft).held;
+    intent.spinRight = rideDiscipline && frame.action(Action::SpinRight).held;
     return intent;
 }
 
@@ -182,6 +182,7 @@ InputFrame InputResolver::resolve(
 {
     InputFrame frame;
     frame.activeDevice = physical.activeDevice;
+    frame.controllerLayout = physical.controllerLayout;
     frame.gamepadAvailable = physical.gamepadAvailable;
     frame.gamepadConnected = physical.gamepadConnected;
     frame.gamepadDisconnected = physical.gamepadDisconnected;
@@ -211,6 +212,12 @@ InputFrame InputResolver::resolve(
     frame.axes[indexOf(Axis::Accelerate)] = std::clamp(
         frame.axes[indexOf(Axis::Accelerate)], 0.0f, 1.0f
     );
+    frame.axes[indexOf(Axis::RightStickX)] = std::clamp(
+        frame.axes[indexOf(Axis::RightStickX)], -1.0f, 1.0f
+    );
+    frame.axes[indexOf(Axis::RightStickY)] = std::clamp(
+        frame.axes[indexOf(Axis::RightStickY)], -1.0f, 1.0f
+    );
     return frame;
 }
 
@@ -227,6 +234,8 @@ std::string_view InputResolver::actionName(Action action) noexcept
         case Action::Grind: return "GRIND";
         case Action::Balance: return "BALANCE";
         case Action::Accelerate: return "ACCELERATE";
+        case Action::SpinLeft: return "SPIN LEFT";
+        case Action::SpinRight: return "SPIN RIGHT";
         case Action::Dismount: return "DISMOUNT";
         case Action::Recover: return "RECOVER";
         case Action::Pause: return "PAUSE";
@@ -250,25 +259,37 @@ std::string_view InputResolver::actionName(Action action) noexcept
 
 std::string_view InputResolver::prompt(
     Action action,
-    InputDevice device
+    InputDevice device,
+    ControllerLayout layout
 ) noexcept
 {
     if (device == InputDevice::Gamepad) {
+        const auto face = [layout](std::string_view generic,
+                                   std::string_view xbox,
+                                   std::string_view playStation) {
+            switch (layout) {
+                case ControllerLayout::Xbox: return xbox;
+                case ControllerLayout::PlayStation: return playStation;
+                case ControllerLayout::Generic: return generic;
+            }
+            return generic;
+        };
         switch (action) {
-            case Action::Jump: return "SOUTH";
+            case Action::Jump: return face("SOUTH", "A", "CROSS");
             case Action::Interact:
-            case Action::PrimaryAction: return "WEST";
+            case Action::PrimaryAction: return face("WEST", "X", "SQUARE");
             case Action::Cancel:
-            case Action::Dismount: return "EAST";
+            case Action::Dismount: return face("EAST", "B", "CIRCLE");
             case Action::SecondaryAction:
-            case Action::Recover: return "NORTH";
+            case Action::Grind: return face("NORTH", "Y", "TRIANGLE");
             case Action::Guard:
-            case Action::Balance: return "LB/LT";
-            case Action::Context:
-            case Action::Grind: return "RB";
-            case Action::Accelerate: return "RT";
-            case Action::Pause: return "START";
+            case Action::Balance: return face("LEFT TRIGGER", "LT", "L2");
+            case Action::SpinLeft: return face("LEFT SHOULDER", "LB", "L1");
+            case Action::SpinRight: return face("RIGHT SHOULDER", "RB", "R1");
+            case Action::Accelerate: return face("RIGHT TRIGGER", "RT", "R2");
+            case Action::Pause: return face("START", "MENU", "OPTIONS");
             case Action::CameraReset: return "R3";
+            case Action::Recover: return "R3";
             case Action::SelectOnFoot: return "DPAD UP";
             case Action::SelectSkateboard: return "DPAD LEFT";
             case Action::SelectBmx: return "DPAD RIGHT";
@@ -288,6 +309,8 @@ std::string_view InputResolver::prompt(
         case Action::Grind: return "F";
         case Action::Balance: return "LCTRL";
         case Action::Accelerate: return "LSHIFT";
+        case Action::SpinLeft:
+        case Action::SpinRight: return "--";
         case Action::Recover:
         case Action::CameraReset: return "R";
         case Action::Pause: return "ESC";
@@ -311,6 +334,18 @@ std::string_view InputResolver::prompt(
 std::string_view InputResolver::deviceName(InputDevice device) noexcept
 {
     return device == InputDevice::Gamepad ? "GAMEPAD" : "KEYBOARD + MOUSE";
+}
+
+std::string_view InputResolver::controllerLayoutName(
+    ControllerLayout layout
+) noexcept
+{
+    switch (layout) {
+        case ControllerLayout::Generic: return "GENERIC SDL";
+        case ControllerLayout::Xbox: return "XBOX-STYLE";
+        case ControllerLayout::PlayStation: return "PLAYSTATION-STYLE";
+    }
+    return "GENERIC SDL";
 }
 
 void DeviceActivityTracker::noteActivity(InputDevice device) noexcept
