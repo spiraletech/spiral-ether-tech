@@ -302,7 +302,7 @@ bool DebugWorldRenderer::init(SDL_GPUDevice* device, SDL_Window* window)
         return false;
     }
 
-    SDL_Log("[HAKUI] v0.83 DATA GRUNGE renderer // pop then flick rhythm online");
+    SDL_Log("[HAKUI] v0.84 DATA GRUNGE renderer // physical ride state online");
     return true;
 }
 
@@ -689,29 +689,42 @@ bool DebugWorldRenderer::render(
     const bool ridingBmx =
         player.locomotion == LocomotionMode::BMX &&
         player.activity == PlayerActivity::Roaming;
+    static const hakui::RideAttachmentRig skateboardRig =
+        hakui::RideAttachmentRig::skateboard();
+    static const hakui::RideAttachmentRig bmxRig =
+        hakui::RideAttachmentRig::bmx();
     float ridePitch = 0.0f;
+    float rideYaw = 0.0f;
     float rideRoll = 0.0f;
     if (scene.rideable.phase == hakui::RidePhase::Manual) {
         ridePitch = ridingSkateboard ? -0.20f : -0.32f;
     } else if (scene.rideable.phase == hakui::RidePhase::Grinding) {
         rideRoll = ridingSkateboard ? 0.12f : -0.09f;
     } else if (scene.rideable.phase == hakui::RidePhase::Crash) {
-        rideRoll = ridingSkateboard ? 0.72f : -0.62f;
+        rideRoll = ridingSkateboard ? 0.20f : -0.18f;
     }
-    if (scene.rideable.phase == hakui::RidePhase::Airborne) {
-        if (scene.rideable.activeTrick == hakui::RideTrick::Kickflip) {
-            rideRoll = scene.rideable.phaseSeconds * 10.5f;
-        } else if (scene.rideable.activeTrick == hakui::RideTrick::Heelflip) {
-            rideRoll = -scene.rideable.phaseSeconds * 10.5f;
-        } else if (scene.rideable.activeTrick == hakui::RideTrick::BmxTabletop) {
-            rideRoll = std::sin(scene.rideable.phaseSeconds * 4.5f) * 0.72f;
-        }
+    const bool boardRotation = ridingSkateboard &&
+        scene.rideable.rotationChannel == hakui::RideRotationChannel::BoardDeck;
+    const bool wholeRideRotation =
+        scene.rideable.rotationChannel == hakui::RideRotationChannel::Rideable;
+    if (boardRotation || wholeRideRotation ||
+        scene.rideable.phase == hakui::RidePhase::Crash) {
+        ridePitch += scene.rideable.rideableRotation.x;
+        rideYaw += scene.rideable.rideableRotation.y;
+        rideRoll += scene.rideable.rideableRotation.z;
     }
     const Mat4 locomotionRoot = multiply(
-        translation({player.x, player.y, player.z}),
+        translation({
+            player.x + scene.rideable.rideSeparation,
+            player.y,
+            player.z
+        }),
         multiply(
             rotationY(player.yaw),
-            multiply(rotationZ(rideRoll), rotationX(ridePitch))
+            multiply(
+                rotationY(rideYaw),
+                multiply(rotationZ(rideRoll), rotationX(ridePitch))
+            )
         )
     );
     auto locomotionModel = [&](const Mat4& local, Uint32 palette) {
@@ -756,15 +769,35 @@ bool DebugWorldRenderer::render(
     if (ridingBmx) {
         constexpr float wheelRadius = 0.62f;
         constexpr int wheelSegments = 12;
-        const float steering = scene.rideable.steeringVisual * 0.48f;
-        static const hakui::RideAttachmentRig bmxRig =
-            hakui::RideAttachmentRig::bmx();
+        const float trickSteering =
+            scene.rideable.rotationChannel == hakui::RideRotationChannel::BmxSteering
+                ? scene.rideable.rideableRotation.y
+                : 0.0f;
+        const float steering = scene.rideable.steeringVisual * 0.48f +
+            trickSteering;
+        const float crankRotation = player.gaitPhase * 0.42f +
+            (scene.rideable.rotationChannel == hakui::RideRotationChannel::BmxCrank
+                ? scene.rideable.rideableRotation.x
+                : 0.0f);
+        const float frameYaw =
+            scene.rideable.rotationChannel == hakui::RideRotationChannel::BmxFrame
+                ? scene.rideable.rideableRotation.y
+                : 0.0f;
         const auto anchorPosition = [&](
             hakui::RideAnchorSemantic semantic,
-            const Vec3& fallback
+            const Vec3& fallback,
+            float anchorSteering = 0.0f,
+            float anchorCrank = 0.0f
         ) {
-            const hakui::RideAnchor* anchor = bmxRig.find(semantic);
-            return anchor ? Vec3{anchor->x, anchor->y, anchor->z} : fallback;
+            if (!bmxRig.find(semantic)) {
+                return fallback;
+            }
+            const hakui::RideAnchorPosition anchor = bmxRig.resolvePosition(
+                semantic,
+                anchorSteering,
+                anchorCrank
+            );
+            return Vec3{anchor.x, anchor.y, anchor.z};
         };
         const Vec3 rearHub = anchorPosition(
             hakui::RideAnchorSemantic::RearAxle,
@@ -783,18 +816,32 @@ bool DebugWorldRenderer::render(
             {0.62f, 1.53f, 0.68f}
         );
         const Vec3 leftPedal = anchorPosition(
-            hakui::RideAnchorSemantic::LeftFootAnchor,
-            {-0.28f, 0.66f, 0.05f}
+            hakui::RideAnchorSemantic::LeftPedal,
+            {-0.28f, 0.66f, 0.05f},
+            0.0f,
+            crankRotation
         );
         const Vec3 rightPedal = anchorPosition(
-            hakui::RideAnchorSemantic::RightFootAnchor,
-            {0.28f, 0.66f, 0.05f}
+            hakui::RideAnchorSemantic::RightPedal,
+            {0.28f, 0.66f, 0.05f},
+            0.0f,
+            crankRotation
         );
 
         // The wheel and every steering component share one local assembly.
         // +Z is bicycle-forward, so the front root must have greater Z than
         // the rear root in every camera view.
-        const Mat4 rearAssembly = translation(rearHub);
+        const Mat4 bmxFrameTransform = multiply(
+            translation(frontHub),
+            multiply(
+                rotationY(frameYaw),
+                translation({-frontHub.x, -frontHub.y, -frontHub.z})
+            )
+        );
+        const Mat4 rearAssembly = multiply(
+            bmxFrameTransform,
+            translation(rearHub)
+        );
         const Mat4 frontAssembly = multiply(
             translation(frontHub),
             rotationY(steering)
@@ -850,8 +897,11 @@ bool DebugWorldRenderer::render(
             const float angle = std::atan2(deltaZ, deltaY);
             locomotionModel(
                 multiply(
+                    bmxFrameTransform,
+                    multiply(
                     translation(midpoint),
                     multiply(rotationX(angle), scale({width, length, width}))
+                    )
                 ),
                 palette
             );
@@ -868,7 +918,16 @@ bool DebugWorldRenderer::render(
         frameBar(seatPost, headTube, 0.10f, Cyan);
         frameBar(headTube, crank, 0.10f, Cyan);
         frameBar(headTube, frontHub, 0.085f, Shell);
-        locomotionBox({0.0f, 1.36f, -0.32f}, {0.48f, 0.11f, 0.32f}, Shell);
+        locomotionModel(
+            multiply(
+                bmxFrameTransform,
+                multiply(
+                    translation({0.0f, 1.36f, -0.32f}),
+                    scale({0.48f, 0.11f, 0.32f})
+                )
+            ),
+            Shell
+        );
         for (float forkSide : {-1.0f, 1.0f}) {
             locomotionModel(
                 multiply(
@@ -917,15 +976,29 @@ bool DebugWorldRenderer::render(
                 Midnight
             );
         }
-        locomotionBox(crank, {0.28f, 0.28f, 0.12f}, Amber);
-        locomotionBox(leftPedal, {0.42f, 0.07f, 0.13f}, Shell);
-        locomotionBox(rightPedal, {0.42f, 0.07f, 0.13f}, Shell);
+        locomotionModel(
+            multiply(bmxFrameTransform,
+                     multiply(translation(crank), scale({0.28f, 0.28f, 0.12f}))),
+            Amber
+        );
+        locomotionModel(
+            multiply(bmxFrameTransform,
+                     multiply(translation(leftPedal), scale({0.42f, 0.07f, 0.13f}))),
+            Shell
+        );
+        locomotionModel(
+            multiply(bmxFrameTransform,
+                     multiply(translation(rightPedal), scale({0.42f, 0.07f, 0.13f}))),
+            Shell
+        );
     }
 
     // HAKUI PROCEDURAL HUMANOID: acceleration-aware blending, turning,
     // airborne posture, and shared seated poses for furniture/table anchors.
     const bool seated = player.activity != PlayerActivity::Roaming;
-    const bool mounted = ridingSkateboard || ridingBmx;
+    const bool rideBail = (ridingSkateboard || ridingBmx) &&
+        scene.rideable.phase == hakui::RidePhase::Crash;
+    const bool mounted = (ridingSkateboard || ridingBmx) && !rideBail;
     const float gait = std::sin(player.gaitPhase);
     const float counterGait = std::sin(player.gaitPhase + kPi);
     const float groundedBlend = player.grounded ? 1.0f : 0.20f;
@@ -947,8 +1020,8 @@ bool DebugWorldRenderer::render(
         ? scene.rideable.balanceOffset * 0.22f
         : 0.0f;
 
-    const bool playerKnockedDown = scene.combatActive &&
-        scene.playerCombatState == hakui::combat::CombatState::KnockedDown;
+    const bool playerKnockedDown = rideBail || (scene.combatActive &&
+        scene.playerCombatState == hakui::combat::CombatState::KnockedDown);
     hakui::EmbodimentProfileId embodiment =
         hakui::EmbodimentProfileId::OnFoot;
     if (playerKnockedDown) {
@@ -964,6 +1037,70 @@ bool DebugWorldRenderer::render(
     }
     const hakui::AvatarGroundContactProfile& groundContact =
         hakui::avatarGroundContactProfile(embodiment);
+    const auto ridePoint = [](
+        const hakui::RideAttachmentRig& rig,
+        hakui::RideAnchorSemantic semantic,
+        float steering = 0.0f,
+        float crank = 0.0f
+    ) {
+        const hakui::RideAnchorPosition point = rig.resolvePosition(
+            semantic,
+            steering,
+            crank
+        );
+        return Vec3{point.x, point.y, point.z};
+    };
+    const float bmxSteering = scene.rideable.steeringVisual * 0.48f +
+        (scene.rideable.rotationChannel == hakui::RideRotationChannel::BmxSteering
+            ? scene.rideable.rideableRotation.y
+            : 0.0f);
+    const float bmxCrank = player.gaitPhase * 0.42f +
+        (scene.rideable.rotationChannel == hakui::RideRotationChannel::BmxCrank
+            ? scene.rideable.rideableRotation.x
+            : 0.0f);
+    Vec3 leftRideHand = ridePoint(
+        bmxRig,
+        hakui::RideAnchorSemantic::LeftHandGrip,
+        bmxSteering
+    );
+    Vec3 rightRideHand = ridePoint(
+        bmxRig,
+        hakui::RideAnchorSemantic::RightHandGrip,
+        bmxSteering
+    );
+    Vec3 leftRideFoot = ridingBmx
+        ? ridePoint(bmxRig, hakui::RideAnchorSemantic::LeftFootAnchor, 0.0f, bmxCrank)
+        : ridePoint(skateboardRig, hakui::RideAnchorSemantic::FrontFootAnchor);
+    Vec3 rightRideFoot = ridingBmx
+        ? ridePoint(bmxRig, hakui::RideAnchorSemantic::RightFootAnchor, 0.0f, bmxCrank)
+        : ridePoint(skateboardRig, hakui::RideAnchorSemantic::RearFootAnchor);
+    leftRideFoot.y += scene.rideable.leftFootAnchorError;
+    rightRideFoot.y += scene.rideable.rightFootAnchorError;
+
+    // A whole-machine tabletop carries contact targets with it. Component
+    // tricks (tailwhip/crankflip) deliberately let the feet separate.
+    const auto rotateWholeRidePoint = [&](Vec3 point) {
+        if (scene.rideable.rotationChannel != hakui::RideRotationChannel::Rideable) {
+            return point;
+        }
+        const float cosineX = std::cos(scene.rideable.rideableRotation.x);
+        const float sineX = std::sin(scene.rideable.rideableRotation.x);
+        const float yAfterX = point.y * cosineX - point.z * sineX;
+        const float zAfterX = point.y * sineX + point.z * cosineX;
+        point.y = yAfterX;
+        point.z = zAfterX;
+        const float cosineZ = std::cos(scene.rideable.rideableRotation.z);
+        const float sineZ = std::sin(scene.rideable.rideableRotation.z);
+        const float xAfterZ = point.x * cosineZ - point.y * sineZ;
+        const float yAfterZ = point.x * sineZ + point.y * cosineZ;
+        point.x = xAfterZ;
+        point.y = yAfterZ;
+        return point;
+    };
+    leftRideHand = rotateWholeRidePoint(leftRideHand);
+    rightRideHand = rotateWholeRidePoint(rightRideHand);
+    leftRideFoot = rotateWholeRidePoint(leftRideFoot);
+    rightRideFoot = rotateWholeRidePoint(rightRideFoot);
     const Mat4 avatarRoot = multiply(
         translation({
             player.x,
@@ -973,9 +1110,9 @@ bool DebugWorldRenderer::render(
         multiply(
             rotationY(player.yaw),
             rotationZ(
-                playerKnockedDown
-                    ? 1.32f
-                    : (scene.rideable.phase == hakui::RidePhase::Crash ? 0.92f : 0.0f)
+                rideBail
+                    ? 0.74f + scene.rideable.tumbleRadians
+                    : (playerKnockedDown ? 1.32f : 0.0f)
             )
         )
     );
@@ -1035,22 +1172,109 @@ bool DebugWorldRenderer::render(
         );
     };
 
+    auto contactSegment = [&](const Vec3& from,
+                              const Vec3& to,
+                              float width,
+                              Uint32 palette = Shell) {
+        const Vec3 delta{to.x - from.x, to.y - from.y, to.z - from.z};
+        const float segmentLength = std::sqrt(
+            delta.x * delta.x + delta.y * delta.y + delta.z * delta.z
+        );
+        if (segmentLength <= 0.0001f) {
+            return;
+        }
+        const Vec3 up{
+            delta.x / segmentLength,
+            delta.y / segmentLength,
+            delta.z / segmentLength
+        };
+        const Vec3 reference = std::fabs(up.z) < 0.90f
+            ? Vec3{0.0f, 0.0f, 1.0f}
+            : Vec3{1.0f, 0.0f, 0.0f};
+        Vec3 right{
+            reference.y * up.z - reference.z * up.y,
+            reference.z * up.x - reference.x * up.z,
+            reference.x * up.y - reference.y * up.x
+        };
+        const float rightLength = std::sqrt(
+            right.x * right.x + right.y * right.y + right.z * right.z
+        );
+        right = {
+            right.x / rightLength,
+            right.y / rightLength,
+            right.z / rightLength
+        };
+        const Vec3 forward{
+            up.y * right.z - up.z * right.y,
+            up.z * right.x - up.x * right.z,
+            up.x * right.y - up.y * right.x
+        };
+        Mat4 orientation = identity();
+        orientation.m[0] = right.x;
+        orientation.m[1] = right.y;
+        orientation.m[2] = right.z;
+        orientation.m[4] = up.x;
+        orientation.m[5] = up.y;
+        orientation.m[6] = up.z;
+        orientation.m[8] = forward.x;
+        orientation.m[9] = forward.y;
+        orientation.m[10] = forward.z;
+        const Vec3 midpoint{
+            (from.x + to.x) * 0.5f,
+            (from.y + to.y) * 0.5f,
+            (from.z + to.z) * 0.5f
+        };
+        drawModel(
+            multiply(
+                avatarRoot,
+                multiply(
+                    translation(midpoint),
+                    multiply(orientation, scale({width, segmentLength, width}))
+                )
+            ),
+            palette
+        );
+    };
+
+    auto contactLeg = [&](float side, Vec3 target) {
+        target.y -= groundContact.visualRootAbovePlayerBase;
+        const Vec3 hip{side * 0.23f, 1.17f, 0.0f};
+        const Vec3 knee{
+            (hip.x + target.x) * 0.5f + side * 0.04f,
+            (hip.y + target.y) * 0.5f + 0.08f,
+            (hip.z + target.z) * 0.5f - 0.22f
+        };
+        contactSegment(hip, knee, 0.27f);
+        contactSegment(knee, target, 0.25f);
+        localBox(
+            {target.x, target.y + 0.06f, target.z + 0.10f},
+            {0.32f, 0.14f, 0.50f},
+            Cyan
+        );
+    };
+
+    auto contactArm = [&](float side, Vec3 target) {
+        target.y -= groundContact.visualRootAbovePlayerBase;
+        const Vec3 shoulder{side * 0.60f, 2.12f, 0.0f};
+        const Vec3 elbow{
+            (shoulder.x + target.x) * 0.5f + side * 0.12f,
+            (shoulder.y + target.y) * 0.5f - 0.04f,
+            (shoulder.z + target.z) * 0.5f - 0.12f
+        };
+        contactSegment(shoulder, elbow, 0.23f);
+        contactSegment(elbow, target, 0.21f);
+        localBox(target, {0.24f, 0.20f, 0.24f}, Midnight);
+    };
+
     if (seated) {
         leg(-1.0f, -1.28f, 1.26f);
         leg(1.0f, -1.28f, 1.26f);
-    } else if (ridingSkateboard) {
-        const float boardKnee = scene.rideable.phase == hakui::RidePhase::Airborne
-            ? 0.72f
-            : (scene.rideable.phase == hakui::RidePhase::Manual ? 0.48f : 0.30f);
-        leg(-1.0f, -0.22f - expressiveRideLean, boardKnee + 0.04f);
-        leg(1.0f, 0.18f - expressiveRideLean, boardKnee);
-    } else if (ridingBmx) {
-        const float pedal = std::sin(player.gaitPhase * 0.42f) * 0.28f;
-        const float hopTuck = scene.rideable.phase == hakui::RidePhase::Airborne
-            ? 0.26f
-            : 0.0f;
-        leg(-1.0f, -0.62f + pedal - hopTuck, 1.05f - pedal * 0.5f + hopTuck);
-        leg(1.0f, -0.62f - pedal - hopTuck, 1.05f + pedal * 0.5f + hopTuck);
+    } else if (mounted && ridingSkateboard) {
+        contactLeg(-1.0f, leftRideFoot);
+        contactLeg(1.0f, rightRideFoot);
+    } else if (mounted && ridingBmx) {
+        contactLeg(-1.0f, leftRideFoot);
+        contactLeg(1.0f, rightRideFoot);
     } else if (scene.combatActive) {
         const float stanceStep = std::sin(player.gaitPhase) *
             0.18f * scene.playerStanceBlend;
@@ -1069,17 +1293,32 @@ bool DebugWorldRenderer::render(
         : 0.0f;
     const float impactLean = scene.playerCombatState ==
         hakui::combat::CombatState::Staggered ? -0.22f : 0.0f;
+    const float rideCompression = mounted && player.grounded
+        ? scene.rideable.popPreload * 0.18f
+        : 0.0f;
+    const float bodyAssistVisual = mounted
+        ? scene.rideable.bodyRotationAssist * std::sin(
+            std::clamp(scene.rideable.rotationCompletion, 0.0f, 1.0f) * kPi
+        )
+        : 0.0f;
     const Mat4 torso = multiply(
         avatarRoot,
         multiply(
-            translation({0.0f, 1.72f + idleBreath, attackCommitment}),
+            translation({
+                0.0f,
+                1.72f + idleBreath - rideCompression,
+                attackCommitment
+            }),
             multiply(
                 rotationX(
                     airborneLean + expressiveRideLean +
                     (ridingBmx ? 0.20f : 0.0f)
                 ),
                 multiply(
-                    rotationZ(bodySway + expressiveRideSway + impactLean),
+                    rotationZ(
+                        bodySway + expressiveRideSway + impactLean +
+                        bodyAssistVisual
+                    ),
                     scale({0.92f, 0.94f, 0.48f})
                 )
             )
@@ -1112,8 +1351,13 @@ bool DebugWorldRenderer::render(
             rightArmAngle = 0.20f;
         }
     }
-    arm(-1.0f, leftArmAngle);
-    arm(1.0f, rightArmAngle);
+    if (mounted && ridingBmx) {
+        contactArm(-1.0f, leftRideHand);
+        contactArm(1.0f, rightRideHand);
+    } else {
+        arm(-1.0f, leftArmAngle);
+        arm(1.0f, rightArmAngle);
+    }
     localBox({0.0f, 2.28f + idleBreath, 0.0f}, {0.22f, 0.18f, 0.22f}, Cyan);
     localBox({0.0f, 2.60f + idleBreath, 0.0f}, {0.56f, 0.58f, 0.52f}, Shell);
 

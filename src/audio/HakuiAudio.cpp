@@ -32,6 +32,13 @@ CueShape cueShape(HakuiAudioCue cue)
         case HakuiAudioCue::CombatGuard: return {440.0f, 0.080f, 0.20f, -210.0f, 0.38f};
         case HakuiAudioCue::Knockdown: return {58.0f, 0.360f, 0.38f, -22.0f, 0.82f};
         case HakuiAudioCue::Recovery: return {140.0f, 0.220f, 0.20f, 260.0f, 0.12f};
+        case HakuiAudioCue::RidePop: return {128.0f, 0.090f, 0.30f, 180.0f, 0.62f};
+        case HakuiAudioCue::BoardRotation: return {310.0f, 0.120f, 0.16f, -140.0f, 0.44f};
+        case HakuiAudioCue::BmxTrick: return {186.0f, 0.140f, 0.20f, 210.0f, 0.38f};
+        case HakuiAudioCue::GrindScrape: return {92.0f, 0.260f, 0.22f, -18.0f, 0.92f};
+        case HakuiAudioCue::CleanLanding: return {68.0f, 0.120f, 0.30f, -22.0f, 0.42f};
+        case HakuiAudioCue::SketchyLanding: return {54.0f, 0.190f, 0.34f, 55.0f, 0.76f};
+        case HakuiAudioCue::BailImpact: return {42.0f, 0.340f, 0.42f, -12.0f, 0.94f};
     }
     return {220.0f, 0.1f, 0.1f, 0.0f, 0.0f};
 }

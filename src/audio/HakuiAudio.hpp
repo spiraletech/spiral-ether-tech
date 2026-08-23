@@ -14,7 +14,14 @@ enum class HakuiAudioCue {
     CombatHit,
     CombatGuard,
     Knockdown,
-    Recovery
+    Recovery,
+    RidePop,
+    BoardRotation,
+    BmxTrick,
+    GrindScrape,
+    CleanLanding,
+    SketchyLanding,
+    BailImpact
 };
 
 class HakuiAudio {

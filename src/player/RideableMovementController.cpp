@@ -11,6 +11,7 @@ constexpr float kMaximumDeltaSeconds = 0.10f;
 constexpr float kMinimumTrickSpeed = 0.75f;
 constexpr float kComboHoldSeconds = 2.75f;
 constexpr float kMinimumGrindAlignment = 0.42f;
+constexpr float kPi = 3.14159265358979323846f;
 
 RideDiscipline disciplineFor(LocomotionMode mode) noexcept
 {
@@ -32,7 +33,89 @@ float approach(float current, float target, float maximumDelta) noexcept
     return std::max(current - maximumDelta, target);
 }
 
+float length(const RideRotation& value) noexcept
+{
+    return std::sqrt(
+        value.x * value.x + value.y * value.y + value.z * value.z
+    );
+}
+
+RideRotation scaled(const RideRotation& value, float factor) noexcept
+{
+    return {value.x * factor, value.y * factor, value.z * factor};
+}
+
+RideRotation difference(
+    const RideRotation& lhs,
+    const RideRotation& rhs
+) noexcept
+{
+    return {lhs.x - rhs.x, lhs.y - rhs.y, lhs.z - rhs.z};
+}
+
+RideRotation surfaceNormalAt(
+    const MovementEnvironment& environment,
+    float x,
+    float z
+) noexcept
+{
+    for (const WalkableSurface& surface : environment.surfaces) {
+        if (x < surface.minimumX || x > surface.maximumX ||
+            z < surface.minimumZ || z > surface.maximumZ) {
+            continue;
+        }
+        const float inverseLength = 1.0f / std::max(
+            0.0001f,
+            std::sqrt(
+                surface.slopeX * surface.slopeX +
+                surface.slopeZ * surface.slopeZ + 1.0f
+            )
+        );
+        return {
+            -surface.slopeX * inverseLength,
+            inverseLength,
+            -surface.slopeZ * inverseLength
+        };
+    }
+    return {0.0f, 1.0f, 0.0f};
+}
+
 } // namespace
+
+RideableMovementController::RideableMovementController(
+    RidePhysicsTuning tuning
+) : tuning_(tuning)
+{
+    tuning_.skateboardPopImpulseMin = std::max(
+        0.0f,
+        tuning_.skateboardPopImpulseMin
+    );
+    tuning_.skateboardPopImpulseMax = std::max(
+        tuning_.skateboardPopImpulseMin,
+        tuning_.skateboardPopImpulseMax
+    );
+    tuning_.bmxPopImpulseMin = std::max(0.0f, tuning_.bmxPopImpulseMin);
+    tuning_.bmxPopImpulseMax = std::max(
+        tuning_.bmxPopImpulseMin,
+        tuning_.bmxPopImpulseMax
+    );
+    tuning_.cleanCompletion = std::clamp(tuning_.cleanCompletion, 0.5f, 1.0f);
+    tuning_.sketchyCompletion = std::clamp(
+        tuning_.sketchyCompletion,
+        0.25f,
+        tuning_.cleanCompletion
+    );
+    tuning_.cleanImpactSpeed = std::max(0.0f, tuning_.cleanImpactSpeed);
+    tuning_.sketchyImpactSpeed = std::max(
+        tuning_.cleanImpactSpeed,
+        tuning_.sketchyImpactSpeed
+    );
+    tuning_.cleanAngularSpeed = std::max(0.0f, tuning_.cleanAngularSpeed);
+    tuning_.sketchyAngularSpeed = std::max(
+        tuning_.cleanAngularSpeed,
+        tuning_.sketchyAngularSpeed
+    );
+}
 
 RideableFrame RideableMovementController::update(
     PlayerState& player,
@@ -64,6 +147,9 @@ RideableFrame RideableMovementController::update(
 
     state_.phaseSeconds += dt;
     state_.comboWindowSeconds = std::max(0.0f, state_.comboWindowSeconds - dt);
+    if (player.grounded && state_.phase != RidePhase::Landing) {
+        state_.popPreload = std::clamp(input.popPreload, 0.0f, 1.0f);
+    }
     state_.steeringVisual = approach(
         state_.steeringVisual,
         std::clamp(input.movement.right, -1.0f, 1.0f),
@@ -76,36 +162,41 @@ RideableFrame RideableMovementController::update(
     );
 
     if (state_.phase == RidePhase::Crash) {
-        player.velocityX = approach(player.velocityX, 0.0f, 18.0f * dt);
-        player.velocityZ = approach(player.velocityZ, 0.0f, 18.0f * dt);
-        frame.movement = movement_.update(
-            player,
-            {},
-            environment,
-            dt
+        player.velocityX = approach(player.velocityX, 0.0f, 8.0f * dt);
+        player.velocityZ = approach(player.velocityZ, 0.0f, 8.0f * dt);
+        state_.tumbleRadians += (5.4f + length(state_.angularVelocity) * 0.18f) * dt;
+        state_.rideSeparation += state_.rideSeparationVelocity * dt;
+        state_.rideSeparationVelocity = approach(
+            state_.rideSeparationVelocity,
+            0.0f,
+            2.8f * dt
         );
-        if (state_.phaseSeconds >= 0.70f && player.grounded) {
+        state_.rideableRotation.x += state_.angularVelocity.x * dt;
+        state_.rideableRotation.y += state_.angularVelocity.y * dt;
+        state_.rideableRotation.z += state_.angularVelocity.z * dt;
+        state_.angularVelocity = scaled(
+            state_.angularVelocity,
+            std::max(0.0f, 1.0f - 2.2f * dt)
+        );
+        frame.movement = movement_.update(player, {}, environment, dt);
+        if (state_.phaseSeconds >= 0.90f && player.grounded) {
+            const RideDiscipline retained = state_.discipline;
+            const float retainedSpeed = state_.speed;
+            reset();
+            state_.discipline = retained;
+            state_.speed = retainedSpeed;
             state_.phase = RidePhase::Grounded;
-            state_.phaseSeconds = 0.0f;
-            state_.activeTrick = RideTrick::None;
-            state_.landingQuality = LandingQuality::None;
-            state_.balance = 100.0f;
-            state_.balanceOffset = 0.0f;
         }
         return frame;
     }
 
+    const bool wasAirborne = !player.grounded;
     MovementInput movementInput = input.movement;
     movementInput.jumpPressed = input.popPressed &&
         state_.phase != RidePhase::Grinding &&
         state_.phase != RidePhase::Manual;
     const float preLandingVelocity = player.velocityY;
-    frame.movement = movement_.update(
-        player,
-        movementInput,
-        environment,
-        dt
-    );
+    frame.movement = movement_.update(player, movementInput, environment, dt);
 
     state_.speed = std::sqrt(
         player.velocityX * player.velocityX +
@@ -132,17 +223,42 @@ RideableFrame RideableMovementController::update(
         0.45f
     );
     if (frame.movement.jumped) {
+        const float preload = std::clamp(input.popPreload, 0.0f, 1.0f);
+        const float minimumImpulse = discipline == RideDiscipline::Skateboard
+            ? tuning_.skateboardPopImpulseMin
+            : tuning_.bmxPopImpulseMin;
+        const float maximumImpulse = discipline == RideDiscipline::Skateboard
+            ? tuning_.skateboardPopImpulseMax
+            : tuning_.bmxPopImpulseMax;
+        state_.popPreload = preload;
+        state_.popImpulse = minimumImpulse +
+            (maximumImpulse - minimumImpulse) * preload;
         if (launch) {
-            player.velocityY += discipline == RideDiscipline::Skateboard
+            state_.popImpulse += discipline == RideDiscipline::Skateboard
                 ? 0.85f
                 : 1.10f;
         }
+        player.velocityY = std::max(player.velocityY, state_.popImpulse);
         state_.phase = RidePhase::Airborne;
         state_.phaseSeconds = 0.0f;
         state_.airSeconds = 0.0f;
+        state_.trickSeconds = 0.0f;
         state_.balance = 100.0f;
         state_.balanceOffset = 0.0f;
         state_.flipCommitted = false;
+        state_.bailReason = BailReason::None;
+        state_.landingQuality = LandingQuality::None;
+        state_.rideableRotation = {};
+        state_.angularVelocity = {};
+        state_.targetRotation = {};
+        state_.rotationCompletion = 1.0f;
+        state_.rotationTravel = 0.0f;
+        state_.rotationTravelTarget = 0.0f;
+        state_.rotationChannel = RideRotationChannel::None;
+        state_.leftHandGripError = 0.0f;
+        state_.rightHandGripError = 0.0f;
+        state_.leftFootAnchorError = 0.0f;
+        state_.rightFootAnchorError = 0.0f;
         beginTrick(
             discipline == RideDiscipline::Skateboard
                 ? RideTrick::Ollie
@@ -165,7 +281,7 @@ RideableFrame RideableMovementController::update(
         if (airTrick != RideTrick::None && !state_.flipCommitted) {
             state_.flipCommitted = true;
             state_.lastTrickDirection = input.trick.direction;
-            beginTrick(airTrick, frame);
+            beginPhysicalTrick(airTrick, frame);
         }
 
         const float spinIntent = static_cast<float>(input.spinRight) -
@@ -180,6 +296,26 @@ RideableFrame RideableMovementController::update(
         );
         state_.bodySpinRadians += state_.spinVelocity * dt;
         player.yaw += state_.spinVelocity * dt;
+
+        updatePhysicalRotation(dt);
+        if (state_.flipCommitted) {
+            const float separation = std::sin(
+                std::clamp(state_.rotationCompletion, 0.0f, 1.0f) * kPi
+            );
+            if (discipline == RideDiscipline::Skateboard) {
+                state_.leftFootAnchorError = std::max(0.0f, separation) * 0.24f;
+                state_.rightFootAnchorError = std::max(0.0f, separation) * 0.20f;
+            } else if (state_.rotationChannel == RideRotationChannel::BmxFrame ||
+                       state_.rotationChannel == RideRotationChannel::BmxCrank) {
+                state_.leftFootAnchorError = std::max(0.0f, separation) * 0.28f;
+                state_.rightFootAnchorError = std::max(0.0f, separation) * 0.28f;
+            }
+            state_.footContactAlignment = std::clamp(
+                state_.rotationCompletion,
+                0.0f,
+                1.0f
+            );
+        }
 
         const WorldAffordanceVolume* grind = nearby(
             WorldAffordance::Grindable,
@@ -208,6 +344,10 @@ RideableFrame RideableMovementController::update(
             );
             frame.grindStarted = true;
         }
+    } else if (wasAirborne && state_.phase == RidePhase::Airborne) {
+        // Integrate the final deterministic slice before ground-contact
+        // evaluation; an unfinished rotation remains unfinished.
+        updatePhysicalRotation(dt);
     }
 
     if (player.grounded && state_.phase != RidePhase::Grinding &&
@@ -270,7 +410,7 @@ RideableFrame RideableMovementController::update(
             player.grounded = true;
             player.velocityY = 0.0f;
             if (state_.balance <= 2.0f) {
-                beginBail(player, frame);
+                beginBail(player, frame, BailReason::LostBalance);
             }
         }
     } else if (player.grounded && !frame.movement.landed) {
@@ -301,7 +441,7 @@ RideableFrame RideableMovementController::update(
                 dt
             );
             if (state_.balance <= 2.0f) {
-                beginBail(player, frame);
+                beginBail(player, frame, BailReason::LostBalance);
             }
         } else if (state_.phase == RidePhase::Manual) {
             state_.phase = RidePhase::Grounded;
@@ -312,23 +452,30 @@ RideableFrame RideableMovementController::update(
         }
     }
 
-    if (frame.movement.landed && state_.phase != RidePhase::Grinding) {
-        const float impactSpeed = std::fabs(preLandingVelocity);
-        if (impactSpeed < 7.25f && state_.balance >= 72.0f) {
-            state_.landingQuality = LandingQuality::Perfect;
-        } else if (impactSpeed < 9.75f && state_.balance >= 42.0f) {
-            state_.landingQuality = LandingQuality::Clean;
-        } else if (impactSpeed < 12.50f) {
-            state_.landingQuality = LandingQuality::Sketchy;
-        } else {
-            beginBail(player, frame);
+    if (frame.movement.landed && state_.phase != RidePhase::Grinding &&
+        state_.phase != RidePhase::Crash) {
+        state_.surfaceNormal = surfaceNormalAt(environment, player.x, player.z);
+        BailReason reason = BailReason::None;
+        const LandingQuality quality = evaluateLanding(
+            std::fabs(preLandingVelocity),
+            state_.speed,
+            state_.surfaceNormal,
+            reason
+        );
+        frame.evaluatedLanding = quality;
+        if (quality == LandingQuality::Failed || quality == LandingQuality::Bail) {
+            beginBail(player, frame, reason, quality);
             return frame;
         }
+        state_.landingQuality = quality;
+        state_.bailReason = BailReason::None;
         state_.phase = RidePhase::Landing;
         state_.phaseSeconds = 0.0f;
         state_.activeAffordanceId = 0;
         state_.activeGrindAttachment = RideGrindAttachment::None;
         state_.activeTrick = RideTrick::Land;
+        state_.leftFootAnchorError = quality == LandingQuality::Sketchy ? 0.08f : 0.0f;
+        state_.rightFootAnchorError = quality == LandingQuality::Sketchy ? 0.06f : 0.0f;
         appendCombo(RideTrick::Land);
         frame.landed = true;
     }
@@ -336,6 +483,14 @@ RideableFrame RideableMovementController::update(
     if (state_.phase == RidePhase::Landing && state_.phaseSeconds >= 0.38f) {
         state_.phase = RidePhase::Grounded;
         state_.phaseSeconds = 0.0f;
+        state_.rideableRotation = {};
+        state_.angularVelocity = {};
+        state_.targetRotation = {};
+        state_.rotationCompletion = 1.0f;
+        state_.rotationChannel = RideRotationChannel::None;
+        state_.footContactAlignment = 1.0f;
+        state_.leftFootAnchorError = 0.0f;
+        state_.rightFootAnchorError = 0.0f;
     }
     if (player.grounded && state_.phase != RidePhase::Grinding) {
         state_.spinVelocity = approach(state_.spinVelocity, 0.0f, 18.0f * dt);
@@ -344,6 +499,7 @@ RideableFrame RideableMovementController::update(
         state_.comboCount = 0;
         state_.activeTrick = RideTrick::None;
         state_.landingQuality = LandingQuality::None;
+        state_.bailReason = BailReason::None;
     }
     return frame;
 }
@@ -356,6 +512,11 @@ void RideableMovementController::reset() noexcept
 const RideableState& RideableMovementController::state() const noexcept
 {
     return state_;
+}
+
+const RidePhysicsTuning& RideableMovementController::tuning() const noexcept
+{
+    return tuning_;
 }
 
 std::string_view RideableMovementController::phaseLabel(RidePhase phase) noexcept
@@ -379,7 +540,8 @@ std::string_view RideableMovementController::trickLabel(RideTrick trick) noexcep
         case RideTrick::BunnyHop: return "BUNNY HOP";
         case RideTrick::Kickflip: return "KICKFLIP";
         case RideTrick::Heelflip: return "HEELFLIP";
-        case RideTrick::PopShove: return "POP SHOVE";
+        case RideTrick::PopShoveIt: return "POP SHOVE-IT";
+        case RideTrick::Impossible: return "IMPOSSIBLE";
         case RideTrick::VarialFlip: return "VARIAL FLIP";
         case RideTrick::BoardGrab: return "BOARD GRAB";
         case RideTrick::BmxTabletop: return "TABLETOP";
@@ -387,6 +549,7 @@ std::string_view RideableMovementController::trickLabel(RideTrick trick) noexcep
         case RideTrick::BmxTailwhipRight: return "TAILWHIP RIGHT";
         case RideTrick::BmxBarspin: return "BARSPIN";
         case RideTrick::BmxCrankflip: return "CRANKFLIP";
+        case RideTrick::BmxXUp: return "X-UP";
         case RideTrick::BoardGrind: return "BOARD GRIND";
         case RideTrick::PegGrind: return "PEG GRIND";
         case RideTrick::BoardManual: return "BOARD MANUAL";
@@ -403,12 +566,98 @@ std::string_view RideableMovementController::landingLabel(
 {
     switch (quality) {
         case LandingQuality::None: return "--";
-        case LandingQuality::Sketchy: return "SKETCHY";
         case LandingQuality::Clean: return "CLEAN";
-        case LandingQuality::Perfect: return "PERFECT";
+        case LandingQuality::Sketchy: return "SKETCHY";
+        case LandingQuality::Failed: return "FAILED";
         case LandingQuality::Bail: return "BAIL";
     }
     return "--";
+}
+
+std::string_view RideableMovementController::bailReasonLabel(
+    BailReason reason
+) noexcept
+{
+    switch (reason) {
+        case BailReason::None: return "NONE";
+        case BailReason::UnderRotated: return "UNDER_ROTATED";
+        case BailReason::InvertedRideable: return "INVERTED_RIDEABLE";
+        case BailReason::ExcessiveImpact: return "EXCESSIVE_IMPACT";
+        case BailReason::ExcessiveAngularVelocity: return "EXCESSIVE_ANGULAR_VELOCITY";
+        case BailReason::ContactMisalignment: return "CONTACT_MISALIGNMENT";
+        case BailReason::LostBalance: return "LOST_BALANCE";
+    }
+    return "NONE";
+}
+
+std::string_view RideableMovementController::rotationChannelLabel(
+    RideRotationChannel channel
+) noexcept
+{
+    switch (channel) {
+        case RideRotationChannel::None: return "NONE";
+        case RideRotationChannel::Rideable: return "RIDEABLE";
+        case RideRotationChannel::BoardDeck: return "BOARD_DECK";
+        case RideRotationChannel::BmxFrame: return "BMX_FRAME";
+        case RideRotationChannel::BmxSteering: return "BMX_STEERING";
+        case RideRotationChannel::BmxCrank: return "BMX_CRANK";
+    }
+    return "NONE";
+}
+
+TrickPhysicalIntent RideableMovementController::physicalIntentFor(
+    RideTrick trick
+) noexcept
+{
+    switch (trick) {
+        case RideTrick::Kickflip:
+            return {RideRotationChannel::BoardDeck, {0.0f, 0.0f, 1.0f},
+                    1.0f, 2.0f * kPi, 12.6f, 0.42f, 0.08f, false};
+        case RideTrick::Heelflip:
+            return {RideRotationChannel::BoardDeck, {0.0f, 0.0f, 1.0f},
+                    -1.0f, 2.0f * kPi, 12.2f, 0.43f, -0.08f, false};
+        case RideTrick::PopShoveIt:
+            return {RideRotationChannel::BoardDeck, {0.0f, 1.0f, 0.0f},
+                    1.0f, kPi, 7.2f, 0.38f, 0.18f, false};
+        case RideTrick::Impossible:
+            return {RideRotationChannel::BoardDeck, {1.0f, 0.0f, 0.0f},
+                    -1.0f, 2.0f * kPi, 10.7f, 0.52f, 0.12f, false};
+        case RideTrick::VarialFlip:
+            return {RideRotationChannel::BoardDeck, {0.0f, 0.4472136f, 0.8944272f},
+                    1.0f, 2.0f * kPi, 11.5f, 0.54f, 0.22f, false};
+        case RideTrick::BoardGrab:
+            return {RideRotationChannel::BoardDeck, {1.0f, 0.0f, 0.0f},
+                    1.0f, 0.72f, 3.8f, 0.38f, 0.10f, true};
+        case RideTrick::BmxTailwhipLeft:
+            return {RideRotationChannel::BmxFrame, {0.0f, 1.0f, 0.0f},
+                    -1.0f, 2.0f * kPi, 10.6f, 0.54f, -0.20f, false};
+        case RideTrick::BmxTailwhipRight:
+            return {RideRotationChannel::BmxFrame, {0.0f, 1.0f, 0.0f},
+                    1.0f, 2.0f * kPi, 10.6f, 0.54f, 0.20f, false};
+        case RideTrick::BmxBarspin:
+            return {RideRotationChannel::BmxSteering, {0.0f, 1.0f, 0.0f},
+                    1.0f, 2.0f * kPi, 13.4f, 0.40f, 0.05f, false};
+        case RideTrick::BmxCrankflip:
+            return {RideRotationChannel::BmxCrank, {1.0f, 0.0f, 0.0f},
+                    -1.0f, 2.0f * kPi, 13.0f, 0.40f, 0.04f, false};
+        case RideTrick::BmxXUp:
+            return {RideRotationChannel::BmxSteering, {0.0f, 1.0f, 0.0f},
+                    1.0f, kPi, 10.2f, 0.46f, 0.12f, true};
+        case RideTrick::BmxTabletop:
+            return {RideRotationChannel::Rideable, {0.0f, 0.0f, 1.0f},
+                    1.0f, 1.05f, 3.8f, 0.48f, 0.18f, true};
+        case RideTrick::None:
+        case RideTrick::Ollie:
+        case RideTrick::BunnyHop:
+        case RideTrick::BoardGrind:
+        case RideTrick::PegGrind:
+        case RideTrick::BoardManual:
+        case RideTrick::WheelManual:
+        case RideTrick::Land:
+        case RideTrick::Bail:
+            return {};
+    }
+    return {};
 }
 
 const WorldAffordanceVolume* RideableMovementController::nearby(
@@ -444,6 +693,141 @@ void RideableMovementController::beginTrick(
     frame.trickStarted = true;
 }
 
+void RideableMovementController::beginPhysicalTrick(
+    RideTrick trick,
+    RideableFrame& frame
+) noexcept
+{
+    const TrickPhysicalIntent intent = physicalIntentFor(trick);
+    beginTrick(trick, frame);
+    state_.trickSeconds = 0.0f;
+    state_.rideableRotation = {};
+    state_.rotationTravel = 0.0f;
+    state_.rotationTravelTarget = intent.rotationTarget *
+        (intent.returnToNeutral ? 2.0f : 1.0f);
+    state_.rotationCompletion = intent.channel == RideRotationChannel::None
+        ? 1.0f
+        : 0.0f;
+    state_.minimumTrickAirtime = intent.minimumAirtime;
+    state_.bodyRotationAssist = intent.bodyRotationAssist;
+    state_.rotationChannel = intent.channel;
+    state_.rotationReturning = false;
+    const RideRotation signedAxis = scaled(intent.axis, intent.direction);
+    state_.targetRotation = scaled(signedAxis, intent.rotationTarget);
+    state_.angularVelocity = scaled(signedAxis, intent.angularSpeed);
+}
+
+void RideableMovementController::updatePhysicalRotation(
+    float deltaSeconds
+) noexcept
+{
+    if (!state_.flipCommitted || state_.rotationTravelTarget <= 0.0f) {
+        return;
+    }
+    const TrickPhysicalIntent intent = physicalIntentFor(state_.activeTrick);
+    if (intent.channel == RideRotationChannel::None) {
+        return;
+    }
+    state_.trickSeconds += deltaSeconds;
+    state_.rotationTravel = std::min(
+        state_.rotationTravelTarget,
+        state_.rotationTravel + intent.angularSpeed * deltaSeconds
+    );
+    const RideRotation signedAxis = scaled(intent.axis, intent.direction);
+    float physicalAngle = state_.rotationTravel;
+    float velocityDirection = 1.0f;
+    if (intent.returnToNeutral && state_.rotationTravel > intent.rotationTarget) {
+        physicalAngle = std::max(
+            0.0f,
+            intent.rotationTarget * 2.0f - state_.rotationTravel
+        );
+        velocityDirection = -1.0f;
+        state_.rotationReturning = true;
+    }
+    state_.rideableRotation = scaled(signedAxis, physicalAngle);
+    state_.rotationCompletion = std::clamp(
+        state_.rotationTravel / state_.rotationTravelTarget,
+        0.0f,
+        1.0f
+    );
+    if (state_.rotationCompletion >= 1.0f) {
+        state_.angularVelocity = {};
+        if (intent.returnToNeutral) {
+            state_.rideableRotation = {};
+        } else {
+            state_.rideableRotation = state_.targetRotation;
+        }
+    } else {
+        state_.angularVelocity = scaled(
+            signedAxis,
+            intent.angularSpeed * velocityDirection
+        );
+    }
+}
+
+LandingQuality RideableMovementController::evaluateLanding(
+    float verticalImpactSpeed,
+    float horizontalSpeed,
+    const RideRotation& surfaceNormal,
+    BailReason& reason
+) const noexcept
+{
+    if (verticalImpactSpeed > tuning_.sketchyImpactSpeed) {
+        reason = BailReason::ExcessiveImpact;
+        return LandingQuality::Failed;
+    }
+    if (surfaceNormal.y < 0.70f) {
+        reason = BailReason::ContactMisalignment;
+        return LandingQuality::Failed;
+    }
+    if (state_.balance < 12.0f) {
+        reason = BailReason::LostBalance;
+        return LandingQuality::Bail;
+    }
+    if (!state_.flipCommitted) {
+        if (state_.footContactAlignment < 0.58f) {
+            reason = BailReason::ContactMisalignment;
+            return LandingQuality::Failed;
+        }
+        return verticalImpactSpeed <= tuning_.cleanImpactSpeed &&
+               horizontalSpeed < 13.0f && state_.balance >= 50.0f
+            ? LandingQuality::Clean
+            : LandingQuality::Sketchy;
+    }
+
+    const TrickPhysicalIntent intent = physicalIntentFor(state_.activeTrick);
+    const float orientationError = intent.returnToNeutral
+        ? length(state_.rideableRotation)
+        : length(difference(state_.rideableRotation, state_.targetRotation));
+    const float angularSpeed = length(state_.angularVelocity);
+    const bool enoughAir = state_.trickSeconds >= state_.minimumTrickAirtime;
+    if (enoughAir && state_.rotationCompletion >= tuning_.cleanCompletion &&
+        orientationError <= 0.24f &&
+        angularSpeed <= tuning_.cleanAngularSpeed &&
+        state_.footContactAlignment >= 0.90f &&
+        verticalImpactSpeed <= tuning_.cleanImpactSpeed &&
+        horizontalSpeed < 13.5f) {
+        return LandingQuality::Clean;
+    }
+    if (enoughAir && state_.rotationCompletion >= tuning_.sketchyCompletion &&
+        orientationError <= 0.78f &&
+        angularSpeed <= tuning_.sketchyAngularSpeed &&
+        state_.footContactAlignment >= 0.72f &&
+        horizontalSpeed < 15.0f) {
+        return LandingQuality::Sketchy;
+    }
+    if (state_.rotationCompletion < tuning_.sketchyCompletion || !enoughAir) {
+        reason = BailReason::UnderRotated;
+    } else if (angularSpeed > tuning_.sketchyAngularSpeed) {
+        reason = BailReason::ExcessiveAngularVelocity;
+    } else if (orientationError > kPi * 0.50f) {
+        reason = BailReason::InvertedRideable;
+    } else {
+        reason = BailReason::ContactMisalignment;
+    }
+    return LandingQuality::Failed;
+}
+
 void RideableMovementController::appendCombo(RideTrick trick) noexcept
 {
     if (trick == RideTrick::None) {
@@ -461,20 +845,33 @@ void RideableMovementController::appendCombo(RideTrick trick) noexcept
 
 void RideableMovementController::beginBail(
     PlayerState& player,
-    RideableFrame& frame
+    RideableFrame& frame,
+    BailReason reason,
+    LandingQuality quality
 ) noexcept
 {
     state_.phase = RidePhase::Crash;
     state_.phaseSeconds = 0.0f;
     state_.activeTrick = RideTrick::Bail;
-    state_.landingQuality = LandingQuality::Bail;
+    state_.landingQuality = quality;
+    state_.bailReason = reason;
     state_.activeAffordanceId = 0;
     state_.activeGrindAttachment = RideGrindAttachment::None;
     state_.balance = 0.0f;
+    state_.leftHandGripError = state_.discipline == RideDiscipline::BMX ? 0.72f : 0.0f;
+    state_.rightHandGripError = state_.discipline == RideDiscipline::BMX ? 0.72f : 0.0f;
+    state_.leftFootAnchorError = 0.58f;
+    state_.rightFootAnchorError = 0.58f;
+    state_.footContactAlignment = 0.0f;
+    state_.rideSeparationVelocity = player.velocityX >= 0.0f ? 2.8f : -2.8f;
+    if (length(state_.angularVelocity) < 0.5f) {
+        state_.angularVelocity = {2.2f, 3.4f, -4.6f};
+    }
     appendCombo(RideTrick::Bail);
-    player.velocityX *= 0.22f;
-    player.velocityZ *= 0.22f;
+    player.velocityX *= 0.34f;
+    player.velocityZ *= 0.34f;
     frame.bailed = true;
+    frame.evaluatedLanding = quality;
 }
 
 void RideableMovementController::updateBalance(
@@ -530,8 +927,8 @@ RideTrick RideableMovementController::trickFor(
         switch (direction) {
             case RideTrickDirection::Left: return RideTrick::Kickflip;
             case RideTrickDirection::Right: return RideTrick::Heelflip;
-            case RideTrickDirection::Up:
-            case RideTrickDirection::Down: return RideTrick::PopShove;
+            case RideTrickDirection::Up: return RideTrick::PopShoveIt;
+            case RideTrickDirection::Down: return RideTrick::Impossible;
             case RideTrickDirection::UpLeft:
             case RideTrickDirection::UpRight:
             case RideTrickDirection::DownLeft:
@@ -546,7 +943,7 @@ RideTrick RideableMovementController::trickFor(
             case RideTrickDirection::Up: return RideTrick::BmxBarspin;
             case RideTrickDirection::Down: return RideTrick::BmxCrankflip;
             case RideTrickDirection::UpLeft:
-            case RideTrickDirection::UpRight:
+            case RideTrickDirection::UpRight: return RideTrick::BmxXUp;
             case RideTrickDirection::DownLeft:
             case RideTrickDirection::DownRight: return RideTrick::BmxTabletop;
             case RideTrickDirection::None: return RideTrick::None;

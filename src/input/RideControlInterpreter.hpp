@@ -26,6 +26,7 @@ enum class RightStickOwner : std::uint8_t {
 
 struct RideControlTuning {
     float cameraDeadzone = 0.16f;
+    float preloadSaturationTime = 0.42f;
     float trickWindowDelay = 0.025f;
     float trickWindowDuration = 0.70f;
     float flickDeadzone = 0.22f;
@@ -50,6 +51,8 @@ struct RideControlFrame {
     bool rideActive = false;
     bool airborne = false;
     bool popIntent = false;
+    bool popPreparing = false;
+    float popPreload = 0.0f;
     bool trickWindowArmed = false;
     bool trickWindowListening = false;
     bool trickIntent = false;
@@ -69,9 +72,10 @@ struct RideControlFrame {
     TrickVector trick{};
 };
 
-// GPU-independent POP -> AIR -> FLICK recognizer. A semantic pop is emitted
-// immediately. Gameplay explicitly arms the short trick window only after that
-// pop successfully makes the rideable airborne.
+// GPU-independent PRELOAD -> POP -> AIR -> FLICK recognizer. A tap emits a
+// normal pop. A short hold accumulates capped preload and emits the same
+// semantic pop on release. Gameplay explicitly arms the trick window only
+// after that pop successfully makes the rideable airborne.
 class RideControlInterpreter {
 public:
     explicit RideControlInterpreter(RideControlTuning tuning = {});
@@ -115,6 +119,8 @@ private:
     float peakMagnitude_ = 0.0f;
     bool trickWindowArmed_ = false;
     bool thresholdCrossed_ = false;
+    bool popPreparing_ = false;
+    float popPreloadSeconds_ = 0.0f;
 };
 
 } // namespace hakui::input

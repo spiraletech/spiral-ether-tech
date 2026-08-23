@@ -72,15 +72,33 @@ const char* rideAnchorLabel(hakui::RideAnchorSemantic semantic) noexcept
 {
     using hakui::RideAnchorSemantic;
     switch (semantic) {
+        case RideAnchorSemantic::None: return "None";
+        case RideAnchorSemantic::BikeRoot: return "BikeRoot";
+        case RideAnchorSemantic::BoardRoot: return "BoardRoot";
         case RideAnchorSemantic::RiderRoot: return "RiderRoot";
         case RideAnchorSemantic::PelvisAnchor: return "PelvisAnchor";
         case RideAnchorSemantic::LeftFootAnchor: return "LeftFootAnchor";
         case RideAnchorSemantic::RightFootAnchor: return "RightFootAnchor";
         case RideAnchorSemantic::LeftHandGrip: return "LeftHandGrip";
         case RideAnchorSemantic::RightHandGrip: return "RightHandGrip";
+        case RideAnchorSemantic::FrontSteeringAssembly: return "FrontSteeringAssembly";
+        case RideAnchorSemantic::Fork: return "Fork";
+        case RideAnchorSemantic::FrontWheel: return "FrontWheel";
+        case RideAnchorSemantic::Stem: return "Stem";
+        case RideAnchorSemantic::Handlebar: return "Handlebar";
         case RideAnchorSemantic::FrontAxle: return "FrontAxle";
         case RideAnchorSemantic::RearAxle: return "RearAxle";
+        case RideAnchorSemantic::Crank: return "Crank";
+        case RideAnchorSemantic::LeftPedal: return "LeftPedal";
+        case RideAnchorSemantic::RightPedal: return "RightPedal";
+        case RideAnchorSemantic::SeatAnchor: return "SeatAnchor";
         case RideAnchorSemantic::BoardDeckAnchor: return "BoardDeckAnchor";
+        case RideAnchorSemantic::FrontFootAnchor: return "FrontFootAnchor";
+        case RideAnchorSemantic::RearFootAnchor: return "RearFootAnchor";
+        case RideAnchorSemantic::FrontTruck: return "FrontTruck";
+        case RideAnchorSemantic::RearTruck: return "RearTruck";
+        case RideAnchorSemantic::DeckCenter: return "DeckCenter";
+        case RideAnchorSemantic::Count: break;
     }
     return "UnknownAnchor";
 }
@@ -131,7 +149,7 @@ hakui::EmbodimentProfileId embodimentProfile(
 
 bool HakuiApp::boot()
 {
-    SDL_Log("[HAKUI] booting native client v0.83-dev // POP THEN FLICK CORRECTION");
+    SDL_Log("[HAKUI] booting native client v0.84-dev // RIDE PHYSICS + EMBODIMENT");
 
     if (!initPlatform() || !initGPU()) {
         return false;
@@ -176,7 +194,7 @@ bool HakuiApp::boot()
     SDL_Log("[HAKUI] DATA GRUNGE // ACTIVE");
     SDL_Log("[HAKUI] SPIRAL CORE // ONLINE");
     SDL_Log("[HAKUI] avatar skeleton // %zu bones loaded", avatarSkeleton_.boneCount());
-    SDL_Log("[HAKUI] v0.83 input // pop -> air -> flick -> land online");
+    SDL_Log("[HAKUI] v0.84 ride physics // preload -> pop -> flick -> land or bail online");
     SDL_Log("[HAKUI] procedural locomotion // idle + walk + sprint + jump + seated online");
     SDL_Log("[HAKUI] BLACK ROOM // neon lounge + couch + fusion table + open void");
     SDL_Log("[HAKUI] controls // WASD move // SPACE jump // E interact/stand // SHIFT sprint");
@@ -206,7 +224,7 @@ bool HakuiApp::initPlatform()
     }
 
     window_ = SDL_CreateWindow(
-        "SPIRAL OS: HAKUI ENGINE // v0.83-dev // POP THEN FLICK CORRECTION",
+        "SPIRAL OS: HAKUI ENGINE // v0.84-dev // RIDE PHYSICS + EMBODIMENT",
         1280,
         720,
         SDL_WINDOW_RESIZABLE | SDL_WINDOW_HIGH_PIXEL_DENSITY
@@ -285,7 +303,7 @@ void HakuiApp::initSpiralCore()
     bootSignal.source = "hakui.client";
     bootSignal.destination = "spiral.core";
     bootSignal.topic = "client.boot";
-    bootSignal.payload = "hakui-v0.83-dev";
+    bootSignal.payload = "hakui-v0.84-dev";
 
     // A small initial charge marks the native client's transition to live
     // operation. Steam is telemetry/energy state, not gameplay policy.
@@ -300,7 +318,7 @@ void HakuiApp::initSpiralCore()
     initialState.topic = "client.state.initial";
     initialState.statePatch = {
         {"client.status", std::string("online")},
-        {"client.version", std::string("0.83-dev")},
+        {"client.version", std::string("0.84-dev")},
         {"avatar.rig.bones", static_cast<std::int64_t>(avatarSkeleton_.boneCount())},
         {"player.locomotion", std::string("on_foot")}
     };
@@ -387,7 +405,7 @@ hakui::observer::CaptureContext HakuiApp::buildObserverContext() const
     namespace observer = hakui::observer;
 
     observer::CaptureContext context;
-    context.build.hakuiVersion = "0.83-dev";
+    context.build.hakuiVersion = "0.84-dev";
     context.build.configuration = HAKUI_BUILD_CONFIGURATION;
     context.build.gitCommit = HAKUI_GIT_SHA;
     context.build.gitBranch = HAKUI_GIT_BRANCH;
@@ -418,6 +436,8 @@ hakui::observer::CaptureContext HakuiApp::buildObserverContext() const
                     ? "BMX"
                     : "ON_FOOT";
     context.rideControl.popIntent = rideControlFrame_.popIntent;
+    context.rideControl.popPreparing = rideControlFrame_.popPreparing;
+    context.rideControl.popPreload = rideControlFrame_.popPreload;
     context.rideControl.airborne = rideControlFrame_.airborne;
     context.rideControl.trickWindowArmed = rideControlFrame_.trickWindowArmed;
     context.rideControl.trickWindowRemaining =
@@ -454,6 +474,7 @@ hakui::observer::CaptureContext HakuiApp::buildObserverContext() const
             : "INACTIVE";
     const hakui::input::RideControlTuning& rideTuning = rideControls_.tuning();
     context.rideControl.cameraDeadzone = rideTuning.cameraDeadzone;
+    context.rideControl.preloadSaturationTime = rideTuning.preloadSaturationTime;
     context.rideControl.trickWindowDelay = rideTuning.trickWindowDelay;
     context.rideControl.trickWindowDuration = rideTuning.trickWindowDuration;
     context.rideControl.flickDeadzone = rideTuning.flickDeadzone;
@@ -562,10 +583,58 @@ hakui::observer::CaptureContext HakuiApp::buildObserverContext() const
             )
         );
         rideableEntity.balance = rideable_.state().balance;
+        const hakui::RideableState& rideState = rideable_.state();
+        rideableEntity.rideDiscipline = skateboard ? "SKATEBOARD" : "BMX";
+        rideableEntity.rideState = std::string(
+            hakui::RideableMovementController::phaseLabel(rideState.phase)
+        );
+        rideableEntity.currentTrick = std::string(
+            hakui::RideableMovementController::trickLabel(rideState.activeTrick)
+        );
+        rideableEntity.rotationChannel = std::string(
+            hakui::RideableMovementController::rotationChannelLabel(
+                rideState.rotationChannel
+            )
+        );
+        rideableEntity.landingQuality = std::string(
+            hakui::RideableMovementController::landingLabel(
+                rideState.landingQuality
+            )
+        );
+        rideableEntity.bailReason = std::string(
+            hakui::RideableMovementController::bailReasonLabel(
+                rideState.bailReason
+            )
+        );
+        rideableEntity.popPreload = rideState.popPreload;
+        rideableEntity.popImpulse = rideState.popImpulse;
+        rideableEntity.airtime = rideState.airSeconds;
+        rideableEntity.rideableRotation = {
+            rideState.rideableRotation.x,
+            rideState.rideableRotation.y,
+            rideState.rideableRotation.z
+        };
+        rideableEntity.angularVelocity = {
+            rideState.angularVelocity.x,
+            rideState.angularVelocity.y,
+            rideState.angularVelocity.z
+        };
+        rideableEntity.targetRotation = {
+            rideState.targetRotation.x,
+            rideState.targetRotation.y,
+            rideState.targetRotation.z
+        };
+        rideableEntity.rotationCompletion = rideState.rotationCompletion;
+        rideableEntity.leftHandGripError = rideState.leftHandGripError;
+        rideableEntity.rightHandGripError = rideState.rightHandGripError;
+        rideableEntity.leftFootAnchorError = rideState.leftFootAnchorError;
+        rideableEntity.rightFootAnchorError = rideState.rightFootAnchorError;
         for (const hakui::RideAnchor& anchor : rig.anchors()) {
             rideableEntity.attachments.push_back({
                 rideAnchorLabel(anchor.semantic),
-                skateboard ? "rideable.skateboard" : "rideable.bmx",
+                anchor.parent == hakui::RideAnchorSemantic::None
+                    ? (skateboard ? "rideable.skateboard" : "rideable.bmx")
+                    : rideAnchorLabel(anchor.parent),
                 {anchor.x, anchor.y, anchor.z}
             });
         }
@@ -1180,7 +1249,7 @@ void HakuiApp::updateHud()
         SDL_snprintf(
             title,
             sizeof(title),
-            "HAKUI v0.83 // %s // INPUT %.*s",
+            "HAKUI v0.84 // %s // INPUT %.*s",
             inputStatus_.c_str(),
             static_cast<int>(device.size()), device.data()
         );
@@ -1188,7 +1257,7 @@ void HakuiApp::updateHud()
         SDL_snprintf(
             title,
             sizeof(title),
-            "HAKUI v0.83 // PAUSED // %.*s RESUME // LOOK %.4f // AUDIO %.0f%% // INPUT %.*s // MOUSE RELEASED",
+            "HAKUI v0.84 // PAUSED // %.*s RESUME // LOOK %.4f // AUDIO %.0f%% // INPUT %.*s // MOUSE RELEASED",
             static_cast<int>(pause.size()), pause.data(),
             debugRenderer_.lookSensitivity(),
             audio_.volume() * 100.0f,
@@ -1198,7 +1267,7 @@ void HakuiApp::updateHud()
         SDL_snprintf(
             title,
             sizeof(title),
-            "HAKUI v0.83 // SPAR %s // HP %.0f STA %.0f BAL %.0f // TARGET HP %.0f BAL %.0f // MOVE FOOTWORK // %.*s PRIMARY // %.*s SECONDARY // %.*s GUARD // %.*s RECOVER // %.*s LEAVE // %.*s",
+            "HAKUI v0.84 // SPAR %s // HP %.0f STA %.0f BAL %.0f // TARGET HP %.0f BAL %.0f // MOVE FOOTWORK // %.*s PRIMARY // %.*s SECONDARY // %.*s GUARD // %.*s RECOVER // %.*s LEAVE // %.*s",
             combatStateLabel(combat_.player().state),
             combat_.player().health,
             combat_.player().stamina,
@@ -1223,7 +1292,7 @@ void HakuiApp::updateHud()
         SDL_snprintf(
             title,
             sizeof(title),
-            "HAKUI v0.83 // FUSION TABLE // CREDITS %lld // HAND %d // %.*s %.*s // %.*s LEAVE // CONTEXTUAL INTERACTION // %.*s",
+            "HAKUI v0.84 // FUSION TABLE // CREDITS %lld // HAND %d // %.*s %.*s // %.*s LEAVE // CONTEXTUAL INTERACTION // %.*s",
             static_cast<long long>(terminal_->virtualCredits()),
             handValue,
             static_cast<int>(interact.size()), interact.data(),
@@ -1235,7 +1304,7 @@ void HakuiApp::updateHud()
         SDL_snprintf(
             title,
             sizeof(title),
-            "HAKUI v0.83 // VOID COUCH // AUM %s // %.*s STAND // %.*s ORBIT // %.*s PAUSE // %.*s",
+            "HAKUI v0.84 // VOID COUCH // AUM %s // %.*s STAND // %.*s ORBIT // %.*s PAUSE // %.*s",
             aumPhase,
             static_cast<int>(interact.size()), interact.data(),
             static_cast<int>(orbit.size()), orbit.data(),
@@ -1246,7 +1315,7 @@ void HakuiApp::updateHud()
         SDL_snprintf(
             title,
             sizeof(title),
-            "HAKUI v0.83 // BLACK SPACE FALL // DEPTH %.1f // RECOVERY ARMED // RESPAWNS %u // %.*s",
+            "HAKUI v0.84 // BLACK SPACE FALL // DEPTH %.1f // RECOVERY ARMED // RESPAWNS %u // %.*s",
             -player_.y,
             player_.voidRespawns,
             static_cast<int>(device.size()), device.data()
@@ -1285,7 +1354,7 @@ void HakuiApp::updateHud()
         SDL_snprintf(
             title,
             sizeof(title),
-            "HAKUI v0.83 // %s // %.*s // %.*s // SPD %.1f BAL %.0f // LAND %.*s // COMBO %s // %.*s POP // THEN RS FLICK AIR TRICK // %.*s GRIND // %.*s BALANCE // %.*s DRIVE // %.*s/%.*s SPIN // %.*s STYLE // %.*s DISMOUNT // %.*s",
+            "HAKUI v0.84 // %s // %.*s // %.*s // SPD %.1f BAL %.0f // LAND %.*s // COMBO %s // %.*s TAP POP / HOLD PRELOAD // THEN RS FLICK AIR TRICK // %.*s GRIND // %.*s BALANCE // %.*s DRIVE // %.*s/%.*s SPIN // %.*s STYLE // %.*s DISMOUNT // %.*s",
             locomotionLabel(player_.locomotion),
             static_cast<int>(phase.size()), phase.data(),
             static_cast<int>(trick.size()), trick.data(),
@@ -1309,7 +1378,7 @@ void HakuiApp::updateHud()
             SDL_snprintf(
                 title,
                 sizeof(title),
-                "HAKUI v0.83 // %.*s // %.*s USE // %.*s ORBIT // MODE %s // STAMINA %.0f // AUM %s // %.*s",
+                "HAKUI v0.84 // %.*s // %.*s USE // %.*s ORBIT // MODE %s // STAMINA %.0f // AUM %s // %.*s",
                 static_cast<int>(focus.prompt.size()),
                 focus.prompt.data(),
                 static_cast<int>(interact.size()), interact.data(),
@@ -1327,7 +1396,7 @@ void HakuiApp::updateHud()
             SDL_snprintf(
                 title,
                 sizeof(title),
-                "HAKUI v0.83 // SPARRING DATUM // %.*s ENTER // DUMMY VISIBLE // %.*s/%.*s ATTACK // %.*s GUARD // %.*s RECOVER // %.*s",
+                "HAKUI v0.84 // SPARRING DATUM // %.*s ENTER // DUMMY VISIBLE // %.*s/%.*s ATTACK // %.*s GUARD // %.*s RECOVER // %.*s",
                 static_cast<int>(cancel.size()), cancel.data(),
                 static_cast<int>(primary.size()), primary.data(),
                 static_cast<int>(secondary.size()), secondary.data(),
@@ -1339,7 +1408,7 @@ void HakuiApp::updateHud()
             SDL_snprintf(
                 title,
                 sizeof(title),
-                "HAKUI v0.83 // %s // X %.1f Y %.1f Z %.1f // STA %.0f // CAM %.2f/%.2f/%.1f // ORBIT %s // INTENT DEVICE %.*s // AUM %s",
+                "HAKUI v0.84 // %s // X %.1f Y %.1f Z %.1f // STA %.0f // CAM %.2f/%.2f/%.1f // ORBIT %s // INTENT DEVICE %.*s // AUM %s",
                 locomotionLabel(player_.locomotion),
                 player_.x,
                 player_.y,
@@ -1593,6 +1662,7 @@ void HakuiApp::update(float dt)
             rideInput.movement = movementInput;
             rideInput.movement.jumpPressed = false;
             rideInput.popPressed = rideControlFrame_.popIntent;
+            rideInput.popPreload = rideControlFrame_.popPreload;
             rideInput.manualHeld = rideControlFrame_.balanceIntent;
             rideInput.grindHeld = rideControlFrame_.grindIntent;
             rideInput.stylePressed = rideControlFrame_.styleIntent;
@@ -1633,9 +1703,19 @@ void HakuiApp::update(float dt)
                     static_cast<int>(trick.size()),
                     trick.data()
                 );
+                if (rideable_.state().rotationChannel ==
+                    hakui::RideRotationChannel::BoardDeck) {
+                    audio_.play(HakuiAudioCue::BoardRotation);
+                } else if (rideable_.state().rotationChannel !=
+                           hakui::RideRotationChannel::None) {
+                    audio_.play(HakuiAudioCue::BmxTrick);
+                }
+            }
+            if (rideFrame.grindStarted) {
+                audio_.play(HakuiAudioCue::GrindScrape);
             }
             if (rideFrame.bailed) {
-                audio_.play(HakuiAudioCue::CombatHit);
+                audio_.play(HakuiAudioCue::BailImpact);
                 SDL_Log("[RIDE] BAIL // combo interrupted");
             }
         } else {
@@ -1647,10 +1727,18 @@ void HakuiApp::update(float dt)
             );
         }
         if (movementStep.jumped) {
-            audio_.play(HakuiAudioCue::Jump);
+            audio_.play(riding ? HakuiAudioCue::RidePop : HakuiAudioCue::Jump);
         }
         if (movementStep.landed) {
-            audio_.play(HakuiAudioCue::Land);
+            if (!riding) {
+                audio_.play(HakuiAudioCue::Land);
+            } else if (rideable_.state().landingQuality ==
+                       hakui::LandingQuality::Clean) {
+                audio_.play(HakuiAudioCue::CleanLanding);
+            } else if (rideable_.state().landingQuality ==
+                       hakui::LandingQuality::Sketchy) {
+                audio_.play(HakuiAudioCue::SketchyLanding);
+            }
         }
         if (movementStep.respawned) {
             rideControls_.reset();

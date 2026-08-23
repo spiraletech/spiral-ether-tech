@@ -1,6 +1,6 @@
 # Hakui Product Requirements
 
-Status: working specification through the local v0.83 pop-to-flick control correction.
+Status: working specification through the local v0.84 ride-physics and embodiment pass.
 
 Each requirement has a stable identifier so code, tests, issues, and release notes can refer to the same contract. A requirement is complete only when its acceptance criteria are automated or explicitly marked as a manual visual/audio check.
 
@@ -256,6 +256,35 @@ Acceptance criteria:
 Automated in part by: `hakui.input`, `hakui.rideable_movement`, and
 `hakui.observer`. Hardware-specific control feel remains a native smoke check.
 
+### HK-EXP-016 — Physical ride consequence and body-machine contact
+
+Ride trick intent shall evolve as deterministic rideable rotation, and ground
+contact shall classify the resulting state without renderer-owned success logic
+or automatic orientation correction. BMX and skateboard embodiment shall derive
+body targets from authored local-space machine anchors.
+
+Acceptance criteria:
+
+- A ride Jump tap emits the normal pop; a brief hold/release produces a stronger
+  impulse capped by centralized discipline tuning.
+- The trick window still opens only after confirmed pop airtime and consumes one
+  subsequent right-stick flick; no hold-plus-stick chord is accepted.
+- Kickflip, heelflip, pop shove-it, impossible, varial flip, tailwhip, barspin,
+  crankflip, X-up, and tabletop expose distinct physical intent profiles.
+- Rotation, angular velocity, target, completion, airtime, impact, alignment,
+  balance, and surface normal participate in deterministic landing evaluation.
+- An unfinished or physically invalid landing retains its orientation, reports
+  an explicit bail reason, detaches the ride pose, and enters recovery.
+- BMX grip targets descend from FrontSteeringAssembly and follow steering;
+  pedal/foot targets descend from Crank. Skate feet resolve through authored
+  front/rear deck contacts.
+- Read-only Expert Observer snapshots expose ride physics and hand/foot contact
+  errors without gaining gameplay authority.
+
+Automated in part by: `hakui.input`, `hakui.rideable_movement`,
+`hakui.avatar_rig`, and `hakui.observer`. Body-pose readability remains a native
+multi-angle visual smoke check.
+
 ## Engine requirements
 
 ### HK-ENG-001 — Dependency firewall
@@ -341,6 +370,7 @@ Before a public v1.0 release, the repository shall include an owner-selected lic
 | HK-EXP-013 | Implemented locally | `HakuiInput`, `SdlInputBridge`, discipline interpreter, semantic HUD prompts, ride attachment spec |
 | HK-EXP-014 | Implemented locally | `ExpertObserver`, native F12 frame capture, observer spec, versioned read-only bundle |
 | HK-EXP-015 | Implemented locally | `RideControlInterpreter`, semantic controller-family prompts, rideable/input/observer specs |
+| HK-EXP-016 | Implemented locally | Deterministic trick physics/landing/bail, hierarchical ride anchors, observer diagnostics |
 | HK-ENG-001–005 | Implemented, awaiting CI | Firewall and Spiral specs |
 | HK-ENG-006 | Implemented locally | Semantic affordances and dependency-free combat/gameplay targets |
 | HK-QLT-001–003 | Implemented, awaiting CI | CMake, workflow, dependency manifest |

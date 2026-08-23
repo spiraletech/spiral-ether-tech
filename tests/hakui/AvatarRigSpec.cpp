@@ -75,14 +75,62 @@ void rideable_anchors_use_a_stable_forward_convention()
     const RideAnchor* pelvis = bmx.find(RideAnchorSemantic::PelvisAnchor);
     const RideAnchor* leftGrip = bmx.find(RideAnchorSemantic::LeftHandGrip);
     const RideAnchor* rightGrip = bmx.find(RideAnchorSemantic::RightHandGrip);
-    assert(front && rear && pelvis && leftGrip && rightGrip);
-    assert(front->z > rear->z);
-    assert(leftGrip->z > pelvis->z);
-    assert(rightGrip->z > pelvis->z);
-    assert(leftGrip->x < 0.0f);
-    assert(rightGrip->x > 0.0f);
-    assert(leftGrip->y == rightGrip->y);
-    assert(leftGrip->z == rightGrip->z);
+    const RideAnchor* steering = bmx.find(
+        RideAnchorSemantic::FrontSteeringAssembly
+    );
+    const RideAnchor* leftPedal = bmx.find(RideAnchorSemantic::LeftPedal);
+    const RideAnchor* rightPedal = bmx.find(RideAnchorSemantic::RightPedal);
+    assert(front && rear && pelvis && leftGrip && rightGrip && steering);
+    assert(leftPedal && rightPedal);
+    const RideAnchorPosition resolvedFront = bmx.resolvePosition(
+        RideAnchorSemantic::FrontAxle
+    );
+    const RideAnchorPosition resolvedRear = bmx.resolvePosition(
+        RideAnchorSemantic::RearAxle
+    );
+    const RideAnchorPosition resolvedPelvis = bmx.resolvePosition(
+        RideAnchorSemantic::PelvisAnchor
+    );
+    const RideAnchorPosition resolvedLeftGrip = bmx.resolvePosition(
+        RideAnchorSemantic::LeftHandGrip
+    );
+    const RideAnchorPosition resolvedRightGrip = bmx.resolvePosition(
+        RideAnchorSemantic::RightHandGrip
+    );
+    assert(resolvedFront.z > resolvedRear.z);
+    assert(resolvedLeftGrip.z > resolvedPelvis.z);
+    assert(resolvedRightGrip.z > resolvedPelvis.z);
+    assert(resolvedLeftGrip.x < 0.0f);
+    assert(resolvedRightGrip.x > 0.0f);
+    assert(resolvedLeftGrip.y == resolvedRightGrip.y);
+    assert(resolvedLeftGrip.z == resolvedRightGrip.z);
+    assert(leftGrip->parent == RideAnchorSemantic::Handlebar);
+    assert(rightGrip->parent == RideAnchorSemantic::Handlebar);
+    assert(front->parent == RideAnchorSemantic::FrontSteeringAssembly);
+    assert(leftPedal->parent == RideAnchorSemantic::Crank);
+    assert(rightPedal->parent == RideAnchorSemantic::Crank);
+
+    const RideAnchorPosition steeredLeftGrip = bmx.resolvePosition(
+        RideAnchorSemantic::LeftHandGrip,
+        0.55f
+    );
+    assert(std::fabs(steeredLeftGrip.x - resolvedLeftGrip.x) > 0.01f);
+    assert(std::fabs(steeredLeftGrip.z - resolvedLeftGrip.z) > 0.01f);
+    const RideAnchorPosition pedaledLeft = bmx.resolvePosition(
+        RideAnchorSemantic::LeftFootAnchor,
+        0.0f,
+        1.2f
+    );
+    const RideAnchorPosition restingLeft = bmx.resolvePosition(
+        RideAnchorSemantic::LeftFootAnchor
+    );
+    assert(std::fabs(pedaledLeft.y - restingLeft.y) > 0.01f);
+
+    assert(board.find(RideAnchorSemantic::FrontFootAnchor) != nullptr);
+    assert(board.find(RideAnchorSemantic::RearFootAnchor) != nullptr);
+    assert(board.find(RideAnchorSemantic::FrontTruck) != nullptr);
+    assert(board.find(RideAnchorSemantic::RearTruck) != nullptr);
+    assert(board.find(RideAnchorSemantic::DeckCenter) != nullptr);
 }
 
 void embodiment_profiles_agree_with_authored_contact_surfaces()

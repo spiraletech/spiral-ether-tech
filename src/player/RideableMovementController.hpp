@@ -38,7 +38,8 @@ enum class RideTrick : std::uint8_t {
     BunnyHop,
     Kickflip,
     Heelflip,
-    PopShove,
+    PopShoveIt,
+    Impossible,
     VarialFlip,
     BoardGrab,
     BmxTabletop,
@@ -46,6 +47,7 @@ enum class RideTrick : std::uint8_t {
     BmxTailwhipRight,
     BmxBarspin,
     BmxCrankflip,
+    BmxXUp,
     BoardGrind,
     PegGrind,
     BoardManual,
@@ -77,15 +79,65 @@ struct RideTrickIntent {
 
 enum class LandingQuality : std::uint8_t {
     None,
-    Sketchy,
     Clean,
-    Perfect,
+    Sketchy,
+    Failed,
     Bail
+};
+
+enum class BailReason : std::uint8_t {
+    None,
+    UnderRotated,
+    InvertedRideable,
+    ExcessiveImpact,
+    ExcessiveAngularVelocity,
+    ContactMisalignment,
+    LostBalance
+};
+
+enum class RideRotationChannel : std::uint8_t {
+    None,
+    Rideable,
+    BoardDeck,
+    BmxFrame,
+    BmxSteering,
+    BmxCrank
+};
+
+struct RideRotation {
+    float x = 0.0f;
+    float y = 0.0f;
+    float z = 0.0f;
+};
+
+struct TrickPhysicalIntent {
+    RideRotationChannel channel = RideRotationChannel::None;
+    RideRotation axis{};
+    float direction = 1.0f;
+    float rotationTarget = 0.0f;
+    float angularSpeed = 0.0f;
+    float minimumAirtime = 0.0f;
+    float bodyRotationAssist = 0.0f;
+    bool returnToNeutral = false;
+};
+
+struct RidePhysicsTuning {
+    float skateboardPopImpulseMin = 6.25f;
+    float skateboardPopImpulseMax = 8.20f;
+    float bmxPopImpulseMin = 6.85f;
+    float bmxPopImpulseMax = 8.80f;
+    float cleanCompletion = 0.94f;
+    float sketchyCompletion = 0.80f;
+    float cleanImpactSpeed = 9.75f;
+    float sketchyImpactSpeed = 12.25f;
+    float cleanAngularSpeed = 1.20f;
+    float sketchyAngularSpeed = 3.80f;
 };
 
 struct RideableInput {
     MovementInput movement{};
     bool popPressed = false;
+    float popPreload = 0.0f;
     bool manualHeld = false;
     bool grindHeld = false;
     bool stylePressed = false;
@@ -106,17 +158,40 @@ struct RideableState {
     float balanceOffset = 0.0f;
     float phaseSeconds = 0.0f;
     float airSeconds = 0.0f;
+    float trickSeconds = 0.0f;
     float comboWindowSeconds = 0.0f;
     float steeringVisual = 0.0f;
     float bodySpinRadians = 0.0f;
     float spinVelocity = 0.0f;
     float propulsion = 0.0f;
+    float popPreload = 0.0f;
+    float popImpulse = 0.0f;
+    RideRotation rideableRotation{};
+    RideRotation angularVelocity{};
+    RideRotation targetRotation{};
+    RideRotation surfaceNormal{0.0f, 1.0f, 0.0f};
+    float rotationCompletion = 1.0f;
+    float rotationTravel = 0.0f;
+    float rotationTravelTarget = 0.0f;
+    float minimumTrickAirtime = 0.0f;
+    float bodyRotationAssist = 0.0f;
+    float footContactAlignment = 1.0f;
+    float leftHandGripError = 0.0f;
+    float rightHandGripError = 0.0f;
+    float leftFootAnchorError = 0.0f;
+    float rightFootAnchorError = 0.0f;
+    float tumbleRadians = 0.0f;
+    float rideSeparation = 0.0f;
+    float rideSeparationVelocity = 0.0f;
+    RideRotationChannel rotationChannel = RideRotationChannel::None;
+    BailReason bailReason = BailReason::None;
     RideTrickDirection lastTrickDirection = RideTrickDirection::None;
     RideGrindAttachment activeGrindAttachment = RideGrindAttachment::None;
     std::uint32_t activeAffordanceId = 0;
     std::array<RideTrick, 8> combo{};
     std::size_t comboCount = 0;
     bool flipCommitted = false;
+    bool rotationReturning = false;
 };
 
 struct RideableFrame {
@@ -126,6 +201,7 @@ struct RideableFrame {
     bool manualStarted = false;
     bool landed = false;
     bool bailed = false;
+    LandingQuality evaluatedLanding = LandingQuality::None;
 };
 
 // Deterministic expressive-movement layer. The ordinary movement controller
@@ -134,6 +210,7 @@ struct RideableFrame {
 class RideableMovementController {
 public:
     RideableMovementController() = default;
+    explicit RideableMovementController(RidePhysicsTuning tuning);
 
     RideableFrame update(
         PlayerState& player,
@@ -145,10 +222,16 @@ public:
 
     void reset() noexcept;
     const RideableState& state() const noexcept;
+    const RidePhysicsTuning& tuning() const noexcept;
 
     static std::string_view phaseLabel(RidePhase phase) noexcept;
     static std::string_view trickLabel(RideTrick trick) noexcept;
     static std::string_view landingLabel(LandingQuality quality) noexcept;
+    static std::string_view bailReasonLabel(BailReason reason) noexcept;
+    static std::string_view rotationChannelLabel(
+        RideRotationChannel channel
+    ) noexcept;
+    static TrickPhysicalIntent physicalIntentFor(RideTrick trick) noexcept;
 
 private:
     const WorldAffordanceVolume* nearby(
@@ -159,7 +242,20 @@ private:
     ) const noexcept;
     void beginTrick(RideTrick trick, RideableFrame& frame) noexcept;
     void appendCombo(RideTrick trick) noexcept;
-    void beginBail(PlayerState& player, RideableFrame& frame) noexcept;
+    void beginBail(
+        PlayerState& player,
+        RideableFrame& frame,
+        BailReason reason,
+        LandingQuality quality = LandingQuality::Bail
+    ) noexcept;
+    void beginPhysicalTrick(RideTrick trick, RideableFrame& frame) noexcept;
+    void updatePhysicalRotation(float deltaSeconds) noexcept;
+    LandingQuality evaluateLanding(
+        float verticalImpactSpeed,
+        float horizontalSpeed,
+        const RideRotation& surfaceNormal,
+        BailReason& reason
+    ) const noexcept;
     void updateBalance(
         float correction,
         float naturalDrift,
@@ -175,6 +271,7 @@ private:
     ) noexcept;
 
     PlayerMovementController movement_{};
+    RidePhysicsTuning tuning_{};
     RideableState state_{};
 };
 

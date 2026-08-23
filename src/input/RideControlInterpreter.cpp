@@ -9,6 +9,11 @@ RideControlInterpreter::RideControlInterpreter(RideControlTuning tuning)
     : tuning_(tuning)
 {
     tuning_.cameraDeadzone = std::clamp(tuning_.cameraDeadzone, 0.0f, 0.95f);
+    tuning_.preloadSaturationTime = std::clamp(
+        tuning_.preloadSaturationTime,
+        0.08f,
+        0.80f
+    );
     tuning_.trickWindowDelay = std::clamp(
         tuning_.trickWindowDelay,
         0.0f,
@@ -49,7 +54,44 @@ RideControlFrame RideControlInterpreter::update(
     RideControlFrame output;
     output.rideActive = rideActive;
     output.airborne = rideActive && airborne;
-    output.popIntent = rideActive && frame.action(Action::Jump).pressed;
+    const ActionState& jump = frame.action(Action::Jump);
+    if (rideActive && !airborne) {
+        if (jump.pressed && !jump.held) {
+            // Some input backends can report an entire tap in one sample.
+            output.popIntent = true;
+            output.popPreload = 0.0f;
+            popPreparing_ = false;
+            popPreloadSeconds_ = 0.0f;
+        } else if (jump.pressed && jump.held && !popPreparing_) {
+            popPreparing_ = true;
+            popPreloadSeconds_ = 0.0f;
+        }
+        if (popPreparing_ && jump.held) {
+            popPreloadSeconds_ = std::min(
+                tuning_.preloadSaturationTime,
+                popPreloadSeconds_ + dt
+            );
+        } else if (popPreparing_ && !jump.held) {
+            output.popIntent = true;
+            output.popPreload = std::clamp(
+                popPreloadSeconds_ / tuning_.preloadSaturationTime,
+                0.0f,
+                1.0f
+            );
+            popPreparing_ = false;
+            popPreloadSeconds_ = 0.0f;
+        }
+    }
+    output.popPreparing = popPreparing_;
+    if (!output.popIntent) {
+        output.popPreload = popPreparing_
+            ? std::clamp(
+                popPreloadSeconds_ / tuning_.preloadSaturationTime,
+                0.0f,
+                1.0f
+            )
+            : 0.0f;
+    }
     output.grindIntent = rideActive && frame.action(Action::Grind).held;
     output.balanceIntent = rideActive && frame.action(Action::Balance).held;
     output.styleIntent = rideActive && frame.action(Action::PrimaryAction).pressed;
@@ -180,6 +222,8 @@ void RideControlInterpreter::reset() noexcept
     diagnostics_ = {};
     lastResolvedTrick_ = {};
     clearWindowState();
+    popPreparing_ = false;
+    popPreloadSeconds_ = 0.0f;
 }
 
 const RideControlFrame& RideControlInterpreter::diagnostics() const noexcept

@@ -220,6 +220,32 @@ operations remain unauthorized.
 Exit signal: the readable physical rhythm is `POP → AIR → FLICK → LAND`, with
 camera ownership restored cleanly on every success, timeout, and interruption.
 
+## M4.84 — v0.84 ride physics + embodiment
+
+- Add a capped South-button preload whose release emits the existing semantic
+  pop, then arm the right-stick trick window only after confirmed airtime.
+- Give the minimum skateboard and BMX vocabulary deterministic rotation
+  channels, axes, directions, targets, angular speeds, airtime requirements,
+  and body-assist metadata.
+- Integrate rideable orientation in the gameplay layer and evaluate landing
+  completion, orientation, contact, impact, balance, and surface normal without
+  renderer-authored success or magic orientation snapping.
+- Classify clean, sketchy, failed, and bail outcomes with explicit reasons and
+  a visible procedural tumble/recovery path.
+- Author BoardRoot/BikeRoot attachment hierarchies with deck/truck/foot and
+  steering/grip/crank/pedal/seat semantics; drive procedural rider limbs from
+  those local anchors.
+- Extend the read-only Expert Observer with ride-physics and embodiment-contact
+  diagnostics, and add minimal procedural physical-readability cues.
+
+Current state: implemented locally on `codex/ride-physics-embodiment-v0.84`;
+deterministic specifications and the native SDL client compile locally. Remote
+operations remain unauthorized.
+
+Exit signal: trick intent evolves as visible machine rotation, completed motion
+lands, unfinished motion bails, BMX hands stay on steering-derived grips, and
+feet visibly relate to pedals or deck contacts.
+
 ## M5 — World persistence and replay
 
 - Define a versioned StateStore snapshot schema.

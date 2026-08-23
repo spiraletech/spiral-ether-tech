@@ -20,7 +20,7 @@ struct Vec3 {
 };
 
 struct BuildObservation {
-    std::string hakuiVersion = "0.83-dev";
+    std::string hakuiVersion = "0.84-dev";
     std::string configuration = "unknown";
     std::string gitCommit = "unknown";
     std::string gitBranch = "unknown";
@@ -55,6 +55,23 @@ struct EntityObservation {
     std::string currentInteraction;
     std::string currentWorldZone;
     std::vector<AttachmentObservation> attachments;
+    std::string rideDiscipline = "NONE";
+    std::string rideState = "INACTIVE";
+    std::string currentTrick = "READY";
+    std::string rotationChannel = "NONE";
+    std::string landingQuality = "--";
+    std::string bailReason = "NONE";
+    float popPreload = 0.0f;
+    float popImpulse = 0.0f;
+    float airtime = 0.0f;
+    Vec3 rideableRotation{};
+    Vec3 angularVelocity{};
+    Vec3 targetRotation{};
+    float rotationCompletion = 1.0f;
+    float leftHandGripError = 0.0f;
+    float rightHandGripError = 0.0f;
+    float leftFootAnchorError = 0.0f;
+    float rightFootAnchorError = 0.0f;
 };
 
 struct CameraObservation {
@@ -103,11 +120,14 @@ struct RideControlObservation {
     float flickDeadzone = 0.0f;
     float flickThreshold = 0.0f;
     float flickReleaseThreshold = 0.0f;
+    bool popPreparing = false;
+    float popPreload = 0.0f;
+    float preloadSaturationTime = 0.0f;
 };
 
 struct CaptureContext {
     BuildObservation build;
-    std::string worldVersion = "black-room.v0.83";
+    std::string worldVersion = "black-room.v0.84";
     std::string environmentId = "data-grunge.black-room";
     std::span<const WorldPrimitive> geometry;
     std::span<const WorldAffordanceVolume> affordances;

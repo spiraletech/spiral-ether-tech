@@ -1,4 +1,4 @@
-# PROJECT HAKUI — Native Client v0.83-dev
+# PROJECT HAKUI — Native Client v0.84-dev
 
 [![Hakui Build and Test](https://github.com/spiraletech/spiral-ether-tech/actions/workflows/native-build.yml/badge.svg)](https://github.com/spiraletech/spiral-ether-tech/actions/workflows/native-build.yml)
 [![C++20](https://img.shields.io/badge/C%2B%2B-20-00599C.svg)](https://en.cppreference.com/w/cpp/20)
@@ -36,6 +36,31 @@ cmake --build build --config Release --target hakui --parallel
 ```
 
 The resulting executable is `hakui` (`hakui.exe` on Windows). Run it from the selected build-configuration directory used by your generator.
+
+## v0.84 ride physics + embodiment
+
+v0.84 turns the existing `POP → AIR → RS FLICK` grammar into deterministic
+physical consequence. A tap produces the normal pop; a short South-button hold
+preloads a capped stronger impulse and releases into the same sequential
+airborne trick window. Skateboard and BMX tricks now carry discipline-specific
+rotation channels, axes, targets, angular speeds, and minimum airtime. Ground
+contact evaluates completion, orientation, impact, velocity, contact alignment,
+balance, and surface normal as clean, sketchy, failed, or bail—unfinished tricks
+remain unfinished instead of snapping flat.
+
+The skateboard vocabulary now includes kickflip, heelflip, pop shove-it,
+impossible, and varial flip. BMX includes directional tailwhips, barspin,
+crankflip, X-up, and tabletop. A local-space BMX hierarchy resolves the front
+steering assembly, grips, crank, pedals, seat, and rider targets; procedural
+two-segment limbs keep hands on moving grips and feet at authored pedal/deck
+contacts without putting success logic in the renderer. Physical failures
+detach the ride pose into a deterministic tumble/recovery response.
+
+Expert Observer entity snapshots expose ride discipline/state, preload and
+impulse, airtime, trick, rotation/velocity/target/completion, landing and bail
+diagnostics, and four body-machine contact errors. Minimal procedural pop,
+rotation, grind, landing, and bail cues improve physical readability without an
+asset pipeline.
 
 ## v0.83 pop → flick control correction
 

@@ -178,7 +178,9 @@ int main()
     PhysicalInputFrame popPress;
     popPress.activeDevice = InputDevice::Gamepad;
     popPress.gamepadAvailable = true;
-    popPress.set(PhysicalControl::PadSouth, 1.0f, true);
+    // A backend may collapse a quick tap into one sample: pressed, no longer
+    // held. This remains an immediate normal pop.
+    popPress.set(PhysicalControl::PadSouth, 0.0f, true);
     RideControlFrame rideFrame = rideControls.update(
         resolver.resolve(popPress),
         true,
@@ -188,6 +190,39 @@ int main()
     assert(rideFrame.popIntent);
     assert(!rideFrame.trickWindowArmed);
     assert(rideFrame.rightStickOwner == RightStickOwner::Camera);
+
+    // A physical hold preloads without opening the trick window. Release
+    // emits one capped pop; the RS still belongs to the camera until gameplay
+    // confirms airborne state.
+    RideControlInterpreter preloadControls;
+    PhysicalInputFrame preloadPress;
+    preloadPress.activeDevice = InputDevice::Gamepad;
+    preloadPress.gamepadAvailable = true;
+    preloadPress.set(PhysicalControl::PadSouth, 1.0f, true);
+    RideControlFrame preloadFrame = preloadControls.update(
+        resolver.resolve(preloadPress), true, false, 0.10f
+    );
+    assert(!preloadFrame.popIntent);
+    assert(preloadFrame.popPreparing);
+    assert(preloadFrame.popPreload > 0.0f);
+    PhysicalInputFrame preloadHeld = preloadPress;
+    preloadHeld.pressed.fill(false);
+    for (int frameIndex = 0; frameIndex < 8; ++frameIndex) {
+        preloadFrame = preloadControls.update(
+            resolver.resolve(preloadHeld), true, false, 0.10f
+        );
+    }
+    assert(preloadFrame.popPreload == 1.0f);
+    PhysicalInputFrame preloadRelease;
+    preloadRelease.activeDevice = InputDevice::Gamepad;
+    preloadRelease.gamepadAvailable = true;
+    preloadFrame = preloadControls.update(
+        resolver.resolve(preloadRelease), true, false, 0.016f
+    );
+    assert(preloadFrame.popIntent);
+    assert(!preloadFrame.popPreparing);
+    assert(preloadFrame.popPreload == 1.0f);
+    assert(!preloadFrame.trickWindowArmed);
 
     // Gameplay confirms that the discrete pop actually left the ground.
     rideControls.armTrickWindow();

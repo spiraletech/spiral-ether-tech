@@ -1,6 +1,7 @@
 #include <array>
 #include <cassert>
 #include <cmath>
+#include <utility>
 
 #include "player/RideableMovementController.hpp"
 
@@ -50,6 +51,30 @@ void settleLanding(
     }
 }
 
+std::pair<hakui::RideTrick, hakui::RideableState> startAirTrick(
+    LocomotionMode locomotion,
+    hakui::RideTrickDirection direction
+)
+{
+    PlayerState player;
+    player.locomotion = locomotion;
+    player.grounded = false;
+    player.y = 3.0f;
+    player.velocityY = 1.0f;
+    hakui::RideableMovementController controller;
+    hakui::RideableInput input;
+    input.trick = {direction, 1.0f, 0.0f, 1.0f, 0.08f, true};
+    const hakui::RideableFrame frame = controller.update(
+        player,
+        input,
+        testEnvironment(),
+        kAffordances,
+        1.0f / 60.0f
+    );
+    assert(frame.trickStarted);
+    return {controller.state().activeTrick, controller.state()};
+}
+
 } // namespace
 
 int main()
@@ -71,6 +96,38 @@ int main()
         );
     }
     assert(boardController.state().speed > 3.0f);
+
+    // Pop preload affects the deterministic impulse only inside a safe cap.
+    PlayerState normalPopPlayer;
+    normalPopPlayer.locomotion = LocomotionMode::Skateboard;
+    normalPopPlayer.x = 20.0f;
+    normalPopPlayer.z = 20.0f;
+    RideableMovementController normalPopController;
+    RideableInput normalPopInput;
+    normalPopInput.popPressed = true;
+    normalPopInput.popPreload = 0.0f;
+    (void)normalPopController.update(
+        normalPopPlayer, normalPopInput, testEnvironment(), kAffordances,
+        1.0f / 60.0f
+    );
+    const float normalImpulse = normalPopController.state().popImpulse;
+    PlayerState chargedPopPlayer;
+    chargedPopPlayer.locomotion = LocomotionMode::Skateboard;
+    chargedPopPlayer.x = 20.0f;
+    chargedPopPlayer.z = 20.0f;
+    RideableMovementController chargedPopController;
+    RideableInput chargedPopInput;
+    chargedPopInput.popPressed = true;
+    chargedPopInput.popPreload = 50.0f;
+    (void)chargedPopController.update(
+        chargedPopPlayer, chargedPopInput, testEnvironment(), kAffordances,
+        1.0f / 60.0f
+    );
+    assert(chargedPopController.state().popImpulse > normalImpulse);
+    assert(std::fabs(
+        chargedPopController.state().popImpulse -
+        chargedPopController.tuning().skateboardPopImpulseMax
+    ) < 0.001f);
 
     boardInput.popPressed = true;
     RideableFrame ollie = boardController.update(
@@ -97,8 +154,71 @@ int main()
     assert(boardController.state().activeTrick == RideTrick::Kickflip);
     settleLanding(boardController, skateboard, boardInput);
     assert(skateboard.grounded);
-    assert(boardController.state().landingQuality != LandingQuality::None);
+    assert(boardController.state().phase != RidePhase::Crash);
+    assert(boardController.state().landingQuality == LandingQuality::Clean ||
+           boardController.state().landingQuality == LandingQuality::Sketchy);
+    assert(boardController.state().rotationCompletion >= 0.80f);
     assert(boardController.state().comboCount >= 3);
+
+    // Every v0.84 minimum trick maps to a distinct physical channel/axis
+    // profile rather than a renderer-authored canned animation.
+    assert(startAirTrick(LocomotionMode::Skateboard, RideTrickDirection::Left).first ==
+           RideTrick::Kickflip);
+    assert(startAirTrick(LocomotionMode::Skateboard, RideTrickDirection::Right).first ==
+           RideTrick::Heelflip);
+    assert(startAirTrick(LocomotionMode::Skateboard, RideTrickDirection::Up).first ==
+           RideTrick::PopShoveIt);
+    assert(startAirTrick(LocomotionMode::Skateboard, RideTrickDirection::Down).first ==
+           RideTrick::Impossible);
+    assert(startAirTrick(LocomotionMode::Skateboard, RideTrickDirection::UpRight).first ==
+           RideTrick::VarialFlip);
+    assert(startAirTrick(LocomotionMode::BMX, RideTrickDirection::Left).first ==
+           RideTrick::BmxTailwhipLeft);
+    assert(startAirTrick(LocomotionMode::BMX, RideTrickDirection::Up).first ==
+           RideTrick::BmxBarspin);
+    assert(startAirTrick(LocomotionMode::BMX, RideTrickDirection::Down).first ==
+           RideTrick::BmxCrankflip);
+    assert(startAirTrick(LocomotionMode::BMX, RideTrickDirection::UpLeft).first ==
+           RideTrick::BmxXUp);
+    assert(startAirTrick(LocomotionMode::BMX, RideTrickDirection::DownRight).first ==
+           RideTrick::BmxTabletop);
+    assert(RideableMovementController::physicalIntentFor(RideTrick::Impossible)
+               .rotationTarget > 6.0f);
+    assert(RideableMovementController::physicalIntentFor(RideTrick::BmxBarspin)
+               .channel == RideRotationChannel::BmxSteering);
+
+    // A low, unfinished kickflip reaches ground with retained rotation and
+    // deterministically bails instead of snapping flat.
+    PlayerState underRotated;
+    underRotated.locomotion = LocomotionMode::Skateboard;
+    underRotated.grounded = false;
+    underRotated.y = 0.24f;
+    underRotated.velocityY = -1.5f;
+    RideableMovementController underRotatedController;
+    RideableInput underRotatedInput;
+    underRotatedInput.trick = {
+        RideTrickDirection::Left, -1.0f, 0.0f, 1.0f, 0.05f, true
+    };
+    (void)underRotatedController.update(
+        underRotated, underRotatedInput, testEnvironment(), kAffordances,
+        1.0f / 60.0f
+    );
+    underRotatedInput.trick = {};
+    RideableFrame failedLanding;
+    for (int frameIndex = 0; frameIndex < 60 && !underRotated.grounded;
+         ++frameIndex) {
+        failedLanding = underRotatedController.update(
+            underRotated, underRotatedInput, testEnvironment(), kAffordances,
+            1.0f / 60.0f
+        );
+    }
+    assert(failedLanding.bailed);
+    assert(underRotatedController.state().phase == RidePhase::Crash);
+    assert(underRotatedController.state().landingQuality == LandingQuality::Failed);
+    assert(underRotatedController.state().bailReason == BailReason::UnderRotated ||
+           underRotatedController.state().bailReason ==
+               BailReason::ExcessiveAngularVelocity);
+    assert(std::fabs(underRotatedController.state().rideableRotation.z) > 0.01f);
 
     boardInput.trick = {};
     boardInput.manualHeld = true;
@@ -166,12 +286,18 @@ int main()
     );
     assert(barspin.trickStarted);
     assert(bmxController.state().activeTrick == RideTrick::BmxBarspin);
+    settleLanding(bmxController, bmx, bmxInput);
+    assert(bmx.grounded);
+    assert(bmxController.state().phase != RidePhase::Crash);
+    assert(bmxController.state().landingQuality == LandingQuality::Clean ||
+           bmxController.state().landingQuality == LandingQuality::Sketchy);
+    assert(bmxController.state().rotationCompletion >= 0.80f);
     bmxInput.trick = {};
     bmxInput.grindHeld = true;
     bmx.x = 0.0f;
     bmx.z = 0.0f;
-    bmx.y = 0.55f;
-    bmx.velocityY = -1.0f;
+    bmx.y = 0.0f;
+    bmx.velocityY = 0.0f;
     const RideableFrame peg = bmxController.update(
         bmx,
         bmxInput,

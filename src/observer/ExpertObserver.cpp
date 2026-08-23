@@ -230,7 +230,26 @@ std::string entitiesJson(const std::vector<EntityObservation>& entities)
                << ",\"balance\":" << entity.balance << ",\"current_rideable\":\""
                << jsonEscape(entity.currentRideable) << "\",\"current_interaction\":\""
                << jsonEscape(entity.currentInteraction) << "\",\"current_world_zone\":\""
-               << jsonEscape(entity.currentWorldZone) << "\",\"attachments\":[";
+               << jsonEscape(entity.currentWorldZone)
+               << "\",\"ride_physics\":{\"ride_discipline\":\""
+               << jsonEscape(entity.rideDiscipline)
+               << "\",\"ride_state\":\"" << jsonEscape(entity.rideState)
+               << "\",\"pop_preload\":" << entity.popPreload
+               << ",\"pop_impulse\":" << entity.popImpulse
+               << ",\"airtime\":" << entity.airtime
+               << ",\"current_trick\":\"" << jsonEscape(entity.currentTrick)
+               << "\",\"rotation_channel\":\"" << jsonEscape(entity.rotationChannel)
+               << "\",\"rideable_rotation\":" << vec3Json(entity.rideableRotation)
+               << ",\"angular_velocity\":" << vec3Json(entity.angularVelocity)
+               << ",\"target_rotation\":" << vec3Json(entity.targetRotation)
+               << ",\"rotation_completion\":" << entity.rotationCompletion
+               << ",\"landing_quality\":\"" << jsonEscape(entity.landingQuality)
+               << "\",\"bail_reason\":\"" << jsonEscape(entity.bailReason)
+               << "\",\"left_hand_grip_error\":" << entity.leftHandGripError
+               << ",\"right_hand_grip_error\":" << entity.rightHandGripError
+               << ",\"left_foot_anchor_error\":" << entity.leftFootAnchorError
+               << ",\"right_foot_anchor_error\":" << entity.rightFootAnchorError
+               << "},\"attachments\":[";
         for (std::size_t attachmentIndex = 0;
              attachmentIndex < entity.attachments.size(); ++attachmentIndex) {
             const AttachmentObservation& attachment = entity.attachments[attachmentIndex];
@@ -270,6 +289,10 @@ std::string inputJson(const CaptureContext& context)
            << jsonEscape(context.rideControl.activeDiscipline)
            << "\",\n    \"pop_intent\": "
            << (context.rideControl.popIntent ? "true" : "false")
+           << ",\n    \"pop_preparing\": "
+           << (context.rideControl.popPreparing ? "true" : "false")
+           << ",\n    \"pop_preload\": " << std::fixed
+           << std::setprecision(4) << context.rideControl.popPreload
            << ",\n    \"airborne\": "
            << (context.rideControl.airborne ? "true" : "false")
            << ",\n    \"trick_window_armed\": "
@@ -303,6 +326,8 @@ std::string inputJson(const CaptureContext& context)
            << jsonEscape(context.rideControl.rideState)
            << "\",\n    \"tuning\": {\"camera_deadzone\":"
            << context.rideControl.cameraDeadzone
+           << ",\"preload_saturation_time\":"
+           << context.rideControl.preloadSaturationTime
            << ",\"trick_window_delay\":"
            << context.rideControl.trickWindowDelay
            << ",\"trick_window_duration\":"
