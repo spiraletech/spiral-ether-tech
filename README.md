@@ -1,4 +1,4 @@
-# PROJECT HAKUI — Native Client v0.7-dev
+# PROJECT HAKUI — Native Client v0.75-dev
 
 [![Hakui Build and Test](https://github.com/spiraletech/spiral-ether-tech/actions/workflows/native-build.yml/badge.svg)](https://github.com/spiraletech/spiral-ether-tech/actions/workflows/native-build.yml)
 [![C++20](https://img.shields.io/badge/C%2B%2B-20-00599C.svg)](https://en.cppreference.com/w/cpp/20)
@@ -36,6 +36,33 @@ cmake --build build --config Release --target hakui --parallel
 ```
 
 The resulting executable is `hakui` (`hakui.exe` on Windows). Run it from the selected build-configuration directory used by your generator.
+
+## v0.75 expressive movement pass
+
+v0.75 turns skateboard and BMX from movement skins into deterministic movement
+disciplines. A shared GPU-independent ride layer owns grounded, airborne,
+grinding, manual, landing, crash, momentum, balance, landing-quality, and small
+combo concepts. Skateboard and BMX interpret the same authored `Grindable`,
+`Launch`, and `ManualZone` opportunities differently rather than duplicating the
+whole state machine.
+
+The minimum playable grammar is deliberately focused: skateboard supports
+ollie, manual, board grind, kickflip, heelflip, landing quality, and bail; BMX
+supports bunny hop, wheel manual, peg grind, a tabletop air trick, landing, and
+bail. The HUD exposes the active trick, phase, speed, balance, landing quality,
+and current combo seed. The Black Room movement line now connects a manual strip,
+low rail, transfer kicker, gallery ramp, and elevated edge.
+
+The boxing pass adds deterministic stance footwork and spacing offsets while
+keeping the existing jab/cross/guard/knockdown grammar. Presentation adds attack
+commitment, clearer stance steps, stronger stagger, visible impact displacement,
+and more readable recovery. The v0.75 acceptance loop is:
+
+```text
+launch → orbit → skateboard → ollie/flip → land → manual → grind
+       → BMX → bunny hop/tabletop → manual → peg grind → land
+       → dismount → spar → footwork → jab/cross/guard → impact/recover
+```
 
 ## v0.7 embodiment pass
 
@@ -339,6 +366,7 @@ spiral_logic_spec
 hakui_interaction_spec
 hakui_avatar_rig_spec
 hakui_gameplay_spec
+hakui_rideable_spec
 hakui_camera_spec
 hakui_combat_spec
 hakui_tabletop_spec
@@ -348,9 +376,12 @@ imvu_cal3d_backend_spec
 ## Controls
 
 ```text
-W A S D       move / steer current supported mode
+W A S D       move / steer; stance footwork while sparring
 Shift         sprint / push / pedal
-Space         jump on foot
+Space         jump / ollie / bunny hop
+M             hold manual in a ManualZone
+F             hold grind near Grindable geometry
+Z / X         air trick while riding; jab / cross while sparring
 RMB           orbit third-person camera
 Mouse wheel   zoom camera
 Q             switch shoulder
@@ -361,7 +392,6 @@ R             reset camera framing
 4             car mode (explicitly deferred / immobile)
 E             sit, stand, or use nearest authored anchor
 C             enter / leave sparring datum
-Z / X         jab / cross
 V             hold guard
 K             recover after knockdown
 T             power/use terminal; roll dice when online
@@ -376,9 +406,10 @@ F10           quit
 
 The tabletop suite uses fictional virtual credits only. It has no real-money purchase, deposit, cash-out, marketplace, or external gambling integration. Terminal models—Nebula Tower, Orchard Glass, and Fusion Deck—are original in-world identities and do not represent real hardware companies.
 
-On-foot, skateboard, and BMX movement are implemented in the v0.7 proof slice.
-Advanced tricks, grinds, manuals, bunny hops, and vehicle simulation remain
-future work. Car mode is visibly labeled `CAR DEFERRED` and does not move.
+On-foot, skateboard, and BMX movement are implemented. v0.75 adds the focused
+expressive grammar above; a full trick encyclopedia, advanced transition
+physics, and vehicle simulation remain future work. Car mode is visibly labeled
+`CAR DEFERRED` and does not move.
 
 ## Dependency firewall
 

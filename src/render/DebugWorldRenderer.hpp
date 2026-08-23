@@ -7,6 +7,7 @@
 #include "camera/ThirdPersonCameraRig.hpp"
 #include "combat/CombatSimulation.hpp"
 #include "player/PlayerState.hpp"
+#include "player/RideableMovementController.hpp"
 #include "world/WorldGeometry.hpp"
 
 enum class CameraRole {
@@ -46,6 +47,9 @@ struct HakuiSceneState {
     float opponentYaw = 0.0f;
     float playerHitPulse = 0.0f;
     float opponentHitPulse = 0.0f;
+    float playerStanceBlend = 0.0f;
+    float opponentStanceBlend = 0.0f;
+    hakui::RideableState rideable{};
 };
 
 class DebugWorldRenderer {

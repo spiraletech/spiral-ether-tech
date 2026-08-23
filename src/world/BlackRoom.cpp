@@ -9,6 +9,7 @@ namespace hakui {
 namespace {
 
 constexpr float kRampAngle = 0.463647609f;
+constexpr float kKickerAngle = 0.363147009f;
 
 const auto kSpecimenGeometry = std::to_array<WorldPrimitive>({
     // Plaza and modular CRT datum grid.
@@ -112,6 +113,27 @@ const auto kSpecimenGeometry = std::to_array<WorldPrimitive>({
     {WorldPrimitiveKind::Signage, MaterialRole::CrtCyan,
      -3.0f, 2.10f, -2.75f, 1.75f, 0.08f, 0.08f},
 
+    // v0.75 movement line: the plaza now advertises a readable sequence of
+    // manual strip -> low rail -> transfer kicker. These remain reusable world
+    // primitives; ride disciplines decide what each semantic volume means.
+    {WorldPrimitiveKind::Floor, MaterialRole::VoidBlack,
+     -1.00f, 0.018f, 4.72f, 5.60f, 0.036f, 1.30f},
+    {WorldPrimitiveKind::Signage, MaterialRole::SodiumAmber,
+     -1.00f, 0.044f, 4.72f, 5.25f, 0.030f, 0.08f,
+     0.0f, 0.0f, 0.0f, 3, 0.0f, 0.0f, 0.52f},
+    {WorldPrimitiveKind::Mobility, MaterialRole::CrtCyan,
+     -0.85f, 0.34f, -2.42f, 5.20f, 0.10f, 0.10f},
+    {WorldPrimitiveKind::Mobility, MaterialRole::IndustrialDark,
+     -3.20f, 0.17f, -2.42f, 0.10f, 0.34f, 0.10f,
+     0.0f, 0.0f, 0.0f, 3, 2.35f, 0.0f, 0.0f},
+    {WorldPrimitiveKind::Signage, MaterialRole::SignalMagenta,
+     -0.85f, 0.08f, -2.42f, 5.45f, 0.035f, 0.18f},
+    {WorldPrimitiveKind::Ramp, MaterialRole::PowderConcrete,
+     5.00f, 0.38f, 1.05f, 2.14f, 0.20f, 1.80f,
+     0.0f, 0.0f, kKickerAngle},
+    {WorldPrimitiveKind::Signage, MaterialRole::HazardRed,
+     5.00f, 0.11f, 0.10f, 2.30f, 0.06f, 0.08f},
+
     // SPARRING DATUM: a readable semantic zone, not combat logic. The combat
     // layer interprets FightZone/SparAnchor; the renderer only draws markers.
     {WorldPrimitiveKind::Floor, MaterialRole::IndustrialDark,
@@ -169,7 +191,19 @@ constexpr auto kSpecimenAffordances = std::to_array<WorldAffordanceVolume>({
      -4.2f, -1.8f, 1.60f, 2.70f, -3.2f, 3.2f},
     {1103, "GALLERY EDGE RAIL",
      affordanceMask(WorldAffordance::Grindable),
-     -2.30f, -1.90f, 1.80f, 3.20f, -2.9f, 2.9f},
+     -2.30f, -1.90f, 1.80f, 3.20f, -2.9f, 2.9f,
+     {-2.10f, 2.0f, 0.0f, 0.0f}},
+    {1104, "PLAZA LOW RAIL",
+     WorldAffordance::Grindable | WorldAffordance::StallAnchor,
+     -3.55f, 1.85f, -0.25f, 1.45f, -2.78f, -2.06f,
+     {-0.85f, 0.28f, -2.42f, 1.57079632679f}},
+    {1105, "POWDER MANUAL STRIP",
+     WorldAffordance::Landing | WorldAffordance::ManualZone,
+     -3.85f, 1.85f, -0.25f, 1.20f, 3.92f, 5.50f},
+    {1106, "TRANSFER KICKER",
+     WorldAffordance::Rideable | WorldAffordance::Transition |
+         WorldAffordance::Launch | WorldAffordance::Landing,
+     3.65f, 6.35f, -0.30f, 2.20f, -0.05f, 2.10f},
     {1201, "SPARRING DATUM",
      WorldAffordance::FightZone | WorldAffordance::SparAnchor,
      2.40f, 8.80f, -0.20f, 3.00f, -7.20f, -1.60f,
@@ -198,9 +232,10 @@ const std::array<HorizontalCollider, 5> BlackRoom::colliders_{{
     {-10.0f, -9.62f, -2.25f, 8.10f}
 }};
 
-const std::array<WalkableSurface, 2> BlackRoom::surfaces_{{
+const std::array<WalkableSurface, 3> BlackRoom::surfaces_{{
     {-8.0f, -4.0f, -1.40f, 1.40f, 0.0f, 0.50f, 0.0f},
-    {-4.0f, -2.0f, -3.00f, 3.00f, 2.0f, 0.0f, 0.0f}
+    {-4.0f, -2.0f, -3.00f, 3.00f, 2.0f, 0.0f, 0.0f},
+    {4.0f, 6.0f, 0.15f, 1.95f, 0.0f, 0.38f, 0.0f}
 }};
 
 MovementEnvironment BlackRoom::movementEnvironment() const noexcept

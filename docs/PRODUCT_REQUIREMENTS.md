@@ -1,6 +1,6 @@
 # Hakui Product Requirements
 
-Status: working specification through the local v0.7 embodiment pass.
+Status: working specification through the local v0.75 expressive-movement pass.
 
 Each requirement has a stable identifier so code, tests, issues, and release notes can refer to the same contract. A requirement is complete only when its acceptance criteria are automated or explicitly marked as a manual visual/audio check.
 
@@ -138,7 +138,7 @@ Acceptance criteria:
   interruption, knockdown, and recovery.
 - Unarmed supports stance, jab, cross, guard, receive-hit, knockdown, recovery,
   and exit.
-- Sword and bow semantics remain disabled extension points in v0.7.
+- Sword and bow semantics remain disabled extension points through v0.75.
 - Damage events identify source, target, discipline, semantic, amount, impact,
   stagger, knockdown potential, and result.
 - The camera and procedural avatars remain third-person and full-body readable.
@@ -174,10 +174,12 @@ Acceptance criteria:
 - Movement turns the avatar and ride together and advances wheel presentation.
 - Leaving a mode removes its mesh without stale state.
 - Ride modes dismount to on-foot before seating or sparring.
-- Advanced skateboard/BMX tricks remain outside v0.7 scope.
+- v0.75 provides a focused skateboard/BMX grammar: hop, manual, grind, air,
+  landing quality, bail, and one or two discipline-specific air tricks.
+- A full trick encyclopedia and advanced transition physics remain out of scope.
 
-Automated in part by: `hakui.gameplay_movement`. Mesh readability is a native
-visual smoke check.
+Automated in part by: `hakui.gameplay_movement` and
+`hakui.rideable_movement`. Mesh readability is a native visual smoke check.
 
 ## Engine requirements
 
@@ -257,10 +259,10 @@ Before a public v1.0 release, the repository shall include an owner-selected lic
 | HK-EXP-006 | Implemented, awaiting CI | Card deck, dice, blackjack, tabletop spec |
 | HK-EXP-007 | Implemented, awaiting CI | Game terminal, interaction routing, tabletop spec |
 | HK-EXP-008 | Implemented locally | `BlackRoom`, `WorldGeometry`, gameplay spec |
-| HK-EXP-009 | Implemented locally | Native v0.7 acceptance loop completed; remote CI pending |
-| HK-EXP-010 | Implemented locally | `CombatSimulation`, combat spec, native accessible spar presentation |
+| HK-EXP-009 | Implemented locally | Native v0.75 movement/combat acceptance loop; remote CI unauthorized |
+| HK-EXP-010 | Implemented locally | `CombatSimulation`, deterministic footwork, combat spec, native spar presentation |
 | HK-EXP-011 | Implemented locally | `ThirdPersonCameraRig`, camera spec, native capture smoke |
-| HK-EXP-012 | Implemented locally | Distinct movement profiles and procedural ride models |
+| HK-EXP-012 | Implemented locally | `RideableMovementController`, rideable spec, distinct procedural models |
 | HK-ENG-001–005 | Implemented, awaiting CI | Firewall and Spiral specs |
 | HK-ENG-006 | Implemented locally | Semantic affordances and dependency-free combat/gameplay targets |
 | HK-QLT-001–003 | Implemented, awaiting CI | CMake, workflow, dependency manifest |

@@ -47,6 +47,10 @@ void resetCombatant(CombatantState& actor, EntityId target) noexcept
     actor.phaseSeconds = 0.0f;
     actor.releaseSeconds = 0.0f;
     actor.recoverySeconds = 0.0f;
+    actor.footworkForward = 0.0f;
+    actor.footworkLateral = 0.0f;
+    actor.stanceBlend = 0.0f;
+    actor.impactSeconds = 0.0f;
 }
 
 } // namespace
@@ -78,6 +82,8 @@ bool CombatSimulation::enter(const CombatZone& zone) noexcept
     zone_ = zone;
     resetCombatant(player_, opponent_.entity);
     resetCombatant(opponent_, player_.entity);
+    playerWorldPosition_ = zone.playerAnchor;
+    opponentWorldPosition_ = zone.opponentAnchor;
     active_ = true;
     return true;
 }
@@ -111,6 +117,16 @@ const CombatantState& CombatSimulation::opponent() const noexcept
     return opponent_;
 }
 
+const CombatVector& CombatSimulation::playerWorldPosition() const noexcept
+{
+    return playerWorldPosition_;
+}
+
+const CombatVector& CombatSimulation::opponentWorldPosition() const noexcept
+{
+    return opponentWorldPosition_;
+}
+
 CombatantState& CombatSimulation::playerForTesting() noexcept
 {
     return player_;
@@ -140,7 +156,7 @@ AttackDefinition CombatSimulation::attackDefinition(
     }
 
     // Directional sword and projectile semantics are intentionally declared
-    // but disabled through v0.7. Enabling them later means adding discipline
+    // but disabled through v0.75. Enabling them later means adding discipline
     // profiles, not replacing shared encounter, hit, or damage machinery.
     return {discipline, semantic};
 }
@@ -160,6 +176,7 @@ CombatSimulation::PendingAttack CombatSimulation::advance(
     }
 
     if (actor.state == CombatState::KnockedDown) {
+        actor.stanceBlend = 0.0f;
         actor.phaseSeconds = std::max(0.0f, actor.phaseSeconds - deltaSeconds);
         if (actor.phaseSeconds <= 0.0f && intent.recover) {
             actor.state = CombatState::Ready;
@@ -312,14 +329,76 @@ void CombatSimulation::resolve(
         attack.target->state = CombatState::Staggered;
         attack.target->phaseSeconds = std::clamp(
             event.stagger * 0.012f,
-            0.10f,
-            0.34f
+            0.16f,
+            0.42f
         );
+        attack.target->impactSeconds = attack.target->phaseSeconds;
         attack.target->pendingAttack = AttackSemantic::None;
         event.result = HitResult::Hit;
     }
 
     result.damageEvents[result.damageEventCount++] = event;
+}
+
+void CombatSimulation::updateFootwork(
+    CombatantState& actor,
+    const CombatIntent& intent,
+    float deltaSeconds,
+    bool actorIsPlayer
+) noexcept
+{
+    actor.impactSeconds = std::max(0.0f, actor.impactSeconds - deltaSeconds);
+    const bool mobile = actor.state == CombatState::Ready ||
+        actor.state == CombatState::Guarding;
+    const float forward = mobile && std::isfinite(intent.moveForward)
+        ? std::clamp(intent.moveForward, -1.0f, 1.0f)
+        : 0.0f;
+    const float right = mobile && std::isfinite(intent.moveRight)
+        ? std::clamp(intent.moveRight, -1.0f, 1.0f)
+        : 0.0f;
+    const float guardScale = actor.state == CombatState::Guarding ? 0.55f : 1.0f;
+    actor.footworkForward = std::clamp(
+        actor.footworkForward + forward * 1.55f * guardScale * deltaSeconds,
+        -0.60f,
+        actorIsPlayer ? 0.42f : 0.30f
+    );
+    actor.footworkLateral = std::clamp(
+        actor.footworkLateral + right * 1.35f * guardScale * deltaSeconds,
+        -0.68f,
+        0.68f
+    );
+    const float targetBlend = std::sqrt(forward * forward + right * right);
+    const float blendStep = 7.5f * deltaSeconds;
+    if (actor.stanceBlend < targetBlend) {
+        actor.stanceBlend = std::min(actor.stanceBlend + blendStep, targetBlend);
+    } else {
+        actor.stanceBlend = std::max(actor.stanceBlend - blendStep, targetBlend);
+    }
+}
+
+void CombatSimulation::updateWorldPositions(
+    const CombatFrameContext& context
+) noexcept
+{
+    const CombatVector direction = directionBetween(
+        context.playerPosition,
+        context.opponentPosition
+    );
+    const CombatVector lateral{-direction.z, 0.0f, direction.x};
+    playerWorldPosition_ = {
+        context.playerPosition.x + direction.x * player_.footworkForward +
+            lateral.x * player_.footworkLateral,
+        context.playerPosition.y,
+        context.playerPosition.z + direction.z * player_.footworkForward +
+            lateral.z * player_.footworkLateral
+    };
+    opponentWorldPosition_ = {
+        context.opponentPosition.x - direction.x * opponent_.footworkForward +
+            lateral.x * opponent_.footworkLateral,
+        context.opponentPosition.y,
+        context.opponentPosition.z - direction.z * opponent_.footworkForward +
+            lateral.z * opponent_.footworkLateral
+    };
 }
 
 CombatFrameResult CombatSimulation::update(
@@ -335,6 +414,9 @@ CombatFrameResult CombatSimulation::update(
     }
 
     const float dt = std::clamp(deltaSeconds, 0.0f, 0.10f);
+    updateFootwork(player_, playerIntent, dt, true);
+    updateFootwork(opponent_, opponentIntent, dt, false);
+    updateWorldPositions(context);
     const PendingAttack playerAttack = advance(
         player_, opponent_, playerIntent, dt, true, result
     );
@@ -346,14 +428,14 @@ CombatFrameResult CombatSimulation::update(
     // deterministic simultaneous trade while keeping all hit decisions here.
     resolve(
         playerAttack,
-        context.playerPosition,
-        context.opponentPosition,
+        playerWorldPosition_,
+        opponentWorldPosition_,
         result
     );
     resolve(
         opponentAttack,
-        context.opponentPosition,
-        context.playerPosition,
+        opponentWorldPosition_,
+        playerWorldPosition_,
         result
     );
     return result;

@@ -68,6 +68,8 @@ struct CombatIntent {
     AttackSemantic attack = AttackSemantic::None;
     DefenseIntent defense = DefenseIntent::None;
     bool recover = false;
+    float moveForward = 0.0f;
+    float moveRight = 0.0f;
 };
 
 struct AttackDefinition {
@@ -109,6 +111,10 @@ struct CombatantState {
     float phaseSeconds = 0.0f;
     float releaseSeconds = 0.0f;
     float recoverySeconds = 0.0f;
+    float footworkForward = 0.0f;
+    float footworkLateral = 0.0f;
+    float stanceBlend = 0.0f;
+    float impactSeconds = 0.0f;
 };
 
 struct CombatZone {
@@ -156,6 +162,8 @@ public:
     const CombatZone& zone() const noexcept;
     const CombatantState& player() const noexcept;
     const CombatantState& opponent() const noexcept;
+    const CombatVector& playerWorldPosition() const noexcept;
+    const CombatVector& opponentWorldPosition() const noexcept;
     CombatantState& playerForTesting() noexcept;
     CombatantState& opponentForTesting() noexcept;
 
@@ -187,10 +195,19 @@ private:
         const CombatVector& targetPosition,
         CombatFrameResult& result
     ) noexcept;
+    void updateFootwork(
+        CombatantState& actor,
+        const CombatIntent& intent,
+        float deltaSeconds,
+        bool actorIsPlayer
+    ) noexcept;
+    void updateWorldPositions(const CombatFrameContext& context) noexcept;
 
     CombatantState player_{};
     CombatantState opponent_{};
     CombatZone zone_{};
+    CombatVector playerWorldPosition_{};
+    CombatVector opponentWorldPosition_{};
     bool active_ = false;
 };
 

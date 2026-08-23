@@ -106,6 +106,30 @@ packaging, and publication remain unauthorized.
 Exit signal: every system advertised in v0.7 is visible, controllable, and
 understandable; intentionally incomplete systems are labeled honestly.
 
+## M4.7 — v0.75 expressive movement pass
+
+- Add a shared deterministic ride state for grounded, airborne, grinding,
+  manual, landing, crash, momentum, balance, and landing quality.
+- Let skateboard and BMX interpret authored `Grindable`, `Launch`, and
+  `ManualZone` volumes with distinct verbs instead of duplicating controllers.
+- Add ollie/bunny-hop, discipline-specific manual/grind, focused air tricks,
+  landing quality, bail, and a small combo seed.
+- Turn the Black Room into a connected movement playground with a manual strip,
+  low rail, transfer kicker, gallery ramp, and elevated edge.
+- Make BMX steering readable through an explicit front wheel, fork, stem,
+  handlebars, grips, frame, seat, and crank silhouette.
+- Add deterministic boxing footwork and improve stance, strike commitment,
+  impact, stagger, guard, knockdown, and recovery presentation.
+- Preserve the v0.7 camera rig and its deterministic camera tests unchanged.
+
+Current state: implemented locally on `codex/expressive-movement-v0.75`; eight
+deterministic CTests and the native client compile locally. Remote operations
+remain unauthorized.
+
+Exit signal: a player can connect a short board/BMX movement line, read the
+resulting trick and landing feedback, then dismount into kinetic unarmed
+sparring without losing camera fluency.
+
 ## M5 — World persistence and replay
 
 - Define a versioned StateStore snapshot schema.

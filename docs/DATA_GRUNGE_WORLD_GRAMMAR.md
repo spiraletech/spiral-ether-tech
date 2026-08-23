@@ -1,6 +1,6 @@
 # HAKUI DATA GRUNGE World Grammar
 
-Status: v0.65 specimen contract, inherited and extended by the local v0.7
+Status: v0.65 specimen contract, inherited and extended by local v0.7/v0.75
 embodiment pass.
 
 The first HAKUI environment is an authored but editable assembly, not a baked
@@ -127,6 +127,23 @@ renderer cannot create mounts, hits, seats, or anchors by inference.
   is active;
 - Car remains labeled and immobile until it has an authored representation;
 - combat and interaction framing remain third-person and full-body readable.
+
+## v0.75 expressive movement grammar
+
+World geometry advertises opportunities; it never contains trick code.
+`Grindable`, `Transition`, `Launch`, `Landing`, `ManualZone`, and `StallAnchor`
+are interpreted by the active discipline. A skateboard maps them to truck/board
+grinds, ollies, and board manuals. BMX maps the same vocabulary to peg grinds,
+bunny hops, and wheel manuals.
+
+Movement lines should connect at least three readable opportunities. The first
+specimen line uses a powder manual strip, low cyan rail, transfer kicker,
+gallery ramp, and elevated edge. Luminous accents communicate affordance class;
+the surrounding concrete and negative space remain visually restrained.
+
+Shared ride state is deterministic and renderer-independent. Rendering may
+pose the board, bicycle, and avatar from phase, trick, balance, steering, and
+landing quality, but it may not decide whether a trick succeeds.
 
 ## Fidelity rule
 

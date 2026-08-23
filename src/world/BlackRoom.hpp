@@ -61,7 +61,7 @@ public:
 
 private:
     static const std::array<HorizontalCollider, 5> colliders_;
-    static const std::array<WalkableSurface, 2> surfaces_;
+    static const std::array<WalkableSurface, 3> surfaces_;
 };
 
 } // namespace hakui

@@ -292,7 +292,7 @@ bool DebugWorldRenderer::init(SDL_GPUDevice* device, SDL_Window* window)
         return false;
     }
 
-    SDL_Log("[HAKUI] v0.7 DATA GRUNGE renderer // embodied locomotion online");
+    SDL_Log("[HAKUI] v0.75 DATA GRUNGE renderer // expressive movement online");
     return true;
 }
 
@@ -668,9 +668,30 @@ bool DebugWorldRenderer::render(
     const bool ridingBmx =
         player.locomotion == LocomotionMode::BMX &&
         player.activity == PlayerActivity::Roaming;
+    float ridePitch = 0.0f;
+    float rideRoll = 0.0f;
+    if (scene.rideable.phase == hakui::RidePhase::Manual) {
+        ridePitch = ridingSkateboard ? -0.20f : -0.32f;
+    } else if (scene.rideable.phase == hakui::RidePhase::Grinding) {
+        rideRoll = ridingSkateboard ? 0.12f : -0.09f;
+    } else if (scene.rideable.phase == hakui::RidePhase::Crash) {
+        rideRoll = ridingSkateboard ? 0.72f : -0.62f;
+    }
+    if (scene.rideable.phase == hakui::RidePhase::Airborne) {
+        if (scene.rideable.activeTrick == hakui::RideTrick::Kickflip) {
+            rideRoll = scene.rideable.phaseSeconds * 10.5f;
+        } else if (scene.rideable.activeTrick == hakui::RideTrick::Heelflip) {
+            rideRoll = -scene.rideable.phaseSeconds * 10.5f;
+        } else if (scene.rideable.activeTrick == hakui::RideTrick::BmxTabletop) {
+            rideRoll = std::sin(scene.rideable.phaseSeconds * 4.5f) * 0.72f;
+        }
+    }
     const Mat4 locomotionRoot = multiply(
         translation({player.x, player.y, player.z}),
-        rotationY(player.yaw)
+        multiply(
+            rotationY(player.yaw),
+            multiply(rotationZ(rideRoll), rotationX(ridePitch))
+        )
     );
     auto locomotionModel = [&](const Mat4& local, Uint32 palette) {
         drawModel(multiply(locomotionRoot, local), palette);
@@ -714,7 +735,8 @@ bool DebugWorldRenderer::render(
     if (ridingBmx) {
         constexpr float wheelRadius = 0.62f;
         constexpr int wheelSegments = 12;
-        auto bikeWheel = [&](float centerZ) {
+        const float steering = scene.rideable.steeringVisual * 0.48f;
+        auto bikeWheel = [&](float centerZ, float steeringAngle) {
             const Vec3 center{0.0f, wheelRadius + 0.03f, centerZ};
             for (int segment = 0; segment < wheelSegments; ++segment) {
                 const float angle =
@@ -724,10 +746,13 @@ bool DebugWorldRenderer::render(
                 const Mat4 tire = multiply(
                     translation(center),
                     multiply(
-                        rotationX(angle),
+                        rotationY(steeringAngle),
                         multiply(
-                            translation({0.0f, wheelRadius, 0.0f}),
-                            scale({0.13f, 0.11f, 0.34f})
+                            rotationX(angle),
+                            multiply(
+                                translation({0.0f, wheelRadius, 0.0f}),
+                                scale({0.13f, 0.11f, 0.34f})
+                            )
                         )
                     )
                 );
@@ -742,8 +767,11 @@ bool DebugWorldRenderer::render(
                     multiply(
                         translation(center),
                         multiply(
-                            rotationX(angle),
-                            scale({0.045f, wheelRadius * 1.75f, 0.045f})
+                            rotationY(steeringAngle),
+                            multiply(
+                                rotationX(angle),
+                                scale({0.045f, wheelRadius * 1.75f, 0.045f})
+                            )
                         )
                     ),
                     Cyan
@@ -773,8 +801,8 @@ bool DebugWorldRenderer::render(
             );
         };
 
-        bikeWheel(-0.88f);
-        bikeWheel(0.88f);
+        bikeWheel(-0.88f, steering);
+        bikeWheel(0.88f, 0.0f);
         const Vec3 rearHub{0.0f, 0.65f, 0.88f};
         const Vec3 frontHub{0.0f, 0.65f, -0.88f};
         const Vec3 crank{0.0f, 0.66f, 0.05f};
@@ -787,13 +815,60 @@ bool DebugWorldRenderer::render(
         frameBar(headTube, crank, 0.10f, Cyan);
         frameBar(headTube, frontHub, 0.085f, Shell);
         locomotionBox({0.0f, 1.36f, 0.32f}, {0.48f, 0.11f, 0.32f}, Shell);
-        locomotionBox({0.0f, 1.43f, -0.67f}, {1.02f, 0.08f, 0.10f}, Cyan);
+        const Mat4 frontAssembly = multiply(
+            translation(frontHub),
+            rotationY(steering)
+        );
+        for (float forkSide : {-1.0f, 1.0f}) {
+            locomotionModel(
+                multiply(
+                    frontAssembly,
+                    multiply(
+                        translation({forkSide * 0.16f, 0.29f, 0.15f}),
+                        multiply(rotationX(-0.48f), scale({0.065f, 0.68f, 0.065f}))
+                    )
+                ),
+                Shell
+            );
+        }
+        locomotionModel(
+            multiply(
+                frontAssembly,
+                multiply(
+                    translation({0.0f, 0.68f, 0.27f}),
+                    multiply(rotationX(-0.18f), scale({0.10f, 0.42f, 0.10f}))
+                )
+            ),
+            Magenta
+        );
+        locomotionModel(
+            multiply(
+                frontAssembly,
+                multiply(
+                    translation({0.0f, 0.88f, 0.24f}),
+                    scale({1.18f, 0.09f, 0.10f})
+                )
+            ),
+            Cyan
+        );
+        for (float gripSide : {-1.0f, 1.0f}) {
+            locomotionModel(
+                multiply(
+                    frontAssembly,
+                    multiply(
+                        translation({gripSide * 0.62f, 0.88f, 0.24f}),
+                        scale({0.20f, 0.13f, 0.15f})
+                    )
+                ),
+                Midnight
+            );
+        }
         locomotionBox(crank, {0.28f, 0.28f, 0.12f}, Amber);
         locomotionBox({-0.28f, 0.66f, 0.05f}, {0.42f, 0.07f, 0.13f}, Shell);
         locomotionBox({0.28f, 0.66f, 0.05f}, {0.42f, 0.07f, 0.13f}, Shell);
     }
 
-    // HAKUI PROCEDURAL HUMANOID v0.7: acceleration-aware blending, turning,
+    // HAKUI PROCEDURAL HUMANOID v0.75: acceleration-aware blending, turning,
     // airborne posture, and shared seated poses for furniture/table anchors.
     const bool seated = player.activity != PlayerActivity::Roaming;
     const bool mounted = ridingSkateboard || ridingBmx;
@@ -811,6 +886,12 @@ bool DebugWorldRenderer::render(
     const float airborneLean = player.grounded
         ? 0.0f
         : std::clamp(-player.velocityY * 0.035f, -0.18f, 0.30f);
+    const float expressiveRideLean = scene.rideable.phase == hakui::RidePhase::Manual
+        ? (ridingSkateboard ? -0.16f : -0.24f)
+        : (scene.rideable.phase == hakui::RidePhase::Grinding ? 0.09f : 0.0f);
+    const float expressiveRideSway = scene.rideable.phase == hakui::RidePhase::Grinding
+        ? scene.rideable.balanceOffset * 0.22f
+        : 0.0f;
 
     const bool playerKnockedDown = scene.combatActive &&
         scene.playerCombatState == hakui::combat::CombatState::KnockedDown;
@@ -824,7 +905,11 @@ bool DebugWorldRenderer::render(
         }),
         multiply(
             rotationY(player.yaw),
-            rotationZ(playerKnockedDown ? 1.32f : 0.0f)
+            rotationZ(
+                playerKnockedDown
+                    ? 1.32f
+                    : (scene.rideable.phase == hakui::RidePhase::Crash ? 0.92f : 0.0f)
+            )
         )
     );
 
@@ -887,24 +972,50 @@ bool DebugWorldRenderer::render(
         leg(-1.0f, -1.28f, 1.26f);
         leg(1.0f, -1.28f, 1.26f);
     } else if (ridingSkateboard) {
-        leg(-1.0f, -0.22f, 0.34f);
-        leg(1.0f, 0.18f, 0.26f);
+        const float boardKnee = scene.rideable.phase == hakui::RidePhase::Airborne
+            ? 0.72f
+            : (scene.rideable.phase == hakui::RidePhase::Manual ? 0.48f : 0.30f);
+        leg(-1.0f, -0.22f - expressiveRideLean, boardKnee + 0.04f);
+        leg(1.0f, 0.18f - expressiveRideLean, boardKnee);
     } else if (ridingBmx) {
         const float pedal = std::sin(player.gaitPhase * 0.42f) * 0.28f;
-        leg(-1.0f, -0.62f + pedal, 1.05f - pedal * 0.5f);
-        leg(1.0f, -0.62f - pedal, 1.05f + pedal * 0.5f);
+        const float hopTuck = scene.rideable.phase == hakui::RidePhase::Airborne
+            ? 0.26f
+            : 0.0f;
+        leg(-1.0f, -0.62f + pedal - hopTuck, 1.05f - pedal * 0.5f + hopTuck);
+        leg(1.0f, -0.62f - pedal - hopTuck, 1.05f + pedal * 0.5f + hopTuck);
+    } else if (scene.combatActive) {
+        const float stanceStep = std::sin(player.gaitPhase) *
+            0.18f * scene.playerStanceBlend;
+        leg(-1.0f, -0.10f + stanceStep, 0.22f);
+        leg(1.0f, 0.14f - stanceStep, 0.28f);
     } else {
         leg(-1.0f, gait * stride, std::max(0.0f, -gait) * 0.58f);
         leg(1.0f, counterGait * stride, std::max(0.0f, -counterGait) * 0.58f);
     }
     localBox({0.0f, 1.20f, 0.0f}, {0.74f, 0.30f, 0.44f}, Midnight);
 
+    const bool attackRelease = scene.combatActive &&
+        scene.playerCombatState == hakui::combat::CombatState::Release;
+    const float attackCommitment = attackRelease
+        ? (scene.playerAttack == hakui::combat::AttackSemantic::Cross ? 0.28f : 0.18f)
+        : 0.0f;
+    const float impactLean = scene.playerCombatState ==
+        hakui::combat::CombatState::Staggered ? -0.22f : 0.0f;
     const Mat4 torso = multiply(
         avatarRoot,
         multiply(
-            translation({0.0f, 1.72f + idleBreath, 0.0f}),
-            multiply(rotationX(airborneLean + (ridingBmx ? 0.20f : 0.0f)),
-                multiply(rotationZ(bodySway), scale({0.92f, 0.94f, 0.48f})))
+            translation({0.0f, 1.72f + idleBreath, attackCommitment}),
+            multiply(
+                rotationX(
+                    airborneLean + expressiveRideLean +
+                    (ridingBmx ? 0.20f : 0.0f)
+                ),
+                multiply(
+                    rotationZ(bodySway + expressiveRideSway + impactLean),
+                    scale({0.92f, 0.94f, 0.48f})
+                )
+            )
         )
     );
     drawModel(torso, scene.playerHitPulse > 0.0f ? Danger : Shell);
@@ -915,8 +1026,8 @@ bool DebugWorldRenderer::render(
         leftArmAngle = -0.28f;
         rightArmAngle = 0.22f;
     } else if (ridingBmx) {
-        leftArmAngle = -1.06f;
-        rightArmAngle = -1.06f;
+        leftArmAngle = -1.06f - scene.rideable.steeringVisual * 0.10f;
+        rightArmAngle = -1.06f + scene.rideable.steeringVisual * 0.10f;
     } else if (scene.combatActive) {
         using hakui::combat::AttackSemantic;
         using hakui::combat::CombatState;
@@ -953,7 +1064,16 @@ bool DebugWorldRenderer::render(
             }),
             multiply(
                 rotationY(scene.opponentYaw),
-                rotationZ(opponentDown ? -1.32f : 0.0f)
+                multiply(
+                    translation({0.0f, 0.0f, -scene.opponentHitPulse * 2.1f}),
+                    rotationZ(
+                        opponentDown
+                            ? -1.32f
+                            : (scene.opponentCombatState == CombatState::Staggered
+                                ? 0.24f
+                                : 0.0f)
+                    )
+                )
             )
         );
         const Uint32 opponentBody =

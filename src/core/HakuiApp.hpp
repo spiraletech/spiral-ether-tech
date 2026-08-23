@@ -11,6 +11,7 @@
 #include "games/GameTerminal.hpp"
 #include "interaction/InteractionService.hpp"
 #include "player/PlayerMovementController.hpp"
+#include "player/RideableMovementController.hpp"
 #include "player/PlayerState.hpp"
 #include "render/DebugWorldRenderer.hpp"
 #include "spiral/SpiralKernel.hpp"
@@ -54,6 +55,8 @@ private:
     int cameraCaptureWarmupFrames_ = 0;
     bool paused_ = false;
     bool jumpQueued_ = false;
+    bool rideFlipLeftQueued_ = false;
+    bool rideFlipRightQueued_ = false;
     bool combatRecoverQueued_ = false;
     bool alternateFootstep_ = false;
     hakui::combat::AttackSemantic combatAttackQueued_ =
@@ -78,5 +81,6 @@ private:
     hakui::combat::CombatSimulation combat_;
     PlayerState player_;
     hakui::PlayerMovementController movement_;
+    hakui::RideableMovementController rideable_;
     LocomotionRouter locomotion_{player_};
 };

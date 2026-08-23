@@ -53,6 +53,7 @@ struct ModeMotionProfile {
     float deceleration = 0.0f;
     float turnSpeed = 0.0f;
     float collisionRadius = 0.32f;
+    float jumpVelocity = 0.0f;
 };
 
 ModeMotionProfile profileFor(
@@ -70,29 +71,32 @@ ModeMotionProfile profileFor(
                 config.groundAcceleration,
                 config.groundDeceleration,
                 config.turnSpeed,
-                config.collisionRadius
+                config.collisionRadius,
+                config.jumpVelocity
             };
         case LocomotionMode::Skateboard:
             return {
                 true,
-                false,
+                true,
                 config.skateboardCruiseSpeed,
                 config.skateboardSprintSpeed,
                 config.skateboardAcceleration,
                 config.skateboardDeceleration,
                 config.skateboardTurnSpeed,
-                config.collisionRadius + 0.04f
+                config.collisionRadius + 0.04f,
+                config.skateboardOllieVelocity
             };
         case LocomotionMode::BMX:
             return {
                 true,
-                false,
+                true,
                 config.bmxCruiseSpeed,
                 config.bmxSprintSpeed,
                 config.bmxAcceleration,
                 config.bmxDeceleration,
                 config.bmxTurnSpeed,
-                config.collisionRadius + 0.10f
+                config.collisionRadius + 0.10f,
+                config.bmxBunnyHopVelocity
             };
         case LocomotionMode::Car:
             return {};
@@ -164,11 +168,19 @@ PlayerMovementController::PlayerMovementController(Config config)
     config_.skateboardAcceleration = std::max(config_.skateboardAcceleration, 0.0f);
     config_.skateboardDeceleration = std::max(config_.skateboardDeceleration, 0.0f);
     config_.skateboardTurnSpeed = std::max(config_.skateboardTurnSpeed, 0.0f);
+    config_.skateboardOllieVelocity = std::max(
+        config_.skateboardOllieVelocity,
+        0.0f
+    );
     config_.bmxCruiseSpeed = std::max(config_.bmxCruiseSpeed, 0.0f);
     config_.bmxSprintSpeed = std::max(config_.bmxSprintSpeed, config_.bmxCruiseSpeed);
     config_.bmxAcceleration = std::max(config_.bmxAcceleration, 0.0f);
     config_.bmxDeceleration = std::max(config_.bmxDeceleration, 0.0f);
     config_.bmxTurnSpeed = std::max(config_.bmxTurnSpeed, 0.0f);
+    config_.bmxBunnyHopVelocity = std::max(
+        config_.bmxBunnyHopVelocity,
+        0.0f
+    );
 }
 
 MovementStep PlayerMovementController::update(
@@ -300,7 +312,7 @@ MovementStep PlayerMovementController::update(
     }
 
     if (motion.canJump && input.jumpPressed && player.grounded && floorBelow) {
-        player.velocityY = config_.jumpVelocity;
+        player.velocityY = motion.jumpVelocity;
         player.grounded = false;
         step.jumped = true;
     }

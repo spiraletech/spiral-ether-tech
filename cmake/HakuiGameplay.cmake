@@ -19,6 +19,7 @@ hakui_enforce_first_party_firewall(
 
 add_library(hakui_gameplay STATIC
     ${CMAKE_CURRENT_LIST_DIR}/../src/player/PlayerMovementController.cpp
+    ${CMAKE_CURRENT_LIST_DIR}/../src/player/RideableMovementController.cpp
     ${CMAKE_CURRENT_LIST_DIR}/../src/world/BlackRoom.cpp
 )
 
@@ -45,16 +46,25 @@ if(HAKUI_ENABLE_GAMEPLAY_SPECS)
         ${CMAKE_CURRENT_LIST_DIR}/../tests/hakui/GameplayMovementSpec.cpp
     )
 
+    add_executable(hakui_rideable_spec
+        ${CMAKE_CURRENT_LIST_DIR}/../tests/hakui/RideableMovementSpec.cpp
+    )
+
     target_compile_features(hakui_gameplay_spec PRIVATE cxx_std_20)
     target_link_libraries(hakui_gameplay_spec PRIVATE hakui_gameplay)
+    target_compile_features(hakui_rideable_spec PRIVATE cxx_std_20)
+    target_link_libraries(hakui_rideable_spec PRIVATE hakui_gameplay)
 
     if(MSVC)
         target_compile_options(hakui_gameplay_spec PRIVATE /W4 /permissive- /UNDEBUG)
+        target_compile_options(hakui_rideable_spec PRIVATE /W4 /permissive- /UNDEBUG)
     else()
         target_compile_options(hakui_gameplay_spec PRIVATE -Wall -Wextra -Wpedantic -UNDEBUG)
+        target_compile_options(hakui_rideable_spec PRIVATE -Wall -Wextra -Wpedantic -UNDEBUG)
     endif()
 
     if(BUILD_TESTING)
         add_test(NAME hakui.gameplay_movement COMMAND hakui_gameplay_spec)
+        add_test(NAME hakui.rideable_movement COMMAND hakui_rideable_spec)
     endif()
 endif()

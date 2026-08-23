@@ -7,7 +7,10 @@ SPIRAL-OS-HAKUI-ENGINE.exe
 Controls:
 WASD  MOVE
 SHIFT SPRINT
-SPACE JUMP
+SPACE JUMP / OLLIE / BUNNY HOP
+M     HOLD MANUAL IN MANUAL ZONE
+F     HOLD GRIND NEAR GRINDABLE GEOMETRY
+Z / X AIR TRICK WHILE RIDING
 E     SIT / STAND / USE ANCHOR
 RMB   ORBIT CAMERA
 WHEEL ZOOM CAMERA
@@ -16,7 +19,7 @@ R     RESET CAMERA
 1     ON FOOT
 2     SKATEBOARD (VISIBLE RIDE MODE)
 3     BMX (VISIBLE RIDE MODE)
-4     CAR (DEFERRED / IMMOBILE IN v0.7)
+4     CAR (DEFERRED / IMMOBILE)
 [ / ] LOOK SENSITIVITY
 - / + AUDIO VOLUME
 
@@ -30,6 +33,7 @@ I     INSPECT TERMINAL
 
 SPARRING DATUM:
 C     ENTER / LEAVE COMBAT
+WASD  STANCE FOOTWORK
 Z     JAB
 X     CROSS
 V     HOLD GUARD
@@ -38,6 +42,8 @@ K     RECOVER AFTER KNOCKDOWN
 ESC   PAUSE / RESUME
 F10   QUIT
 
-Skateboard and BMX are early embodiment controllers, not full trick systems.
+Skateboard: ollie, manual, grind, kickflip, heelflip, landing quality, bail.
+BMX: bunny hop, wheel manual, peg grind, tabletop, landing quality, bail.
+These are focused expressive grammars, not full trick encyclopedias.
 Approaching a seat or spar datum dismounts supported ride modes to ON FOOT.
 Virtual credits only. No purchase or cash-out.

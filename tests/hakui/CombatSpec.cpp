@@ -48,6 +48,16 @@ int main()
     assert(combat.player().state == CombatState::Ready);
     assert(combat.player().targetEntity == combat.opponent().entity);
 
+    CombatIntent footwork;
+    footwork.moveForward = 1.0f;
+    footwork.moveRight = 0.5f;
+    (void)combat.update(footwork, {}, kInRange, 0.10f);
+    assert(combat.player().footworkForward > 0.0f);
+    assert(combat.player().footworkLateral > 0.0f);
+    assert(combat.player().stanceBlend > 0.0f);
+    assert(combat.playerWorldPosition().x > kInRange.playerPosition.x);
+    assert(combat.playerWorldPosition().z > kInRange.playerPosition.z);
+
     const float initialOpponentHealth = combat.opponent().health;
     const CombatFrameResult jab = stepUntilDamage(
         combat,

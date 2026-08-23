@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.25)
 
 project(Hakui
-    VERSION 0.7.0
+    VERSION 0.75.0
     DESCRIPTION "Project Hakui native client"
     LANGUAGES CXX
 )

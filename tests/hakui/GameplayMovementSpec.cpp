@@ -109,8 +109,9 @@ void embodied_modes_use_distinct_motion_and_car_remains_deferred()
         0.1f
     );
     assert(skateStep.moved);
-    assert(!skateStep.jumped);
-    assert(skateboard.grounded);
+    assert(skateStep.jumped);
+    assert(!skateboard.grounded);
+    const float skateJumpVelocity = skateboard.velocityY;
 
     PlayerState bmx;
     bmx.locomotion = LocomotionMode::BMX;
@@ -120,8 +121,9 @@ void embodied_modes_use_distinct_motion_and_car_remains_deferred()
         0.1f
     );
     assert(bmxStep.moved);
-    assert(!bmxStep.jumped);
-    assert(bmx.grounded);
+    assert(bmxStep.jumped);
+    assert(!bmx.grounded);
+    assert(bmx.velocityY > skateJumpVelocity);
     assert(bmxStep.distance > skateStep.distance);
 
     PlayerState car;
@@ -373,6 +375,24 @@ void world_affordances_describe_system_neutral_actions()
         20.0f,
         -3.0f,
         20.0f
+    ));
+    assert(room.hasAffordanceAt(
+        hakui::WorldAffordance::ManualZone,
+        -1.0f,
+        0.0f,
+        4.72f
+    ));
+    assert(room.hasAffordanceAt(
+        hakui::WorldAffordance::Grindable,
+        -0.85f,
+        0.30f,
+        -2.42f
+    ));
+    assert(room.hasAffordanceAt(
+        hakui::WorldAffordance::Launch,
+        5.0f,
+        0.5f,
+        1.05f
     ));
 
     const auto* fight = room.firstAffordance(hakui::WorldAffordance::FightZone);
