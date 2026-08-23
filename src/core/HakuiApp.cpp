@@ -131,7 +131,7 @@ hakui::EmbodimentProfileId embodimentProfile(
 
 bool HakuiApp::boot()
 {
-    SDL_Log("[HAKUI] booting native client v0.82-dev // CANONICAL CONTROLLER OVERHAUL");
+    SDL_Log("[HAKUI] booting native client v0.83-dev // POP THEN FLICK CORRECTION");
 
     if (!initPlatform() || !initGPU()) {
         return false;
@@ -176,14 +176,14 @@ bool HakuiApp::boot()
     SDL_Log("[HAKUI] DATA GRUNGE // ACTIVE");
     SDL_Log("[HAKUI] SPIRAL CORE // ONLINE");
     SDL_Log("[HAKUI] avatar skeleton // %zu bones loaded", avatarSkeleton_.boneCount());
-    SDL_Log("[HAKUI] v0.82 input // hardware -> intent -> ride ownership online");
+    SDL_Log("[HAKUI] v0.83 input // pop -> air -> flick -> land online");
     SDL_Log("[HAKUI] procedural locomotion // idle + walk + sprint + jump + seated online");
     SDL_Log("[HAKUI] BLACK ROOM // neon lounge + couch + fusion table + open void");
     SDL_Log("[HAKUI] controls // WASD move // SPACE jump // E interact/stand // SHIFT sprint");
     SDL_Log("[HAKUI] camera // RMB orbit // WHEEL zoom // R reset");
     SDL_Log("[HAKUI] menu // ESC pause // [ ] look sensitivity // - + audio // F10 quit");
     SDL_Log("[HAKUI] ride interface // controller native // keyboard fallback F9 developer-only");
-    SDL_Log("[HAKUI] ride verbs // SOUTH pop+capture // RS flick // NORTH grind // LT balance // RT drive");
+    SDL_Log("[HAKUI] ride verbs // SOUTH pop // THEN RS flick in air // NORTH grind // LT balance // RT drive");
     SDL_Log("[HAKUI] ride expression // LB/RB spin // WEST style // EAST dismount");
     SDL_Log("[HAKUI] modes // DPAD UP foot // LEFT skateboard // RIGHT BMX");
     SDL_Log("[HAKUI] FUSION TABLE // E contextual action // C leave // virtual credits only");
@@ -206,7 +206,7 @@ bool HakuiApp::initPlatform()
     }
 
     window_ = SDL_CreateWindow(
-        "SPIRAL OS: HAKUI ENGINE // v0.82-dev // CANONICAL CONTROLLER OVERHAUL",
+        "SPIRAL OS: HAKUI ENGINE // v0.83-dev // POP THEN FLICK CORRECTION",
         1280,
         720,
         SDL_WINDOW_RESIZABLE | SDL_WINDOW_HIGH_PIXEL_DENSITY
@@ -285,7 +285,7 @@ void HakuiApp::initSpiralCore()
     bootSignal.source = "hakui.client";
     bootSignal.destination = "spiral.core";
     bootSignal.topic = "client.boot";
-    bootSignal.payload = "hakui-v0.82-dev";
+    bootSignal.payload = "hakui-v0.83-dev";
 
     // A small initial charge marks the native client's transition to live
     // operation. Steam is telemetry/energy state, not gameplay policy.
@@ -300,7 +300,7 @@ void HakuiApp::initSpiralCore()
     initialState.topic = "client.state.initial";
     initialState.statePatch = {
         {"client.status", std::string("online")},
-        {"client.version", std::string("0.82-dev")},
+        {"client.version", std::string("0.83-dev")},
         {"avatar.rig.bones", static_cast<std::int64_t>(avatarSkeleton_.boneCount())},
         {"player.locomotion", std::string("on_foot")}
     };
@@ -387,7 +387,7 @@ hakui::observer::CaptureContext HakuiApp::buildObserverContext() const
     namespace observer = hakui::observer;
 
     observer::CaptureContext context;
-    context.build.hakuiVersion = "0.82-dev";
+    context.build.hakuiVersion = "0.83-dev";
     context.build.configuration = HAKUI_BUILD_CONFIGURATION;
     context.build.gitCommit = HAKUI_GIT_SHA;
     context.build.gitBranch = HAKUI_GIT_BRANCH;
@@ -417,22 +417,29 @@ hakui::observer::CaptureContext HakuiApp::buildObserverContext() const
                 : player_.locomotion == LocomotionMode::BMX
                     ? "BMX"
                     : "ON_FOOT";
-    context.rideControl.activationHeld = rideControlFrame_.activationHeld;
-    context.rideControl.captureActive = rideControlFrame_.captureActive;
+    context.rideControl.popIntent = rideControlFrame_.popIntent;
+    context.rideControl.airborne = rideControlFrame_.airborne;
+    context.rideControl.trickWindowArmed = rideControlFrame_.trickWindowArmed;
+    context.rideControl.trickWindowRemaining =
+        rideControlFrame_.trickWindowRemaining;
     context.rideControl.rawRightStickX = rideControlFrame_.rawRightStickX;
     context.rideControl.rawRightStickY = rideControlFrame_.rawRightStickY;
-    context.rideControl.normalizedTrickX = rideControlFrame_.normalizedTrickX;
-    context.rideControl.normalizedTrickY = rideControlFrame_.normalizedTrickY;
+    context.rideControl.normalizedFlickX = rideControlFrame_.normalizedFlickX;
+    context.rideControl.normalizedFlickY = rideControlFrame_.normalizedFlickY;
     context.rideControl.detectedFlick = std::string(
         hakui::input::RideControlInterpreter::directionName(
             rideControlFrame_.trick.direction
         )
     );
-    context.rideControl.grindHeld = rideControlFrame_.grind;
-    context.rideControl.balanceHeld = rideControlFrame_.balance;
-    context.rideControl.propulsion = rideControlFrame_.propulsion;
-    context.rideControl.spinLeft = rideControlFrame_.spinLeft;
-    context.rideControl.spinRight = rideControlFrame_.spinRight;
+    context.rideControl.trickIntent = rideControlFrame_.trickIntent;
+    context.rideControl.cameraOwnsRightStick =
+        rideControlFrame_.rightStickOwner ==
+        hakui::input::RightStickOwner::Camera;
+    context.rideControl.grindIntent = rideControlFrame_.grindIntent;
+    context.rideControl.balanceIntent = rideControlFrame_.balanceIntent;
+    context.rideControl.propulsion = rideControlFrame_.propulsionIntent;
+    context.rideControl.spinLeft = rideControlFrame_.spinLeftIntent;
+    context.rideControl.spinRight = rideControlFrame_.spinRightIntent;
     context.rideControl.rightStickOwner = std::string(
         hakui::input::RideControlInterpreter::ownerName(
             rideControlFrame_.rightStickOwner
@@ -447,13 +454,11 @@ hakui::observer::CaptureContext HakuiApp::buildObserverContext() const
             : "INACTIVE";
     const hakui::input::RideControlTuning& rideTuning = rideControls_.tuning();
     context.rideControl.cameraDeadzone = rideTuning.cameraDeadzone;
-    context.rideControl.trickDeadzone = rideTuning.trickDeadzone;
-    context.rideControl.flickActivationThreshold =
-        rideTuning.flickActivationThreshold;
+    context.rideControl.trickWindowDelay = rideTuning.trickWindowDelay;
+    context.rideControl.trickWindowDuration = rideTuning.trickWindowDuration;
+    context.rideControl.flickDeadzone = rideTuning.flickDeadzone;
+    context.rideControl.flickThreshold = rideTuning.flickThreshold;
     context.rideControl.flickReleaseThreshold = rideTuning.flickReleaseThreshold;
-    context.rideControl.minimumFlickDuration = rideTuning.minimumFlickDuration;
-    context.rideControl.maximumFlickDuration = rideTuning.maximumFlickDuration;
-    context.rideControl.maximumTapDuration = rideTuning.maximumTapDuration;
 
     if (player_.activity == PlayerActivity::CasinoSeated && terminal_) {
         context.currentInteractionIntent = std::string(
@@ -1175,7 +1180,7 @@ void HakuiApp::updateHud()
         SDL_snprintf(
             title,
             sizeof(title),
-            "HAKUI v0.82 // %s // INPUT %.*s",
+            "HAKUI v0.83 // %s // INPUT %.*s",
             inputStatus_.c_str(),
             static_cast<int>(device.size()), device.data()
         );
@@ -1183,7 +1188,7 @@ void HakuiApp::updateHud()
         SDL_snprintf(
             title,
             sizeof(title),
-            "HAKUI v0.82 // PAUSED // %.*s RESUME // LOOK %.4f // AUDIO %.0f%% // INPUT %.*s // MOUSE RELEASED",
+            "HAKUI v0.83 // PAUSED // %.*s RESUME // LOOK %.4f // AUDIO %.0f%% // INPUT %.*s // MOUSE RELEASED",
             static_cast<int>(pause.size()), pause.data(),
             debugRenderer_.lookSensitivity(),
             audio_.volume() * 100.0f,
@@ -1193,7 +1198,7 @@ void HakuiApp::updateHud()
         SDL_snprintf(
             title,
             sizeof(title),
-            "HAKUI v0.82 // SPAR %s // HP %.0f STA %.0f BAL %.0f // TARGET HP %.0f BAL %.0f // MOVE FOOTWORK // %.*s PRIMARY // %.*s SECONDARY // %.*s GUARD // %.*s RECOVER // %.*s LEAVE // %.*s",
+            "HAKUI v0.83 // SPAR %s // HP %.0f STA %.0f BAL %.0f // TARGET HP %.0f BAL %.0f // MOVE FOOTWORK // %.*s PRIMARY // %.*s SECONDARY // %.*s GUARD // %.*s RECOVER // %.*s LEAVE // %.*s",
             combatStateLabel(combat_.player().state),
             combat_.player().health,
             combat_.player().stamina,
@@ -1218,7 +1223,7 @@ void HakuiApp::updateHud()
         SDL_snprintf(
             title,
             sizeof(title),
-            "HAKUI v0.82 // FUSION TABLE // CREDITS %lld // HAND %d // %.*s %.*s // %.*s LEAVE // CONTEXTUAL INTERACTION // %.*s",
+            "HAKUI v0.83 // FUSION TABLE // CREDITS %lld // HAND %d // %.*s %.*s // %.*s LEAVE // CONTEXTUAL INTERACTION // %.*s",
             static_cast<long long>(terminal_->virtualCredits()),
             handValue,
             static_cast<int>(interact.size()), interact.data(),
@@ -1230,7 +1235,7 @@ void HakuiApp::updateHud()
         SDL_snprintf(
             title,
             sizeof(title),
-            "HAKUI v0.82 // VOID COUCH // AUM %s // %.*s STAND // %.*s ORBIT // %.*s PAUSE // %.*s",
+            "HAKUI v0.83 // VOID COUCH // AUM %s // %.*s STAND // %.*s ORBIT // %.*s PAUSE // %.*s",
             aumPhase,
             static_cast<int>(interact.size()), interact.data(),
             static_cast<int>(orbit.size()), orbit.data(),
@@ -1241,7 +1246,7 @@ void HakuiApp::updateHud()
         SDL_snprintf(
             title,
             sizeof(title),
-            "HAKUI v0.82 // BLACK SPACE FALL // DEPTH %.1f // RECOVERY ARMED // RESPAWNS %u // %.*s",
+            "HAKUI v0.83 // BLACK SPACE FALL // DEPTH %.1f // RECOVERY ARMED // RESPAWNS %u // %.*s",
             -player_.y,
             player_.voidRespawns,
             static_cast<int>(device.size()), device.data()
@@ -1280,7 +1285,7 @@ void HakuiApp::updateHud()
         SDL_snprintf(
             title,
             sizeof(title),
-            "HAKUI v0.82 // %s // %.*s // %.*s // SPD %.1f BAL %.0f // LAND %.*s // COMBO %s // %.*s POP+CAPTURE // RS FLICK TRICK // %.*s GRIND // %.*s BALANCE // %.*s DRIVE // %.*s/%.*s SPIN // %.*s STYLE // %.*s DISMOUNT // %.*s",
+            "HAKUI v0.83 // %s // %.*s // %.*s // SPD %.1f BAL %.0f // LAND %.*s // COMBO %s // %.*s POP // THEN RS FLICK AIR TRICK // %.*s GRIND // %.*s BALANCE // %.*s DRIVE // %.*s/%.*s SPIN // %.*s STYLE // %.*s DISMOUNT // %.*s",
             locomotionLabel(player_.locomotion),
             static_cast<int>(phase.size()), phase.data(),
             static_cast<int>(trick.size()), trick.data(),
@@ -1304,7 +1309,7 @@ void HakuiApp::updateHud()
             SDL_snprintf(
                 title,
                 sizeof(title),
-                "HAKUI v0.82 // %.*s // %.*s USE // %.*s ORBIT // MODE %s // STAMINA %.0f // AUM %s // %.*s",
+                "HAKUI v0.83 // %.*s // %.*s USE // %.*s ORBIT // MODE %s // STAMINA %.0f // AUM %s // %.*s",
                 static_cast<int>(focus.prompt.size()),
                 focus.prompt.data(),
                 static_cast<int>(interact.size()), interact.data(),
@@ -1322,7 +1327,7 @@ void HakuiApp::updateHud()
             SDL_snprintf(
                 title,
                 sizeof(title),
-                "HAKUI v0.82 // SPARRING DATUM // %.*s ENTER // DUMMY VISIBLE // %.*s/%.*s ATTACK // %.*s GUARD // %.*s RECOVER // %.*s",
+                "HAKUI v0.83 // SPARRING DATUM // %.*s ENTER // DUMMY VISIBLE // %.*s/%.*s ATTACK // %.*s GUARD // %.*s RECOVER // %.*s",
                 static_cast<int>(cancel.size()), cancel.data(),
                 static_cast<int>(primary.size()), primary.data(),
                 static_cast<int>(secondary.size()), secondary.data(),
@@ -1334,7 +1339,7 @@ void HakuiApp::updateHud()
             SDL_snprintf(
                 title,
                 sizeof(title),
-                "HAKUI v0.82 // %s // X %.1f Y %.1f Z %.1f // STA %.0f // CAM %.2f/%.2f/%.1f // ORBIT %s // INTENT DEVICE %.*s // AUM %s",
+                "HAKUI v0.83 // %s // X %.1f Y %.1f Z %.1f // STA %.0f // CAM %.2f/%.2f/%.1f // ORBIT %s // INTENT DEVICE %.*s // AUM %s",
                 locomotionLabel(player_.locomotion),
                 player_.x,
                 player_.y,
@@ -1418,6 +1423,7 @@ void HakuiApp::update(float dt)
         rideControlFrame_ = rideControls_.update(
             inputFrame_,
             rideActiveAtInput,
+            rideActiveAtInput && !player_.grounded,
             dt
         );
 
@@ -1547,7 +1553,7 @@ void HakuiApp::update(float dt)
             );
             const float propulsion = std::max(
                 moveMagnitude,
-                rideControlFrame_.propulsion
+                rideControlFrame_.propulsionIntent
             );
             if (moveMagnitude > 0.15f) {
                 const float scale = propulsion / moveMagnitude;
@@ -1557,7 +1563,7 @@ void HakuiApp::update(float dt)
                 movementInput.right = std::sin(player_.yaw) * propulsion;
                 movementInput.forward = std::cos(player_.yaw) * propulsion;
             }
-            movementInput.sprint = rideControlFrame_.propulsion > 0.20f;
+            movementInput.sprint = rideControlFrame_.propulsionIntent > 0.20f;
         } else {
             movementInput.right = cameraMovement.x;
             movementInput.forward = cameraMovement.z;
@@ -1586,20 +1592,20 @@ void HakuiApp::update(float dt)
             hakui::RideableInput rideInput;
             rideInput.movement = movementInput;
             rideInput.movement.jumpPressed = false;
-            rideInput.popPressed = rideControlFrame_.standardPop;
-            rideInput.manualHeld = rideControlFrame_.balance;
-            rideInput.grindHeld = rideControlFrame_.grind;
-            rideInput.stylePressed = rideControlFrame_.style;
-            rideInput.spinLeft = rideControlFrame_.spinLeft;
-            rideInput.spinRight = rideControlFrame_.spinRight;
-            rideInput.propulsion = rideControlFrame_.propulsion;
+            rideInput.popPressed = rideControlFrame_.popIntent;
+            rideInput.manualHeld = rideControlFrame_.balanceIntent;
+            rideInput.grindHeld = rideControlFrame_.grindIntent;
+            rideInput.stylePressed = rideControlFrame_.styleIntent;
+            rideInput.spinLeft = rideControlFrame_.spinLeftIntent;
+            rideInput.spinRight = rideControlFrame_.spinRightIntent;
+            rideInput.propulsion = rideControlFrame_.propulsionIntent;
             rideInput.trick = {
                 rideTrickDirection(rideControlFrame_.trick.direction),
                 rideControlFrame_.trick.normalizedX,
                 rideControlFrame_.trick.normalizedY,
                 rideControlFrame_.trick.magnitude,
                 rideControlFrame_.trick.gestureDuration,
-                rideControlFrame_.trickResolved
+                rideControlFrame_.trickIntent
             };
             const hakui::RideableFrame rideFrame = rideable_.update(
                 player_,
@@ -1609,6 +1615,14 @@ void HakuiApp::update(float dt)
                 dt
             );
             movementStep = rideFrame.movement;
+            if (rideFrame.movement.jumped) {
+                rideControls_.armTrickWindow();
+                rideControlFrame_ = rideControls_.diagnostics();
+            }
+            if (rideFrame.landed || rideFrame.bailed) {
+                rideControls_.closeTrickWindow();
+                rideControlFrame_ = rideControls_.diagnostics();
+            }
             if (rideFrame.trickStarted) {
                 const std::string_view trick =
                     hakui::RideableMovementController::trickLabel(

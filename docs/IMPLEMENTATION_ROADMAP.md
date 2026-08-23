@@ -175,9 +175,8 @@ semantic truth with the actual rendered frame.
 
 ## M4.82 — v0.82 canonical controller overhaul
 
-- Give skateboard and BMX one semantic ride grammar: South pop/capture, eight-
-  way right-stick flick, North grind, LT balance, RT propulsion, LB/RB spin,
-  West style, and East dismount.
+- Give skateboard and BMX one semantic ride grammar: South pop, North grind,
+  LT balance, RT propulsion, LB/RB spin, West style, and East dismount.
 - Centralize ride camera/trick deadzones, activation/release thresholds, timing,
   gesture classification, and ownership in a deterministic SDL-free layer.
 - Reset right-stick ownership on gesture completion, pause, disconnect,
@@ -196,6 +195,30 @@ operations remain unauthorized.
 Exit signal: skateboard and BMX feel like distinct machines speaking the same
 controller language, right-stick ownership can never become stuck, and the
 entire interpretation path is visible in one read-only snapshot.
+
+## M4.83 — v0.83 pop → flick correction
+
+- Emit ride pop immediately on South press; never require the button to remain
+  held for trick recognition.
+- Arm a brief deterministic flick window only after gameplay confirms the pop
+  made the skateboard or BMX airborne.
+- Consume the first decisive eight-way flick as the primary trick intent, then
+  return the right stick to the camera.
+- Treat no-flick, grounded-flick, and late-flick paths as normal pop/camera
+  behavior rather than accidental tricks.
+- Close the trick window on recognition, timeout, landing, bail, pause,
+  dismount, respawn, mode switch, or controller disconnect.
+- Keep North/Triangle grind, LT balance, RT propulsion, BMX attachment geometry,
+  and the rest of the v0.82 grammar unchanged.
+- Replace obsolete held-button diagnostics and prompts with sequential pop,
+  airborne-window, flick, trick-intent, and camera-ownership observations.
+
+Current state: implemented locally on `codex/pop-flick-correction-v0.83`; ten
+deterministic CTests and the native SDL client compile locally. Remote
+operations remain unauthorized.
+
+Exit signal: the readable physical rhythm is `POP → AIR → FLICK → LAND`, with
+camera ownership restored cleanly on every success, timeout, and interruption.
 
 ## M5 — World persistence and replay
 

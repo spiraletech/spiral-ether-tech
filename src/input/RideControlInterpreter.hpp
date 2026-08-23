@@ -21,17 +21,16 @@ enum class FlickDirection : std::uint8_t {
 
 enum class RightStickOwner : std::uint8_t {
     Camera,
-    TrickCapture
+    TrickWindow
 };
 
 struct RideControlTuning {
     float cameraDeadzone = 0.16f;
-    float trickDeadzone = 0.22f;
-    float flickActivationThreshold = 0.68f;
+    float trickWindowDelay = 0.025f;
+    float trickWindowDuration = 0.70f;
+    float flickDeadzone = 0.22f;
+    float flickThreshold = 0.68f;
     float flickReleaseThreshold = 0.30f;
-    float minimumFlickDuration = 0.035f;
-    float maximumFlickDuration = 0.55f;
-    float maximumTapDuration = 0.24f;
 };
 
 struct TrickVector {
@@ -49,27 +48,30 @@ struct TrickVector {
 
 struct RideControlFrame {
     bool rideActive = false;
-    bool activationHeld = false;
-    bool captureActive = false;
-    bool standardPop = false;
-    bool trickResolved = false;
-    bool grind = false;
-    bool balance = false;
-    bool style = false;
-    bool cancel = false;
-    bool spinLeft = false;
-    bool spinRight = false;
-    float propulsion = 0.0f;
+    bool airborne = false;
+    bool popIntent = false;
+    bool trickWindowArmed = false;
+    bool trickWindowListening = false;
+    bool trickIntent = false;
+    bool grindIntent = false;
+    bool balanceIntent = false;
+    bool styleIntent = false;
+    bool cancelIntent = false;
+    bool spinLeftIntent = false;
+    bool spinRightIntent = false;
+    float propulsionIntent = 0.0f;
+    float trickWindowRemaining = 0.0f;
     float rawRightStickX = 0.0f;
     float rawRightStickY = 0.0f;
-    float normalizedTrickX = 0.0f;
-    float normalizedTrickY = 0.0f;
+    float normalizedFlickX = 0.0f;
+    float normalizedFlickY = 0.0f;
     RightStickOwner rightStickOwner = RightStickOwner::Camera;
     TrickVector trick{};
 };
 
-// Stateful, GPU-independent ownership and flick recognizer. It consumes only
-// semantic actions/axes and never receives SDL button names or events.
+// GPU-independent POP -> AIR -> FLICK recognizer. A semantic pop is emitted
+// immediately. Gameplay explicitly arms the short trick window only after that
+// pop successfully makes the rideable airborne.
 class RideControlInterpreter {
 public:
     explicit RideControlInterpreter(RideControlTuning tuning = {});
@@ -77,8 +79,11 @@ public:
     RideControlFrame update(
         const InputFrame& frame,
         bool rideActive,
+        bool airborne,
         float deltaSeconds
     ) noexcept;
+    void armTrickWindow() noexcept;
+    void closeTrickWindow() noexcept;
     void reset() noexcept;
 
     const RideControlFrame& diagnostics() const noexcept;
@@ -96,27 +101,20 @@ public:
     ) noexcept;
 
 private:
-    enum class CaptureState : std::uint8_t {
-        Idle,
-        Capturing,
-        ConsumedAwaitRelease
-    };
-
-    void beginCapture() noexcept;
     void completeGesture(RideControlFrame& output) noexcept;
+    void clearWindowState() noexcept;
 
     RideControlTuning tuning_{};
     RideControlFrame diagnostics_{};
-    CaptureState captureState_ = CaptureState::Idle;
+    TrickVector lastResolvedTrick_{};
     float clock_ = 0.0f;
-    float captureStart_ = 0.0f;
+    float windowElapsed_ = 0.0f;
+    float flickStart_ = 0.0f;
     float peakX_ = 0.0f;
     float peakY_ = 0.0f;
     float peakMagnitude_ = 0.0f;
+    bool trickWindowArmed_ = false;
     bool thresholdCrossed_ = false;
-    bool previousActivationHeld_ = false;
-    bool requireActivationRelease_ = false;
-    TrickVector lastResolvedTrick_{};
 };
 
 } // namespace hakui::input

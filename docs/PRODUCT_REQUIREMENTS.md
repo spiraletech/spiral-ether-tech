@@ -1,6 +1,6 @@
 # Hakui Product Requirements
 
-Status: working specification through the local v0.82 canonical controller overhaul.
+Status: working specification through the local v0.83 pop-to-flick control correction.
 
 Each requirement has a stable identifier so code, tests, issues, and release notes can refer to the same contract. A requirement is complete only when its acceptance criteria are automated or explicitly marked as a manual visual/audio check.
 
@@ -232,20 +232,26 @@ retaining discipline-specific physical and expressive results.
 
 Acceptance criteria:
 
-- South taps produce a normal pop; South-held right-stick gestures classify
-  eight deterministic flick directions and resolve a discipline-specific trick.
-- The right stick has exactly one owner at a time: camera or trick capture.
-- Gesture completion, pause, disconnect, dismount, locomotion switch, and void
-  respawn restore camera ownership without stale axes or actions.
+- South press produces an immediate ollie or bunny hop and never needs to stay
+  held for a later trick.
+- A successful pop arms one short airborne window; the first decisive eight-way
+  right-stick flick resolves a discipline-specific trick.
+- Grounded flicks and flicks after the window timeout remain camera input.
+- The right stick has exactly one owner at a time: camera or the brief trick
+  window.
+- Flick recognition, timeout, landing, bail, pause, disconnect, dismount,
+  locomotion switch, and void respawn restore camera ownership without stale
+  axes or actions.
 - North is the permanent semantic grind action; LT is balance, RT propulsion,
   LB/RB body spin, West style, and East cancel/dismount while riding.
 - Grind entry validates an authored grindable affordance, distance, speed,
   approach alignment, ride state, and discipline attachment opportunity.
 - PlayStation-, Xbox-, and generic SDL prompt families present the same actions
   without exposing hardware names to gameplay consumers.
-- Expert Observer input snapshots include discipline, activation/capture state,
-  raw and normalized right-stick values, flick direction, grind, balance,
-  propulsion, spin, ownership, ride state, and centralized tuning.
+- Expert Observer input snapshots include discipline, pop intent, airborne and
+  trick-window state, remaining time, raw and normalized right-stick values,
+  flick and trick intent, camera ownership, independent grind intent, and
+  centralized tuning.
 
 Automated in part by: `hakui.input`, `hakui.rideable_movement`, and
 `hakui.observer`. Hardware-specific control feel remains a native smoke check.

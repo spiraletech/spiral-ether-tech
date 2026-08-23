@@ -268,22 +268,30 @@ std::string inputJson(const CaptureContext& context)
            << "},\n  \"ride_control\": {\n"
            << "    \"active_discipline\": \""
            << jsonEscape(context.rideControl.activeDiscipline)
-           << "\",\n    \"activation_held\": "
-           << (context.rideControl.activationHeld ? "true" : "false")
-           << ",\n    \"capture_active\": "
-           << (context.rideControl.captureActive ? "true" : "false")
+           << "\",\n    \"pop_intent\": "
+           << (context.rideControl.popIntent ? "true" : "false")
+           << ",\n    \"airborne\": "
+           << (context.rideControl.airborne ? "true" : "false")
+           << ",\n    \"trick_window_armed\": "
+           << (context.rideControl.trickWindowArmed ? "true" : "false")
+           << ",\n    \"trick_window_remaining\": " << std::fixed
+           << std::setprecision(4) << context.rideControl.trickWindowRemaining
            << ",\n    \"raw_right_stick\": {\"x\":" << std::fixed
            << std::setprecision(4) << context.rideControl.rawRightStickX
            << ",\"y\":" << context.rideControl.rawRightStickY
-           << "},\n    \"normalized_trick_vector\": {\"x\":"
-           << context.rideControl.normalizedTrickX << ",\"y\":"
-           << context.rideControl.normalizedTrickY
+           << "},\n    \"normalized_flick_vector\": {\"x\":"
+           << context.rideControl.normalizedFlickX << ",\"y\":"
+           << context.rideControl.normalizedFlickY
            << "},\n    \"detected_flick\": \""
            << jsonEscape(context.rideControl.detectedFlick)
-           << "\",\n    \"grind_held\": "
-           << (context.rideControl.grindHeld ? "true" : "false")
-           << ",\n    \"balance_held\": "
-           << (context.rideControl.balanceHeld ? "true" : "false")
+           << "\",\n    \"trick_intent\": "
+           << (context.rideControl.trickIntent ? "true" : "false")
+           << ",\n    \"camera_owns_right_stick\": "
+           << (context.rideControl.cameraOwnsRightStick ? "true" : "false")
+           << ",\n    \"grind_intent\": "
+           << (context.rideControl.grindIntent ? "true" : "false")
+           << ",\n    \"balance_intent\": "
+           << (context.rideControl.balanceIntent ? "true" : "false")
            << ",\n    \"propulsion\": " << context.rideControl.propulsion
            << ",\n    \"spin_left\": "
            << (context.rideControl.spinLeft ? "true" : "false")
@@ -295,17 +303,16 @@ std::string inputJson(const CaptureContext& context)
            << jsonEscape(context.rideControl.rideState)
            << "\",\n    \"tuning\": {\"camera_deadzone\":"
            << context.rideControl.cameraDeadzone
-           << ",\"trick_deadzone\":" << context.rideControl.trickDeadzone
-           << ",\"flick_activation_threshold\":"
-           << context.rideControl.flickActivationThreshold
+           << ",\"trick_window_delay\":"
+           << context.rideControl.trickWindowDelay
+           << ",\"trick_window_duration\":"
+           << context.rideControl.trickWindowDuration
+           << ",\"flick_deadzone\":" << context.rideControl.flickDeadzone
+           << ",\"flick_threshold\":"
+           << context.rideControl.flickThreshold
            << ",\"flick_release_threshold\":"
            << context.rideControl.flickReleaseThreshold
-           << ",\"minimum_flick_duration\":"
-           << context.rideControl.minimumFlickDuration
-           << ",\"maximum_flick_duration\":"
-           << context.rideControl.maximumFlickDuration
-           << ",\"maximum_tap_duration\":"
-           << context.rideControl.maximumTapDuration << "}\n"
+           << "}\n"
            << "  },\n  \"semantic_action_map\": [\n";
     for (std::size_t index = 0; index < input::actionCount; ++index) {
         const input::Action action = static_cast<input::Action>(index);
@@ -375,6 +382,7 @@ std::string doctrineJson()
   "semantic_world_architecture": "required",
   "controller_native_ride_disciplines": true,
   "one_controller_grammar": true,
+  "ride_trick_rhythm": "pop_then_airborne_flick",
   "data_grunge_identity": "required",
   "generic_engine_demo_aesthetic": "avoid",
   "reference_pillars": {

@@ -50,7 +50,7 @@ int main()
 
     CaptureContext context;
     context.build = {
-        "0.82-dev", "spec", "abc123", "codex/controller-overhaul-v0.82",
+        "0.83-dev", "spec", "abc123", "codex/pop-flick-correction-v0.83",
         "2026-08-23", "test", "none"
     };
     context.geometry = geometry;
@@ -80,11 +80,11 @@ int main()
     context.currentInteractionIntent = "INTERACT";
     context.input.controllerLayout = input::ControllerLayout::PlayStation;
     context.rideControl = {
-        "SKATEBOARD", true, true,
+        "SKATEBOARD", true, true, true, 0.42f,
         0.8f, -0.2f, 0.76f, -0.14f,
-        "RIGHT", true, true, 0.8f, false, true,
-        "TRICK_CAPTURE", "AIR",
-        0.16f, 0.22f, 0.68f, 0.30f, 0.035f, 0.55f, 0.24f
+        "RIGHT", true, false, true, true, 0.8f, false, true,
+        "TRICK_WINDOW", "AIR",
+        0.16f, 0.025f, 0.70f, 0.22f, 0.68f, 0.30f
     };
     context.camera.position = {2.0f, 3.0f, 6.0f};
     context.camera.target = {0.0f, 1.25f, 2.0f};
@@ -139,7 +139,13 @@ int main()
     assert(input.find("semantic_action_map") != std::string::npos);
     assert(input.find("\"ride_control\"") != std::string::npos);
     assert(input.find("\"detected_flick\": \"RIGHT\"") != std::string::npos);
-    assert(input.find("\"right_stick_owner\": \"TRICK_CAPTURE\"") != std::string::npos);
+    assert(input.find("\"pop_intent\": true") != std::string::npos);
+    assert(input.find("\"trick_window_armed\": true") != std::string::npos);
+    assert(input.find("\"trick_intent\": true") != std::string::npos);
+    assert(input.find("\"camera_owns_right_stick\": false") != std::string::npos);
+    assert(input.find("\"right_stick_owner\": \"TRICK_WINDOW\"") != std::string::npos);
+    assert(input.find("activation_held") == std::string::npos);
+    assert(input.find("capture_active") == std::string::npos);
     assert(input.find("\"controller_layout\": \"PLAYSTATION-STYLE\"") != std::string::npos);
     assert(input.find("TRIANGLE") != std::string::npos);
     assert(input.find("CAPTURE EXPERT SNAPSHOT") != std::string::npos);

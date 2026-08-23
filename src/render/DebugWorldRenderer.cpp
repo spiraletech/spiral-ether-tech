@@ -302,7 +302,7 @@ bool DebugWorldRenderer::init(SDL_GPUDevice* device, SDL_Window* window)
         return false;
     }
 
-    SDL_Log("[HAKUI] v0.82 DATA GRUNGE renderer // canonical ride grammar online");
+    SDL_Log("[HAKUI] v0.83 DATA GRUNGE renderer // pop then flick rhythm online");
     return true;
 }
 

@@ -9,32 +9,33 @@ RideControlInterpreter::RideControlInterpreter(RideControlTuning tuning)
     : tuning_(tuning)
 {
     tuning_.cameraDeadzone = std::clamp(tuning_.cameraDeadzone, 0.0f, 0.95f);
-    tuning_.trickDeadzone = std::clamp(tuning_.trickDeadzone, 0.0f, 0.95f);
-    tuning_.flickActivationThreshold = std::clamp(
-        tuning_.flickActivationThreshold,
-        tuning_.trickDeadzone,
+    tuning_.trickWindowDelay = std::clamp(
+        tuning_.trickWindowDelay,
+        0.0f,
+        0.25f
+    );
+    tuning_.trickWindowDuration = std::clamp(
+        tuning_.trickWindowDuration,
+        0.10f,
+        1.50f
+    );
+    tuning_.flickDeadzone = std::clamp(tuning_.flickDeadzone, 0.0f, 0.95f);
+    tuning_.flickThreshold = std::clamp(
+        tuning_.flickThreshold,
+        tuning_.flickDeadzone,
         1.0f
     );
     tuning_.flickReleaseThreshold = std::clamp(
         tuning_.flickReleaseThreshold,
-        tuning_.trickDeadzone,
-        tuning_.flickActivationThreshold
-    );
-    tuning_.minimumFlickDuration = std::max(tuning_.minimumFlickDuration, 0.0f);
-    tuning_.maximumFlickDuration = std::max(
-        tuning_.maximumFlickDuration,
-        tuning_.minimumFlickDuration
-    );
-    tuning_.maximumTapDuration = std::clamp(
-        tuning_.maximumTapDuration,
-        tuning_.minimumFlickDuration,
-        tuning_.maximumFlickDuration
+        tuning_.flickDeadzone,
+        tuning_.flickThreshold
     );
 }
 
 RideControlFrame RideControlInterpreter::update(
     const InputFrame& frame,
     bool rideActive,
+    bool airborne,
     float deltaSeconds
 ) noexcept
 {
@@ -46,128 +47,139 @@ RideControlFrame RideControlInterpreter::update(
     clock_ += dt;
 
     RideControlFrame output;
-    output.trick = lastResolvedTrick_;
     output.rideActive = rideActive;
-    output.activationHeld = frame.action(Action::Jump).held;
-    output.grind = frame.action(Action::Grind).held;
-    output.balance = frame.action(Action::Balance).held;
-    output.style = frame.action(Action::PrimaryAction).pressed;
-    output.cancel = frame.action(Action::Cancel).pressed;
-    output.spinLeft = frame.action(Action::SpinLeft).held;
-    output.spinRight = frame.action(Action::SpinRight).held;
-    output.propulsion = std::clamp(
-        std::max(frame.axis(Axis::Accelerate), frame.action(Action::Accelerate).value),
-        0.0f,
+    output.airborne = rideActive && airborne;
+    output.popIntent = rideActive && frame.action(Action::Jump).pressed;
+    output.grindIntent = rideActive && frame.action(Action::Grind).held;
+    output.balanceIntent = rideActive && frame.action(Action::Balance).held;
+    output.styleIntent = rideActive && frame.action(Action::PrimaryAction).pressed;
+    output.cancelIntent = rideActive && frame.action(Action::Cancel).pressed;
+    output.spinLeftIntent = rideActive && frame.action(Action::SpinLeft).held;
+    output.spinRightIntent = rideActive && frame.action(Action::SpinRight).held;
+    output.propulsionIntent = rideActive
+        ? std::clamp(
+            std::max(
+                frame.axis(Axis::Accelerate),
+                frame.action(Action::Accelerate).value
+            ),
+            0.0f,
+            1.0f
+        )
+        : 0.0f;
+    output.rawRightStickX = std::clamp(
+        frame.axis(Axis::RightStickX),
+        -1.0f,
         1.0f
     );
-    output.rawRightStickX = std::clamp(frame.axis(Axis::RightStickX), -1.0f, 1.0f);
-    output.rawRightStickY = std::clamp(frame.axis(Axis::RightStickY), -1.0f, 1.0f);
+    output.rawRightStickY = std::clamp(
+        frame.axis(Axis::RightStickY),
+        -1.0f,
+        1.0f
+    );
     radialDeadzone(
         output.rawRightStickX,
         output.rawRightStickY,
-        tuning_.trickDeadzone,
-        output.normalizedTrickX,
-        output.normalizedTrickY
+        tuning_.flickDeadzone,
+        output.normalizedFlickX,
+        output.normalizedFlickY
     );
+    output.trick = lastResolvedTrick_;
 
     if (!rideActive || frame.gamepadDisconnected) {
         reset();
-        requireActivationRelease_ = output.activationHeld;
         output.rideActive = rideActive;
-        output.activationHeld = false;
-        output.grind = rideActive && frame.action(Action::Grind).held;
-        output.balance = rideActive && frame.action(Action::Balance).held;
-        output.propulsion = rideActive ? output.propulsion : 0.0f;
+        output.airborne = false;
         diagnostics_ = output;
         return output;
     }
 
-    if (requireActivationRelease_) {
-        if (!output.activationHeld) {
-            requireActivationRelease_ = false;
-        }
-        previousActivationHeld_ = output.activationHeld;
+    if (trickWindowArmed_ && !airborne) {
+        clearWindowState();
+    }
+    if (!trickWindowArmed_) {
         diagnostics_ = output;
         return output;
     }
 
-    const bool controllerOwnsActivation =
-        frame.activeDevice == InputDevice::Gamepad && frame.gamepadAvailable;
-    if (!controllerOwnsActivation) {
-        if (captureState_ != CaptureState::Idle) {
-            reset();
-        }
-        output.standardPop = frame.action(Action::Jump).pressed;
-        diagnostics_ = output;
-        previousActivationHeld_ = frame.action(Action::Jump).held;
-        return output;
-    }
+    windowElapsed_ += dt;
+    const float totalWindow =
+        tuning_.trickWindowDelay + tuning_.trickWindowDuration;
+    output.trickWindowArmed = true;
+    output.trickWindowRemaining = std::max(
+        0.0f,
+        totalWindow - windowElapsed_
+    );
 
-    const bool activationPressed = frame.action(Action::Jump).pressed ||
-        (output.activationHeld && !previousActivationHeld_);
-    if (captureState_ == CaptureState::Idle && activationPressed) {
-        beginCapture();
-    }
-
-    if (captureState_ == CaptureState::Capturing) {
-        output.captureActive = true;
-        output.rightStickOwner = RightStickOwner::TrickCapture;
-        const float magnitude = std::sqrt(
+    output.rightStickOwner = RightStickOwner::TrickWindow;
+    const float magnitude = std::min(
+        1.0f,
+        std::sqrt(
             output.rawRightStickX * output.rawRightStickX +
             output.rawRightStickY * output.rawRightStickY
-        );
-        if (magnitude > peakMagnitude_) {
-            peakMagnitude_ = magnitude;
-            peakX_ = output.rawRightStickX;
-            peakY_ = output.rawRightStickY;
-        }
-        thresholdCrossed_ = thresholdCrossed_ ||
-            magnitude >= tuning_.flickActivationThreshold;
-
-        const float duration = clock_ - captureStart_;
-        const bool stickReleased = thresholdCrossed_ &&
-            magnitude <= tuning_.flickReleaseThreshold;
-        const bool activationReleased = !output.activationHeld;
-        if (thresholdCrossed_ && (stickReleased || activationReleased)) {
-            if (duration >= tuning_.minimumFlickDuration &&
-                duration <= tuning_.maximumFlickDuration) {
-                completeGesture(output);
-            } else if (activationReleased) {
-                output.standardPop = true;
-            }
-            captureState_ = activationReleased
-                ? CaptureState::Idle
-                : CaptureState::ConsumedAwaitRelease;
-            output.captureActive = false;
-            output.rightStickOwner = RightStickOwner::Camera;
-        } else if (activationReleased) {
-            output.standardPop = true;
-            captureState_ = CaptureState::Idle;
-            output.captureActive = false;
-            output.rightStickOwner = RightStickOwner::Camera;
-        }
-    } else if (captureState_ == CaptureState::ConsumedAwaitRelease &&
-               !output.activationHeld) {
-        captureState_ = CaptureState::Idle;
+        )
+    );
+    if (magnitude > peakMagnitude_) {
+        peakMagnitude_ = magnitude;
+        peakX_ = output.rawRightStickX;
+        peakY_ = output.rawRightStickY;
+    }
+    if (!thresholdCrossed_ && magnitude >= tuning_.flickThreshold) {
+        thresholdCrossed_ = true;
+        flickStart_ = clock_;
     }
 
-    previousActivationHeld_ = output.activationHeld;
+    if (windowElapsed_ < tuning_.trickWindowDelay) {
+        diagnostics_ = output;
+        return output;
+    }
+
+    output.trickWindowListening = true;
+
+    const bool flickReleased = thresholdCrossed_ &&
+        magnitude <= tuning_.flickReleaseThreshold;
+    const bool timedOut = windowElapsed_ >= totalWindow;
+    if (flickReleased || timedOut) {
+        if (thresholdCrossed_) {
+            completeGesture(output);
+        }
+        clearWindowState();
+        output.trickWindowArmed = false;
+        output.trickWindowListening = false;
+        output.trickWindowRemaining = 0.0f;
+        output.rightStickOwner = RightStickOwner::Camera;
+    }
+
     diagnostics_ = output;
     return output;
+}
+
+void RideControlInterpreter::armTrickWindow() noexcept
+{
+    clearWindowState();
+    trickWindowArmed_ = true;
+    lastResolvedTrick_ = {};
+    diagnostics_.trick = {};
+    diagnostics_.trickWindowArmed = true;
+    diagnostics_.trickWindowListening = false;
+    diagnostics_.trickWindowRemaining =
+        tuning_.trickWindowDelay + tuning_.trickWindowDuration;
+    diagnostics_.rightStickOwner = RightStickOwner::Camera;
+}
+
+void RideControlInterpreter::closeTrickWindow() noexcept
+{
+    clearWindowState();
+    diagnostics_.trickWindowArmed = false;
+    diagnostics_.trickWindowListening = false;
+    diagnostics_.trickWindowRemaining = 0.0f;
+    diagnostics_.rightStickOwner = RightStickOwner::Camera;
 }
 
 void RideControlInterpreter::reset() noexcept
 {
     diagnostics_ = {};
-    captureState_ = CaptureState::Idle;
-    captureStart_ = clock_;
-    peakX_ = 0.0f;
-    peakY_ = 0.0f;
-    peakMagnitude_ = 0.0f;
-    thresholdCrossed_ = false;
-    previousActivationHeld_ = false;
-    requireActivationRelease_ = true;
     lastResolvedTrick_ = {};
+    clearWindowState();
 }
 
 const RideControlFrame& RideControlInterpreter::diagnostics() const noexcept
@@ -221,7 +233,7 @@ std::string_view RideControlInterpreter::directionName(
 
 std::string_view RideControlInterpreter::ownerName(RightStickOwner owner) noexcept
 {
-    return owner == RightStickOwner::TrickCapture ? "TRICK_CAPTURE" : "CAMERA";
+    return owner == RightStickOwner::TrickWindow ? "TRICK_WINDOW" : "CAMERA";
 }
 
 void RideControlInterpreter::radialDeadzone(
@@ -248,16 +260,6 @@ void RideControlInterpreter::radialDeadzone(
     outputY = y / magnitude * normalizedMagnitude;
 }
 
-void RideControlInterpreter::beginCapture() noexcept
-{
-    captureState_ = CaptureState::Capturing;
-    captureStart_ = clock_;
-    peakX_ = 0.0f;
-    peakY_ = 0.0f;
-    peakMagnitude_ = 0.0f;
-    thresholdCrossed_ = false;
-}
-
 void RideControlInterpreter::completeGesture(RideControlFrame& output) noexcept
 {
     TrickVector trick;
@@ -266,17 +268,30 @@ void RideControlInterpreter::completeGesture(RideControlFrame& output) noexcept
     trick.rawY = peakY_;
     trick.magnitude = std::clamp(peakMagnitude_, 0.0f, 1.0f);
     radialDeadzone(
-        peakX_, peakY_, tuning_.trickDeadzone,
-        trick.normalizedX, trick.normalizedY
+        peakX_,
+        peakY_,
+        tuning_.flickDeadzone,
+        trick.normalizedX,
+        trick.normalizedY
     );
-    trick.startTime = captureStart_;
+    trick.startTime = flickStart_;
     trick.releaseTime = clock_;
-    trick.gestureDuration = clock_ - captureStart_;
+    trick.gestureDuration = std::max(0.0f, clock_ - flickStart_);
     trick.valid = trick.direction != FlickDirection::None;
     output.trick = trick;
+    output.trickIntent = trick.valid;
     lastResolvedTrick_ = trick;
-    output.trickResolved = trick.valid;
-    output.standardPop = true;
+}
+
+void RideControlInterpreter::clearWindowState() noexcept
+{
+    trickWindowArmed_ = false;
+    thresholdCrossed_ = false;
+    windowElapsed_ = 0.0f;
+    flickStart_ = clock_;
+    peakX_ = 0.0f;
+    peakY_ = 0.0f;
+    peakMagnitude_ = 0.0f;
 }
 
 } // namespace hakui::input

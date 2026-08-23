@@ -1,4 +1,4 @@
-# PROJECT HAKUI — Native Client v0.82-dev
+# PROJECT HAKUI — Native Client v0.83-dev
 
 [![Hakui Build and Test](https://github.com/spiraletech/spiral-ether-tech/actions/workflows/native-build.yml/badge.svg)](https://github.com/spiraletech/spiral-ether-tech/actions/workflows/native-build.yml)
 [![C++20](https://img.shields.io/badge/C%2B%2B-20-00599C.svg)](https://en.cppreference.com/w/cpp/20)
@@ -37,20 +37,31 @@ cmake --build build --config Release --target hakui --parallel
 
 The resulting executable is `hakui` (`hakui.exe` on Windows). Run it from the selected build-configuration directory used by your generator.
 
+## v0.83 pop → flick control correction
+
+v0.83 corrects ride tricks into a physical sequence: press `South` to pop
+immediately, release it, then make one decisive right-stick flick during the
+short airborne trick window. A successful skateboard ollie or BMX bunny hop
+arms the deterministic window; the first valid eight-way flick is consumed as
+the discipline-specific trick. A pop without a flick remains a normal pop, and
+grounded or late right-stick movement stays camera input.
+
+The window has centralized delay, duration, deadzone, activation, and release
+tuning. Trick recognition, timeout, landing, bail, pause, dismount, respawn, and
+controller disconnect all restore camera ownership. Expert Observer snapshots
+now report pop intent, airborne state, window state/time, flick and trick
+intent, camera ownership, and independent grind intent. `North` remains the
+permanent ride grind action.
+
 ## v0.82 canonical controller overhaul
 
-v0.82 gives skateboard and BMX one controller-native ride grammar. `South`
-press owns the right stick for a bounded trick-capture window; a tap resolves a
-normal pop, while a held activation plus an eight-way right-stick flick resolves
-a discipline-specific trick and returns ownership to the camera deterministically.
-`North` is always grind, `LT` balance, `RT` propulsion, `LB/RB` body spin,
+v0.82 established one controller-native ride grammar. `North` is always grind,
+`LT` balance, `RT` propulsion, `LB/RB` body spin,
 `West` style, and `East` cancel/dismount. PlayStation-, Xbox-, and generic SDL
 controllers resolve the same semantic actions through controller-family prompts.
 
-The GPU-independent ride interpreter centralizes camera/trick deadzones,
-activation and release thresholds, gesture timing, direction classification,
-and reset behavior. Pause, disconnect, dismount, mode changes, and void respawn
-all clear capture ownership. Grind entry now validates the authored grindable
+The GPU-independent ride interpreter centralizes input tuning, direction
+classification, and reset behavior. Grind entry validates the authored grindable
 affordance, proximity, speed, approach alignment, ride state, and discipline
 attachment opportunity. `F12` input snapshots expose the full ride-control
 state and tuning without granting the observer authority.
@@ -452,8 +463,8 @@ F12           capture read-only Expert Observer bundle
 
 GAMEPAD
 Left stick    move / steer
-Right stick   camera; eight-way ride trick while South owns capture
-South         jump on foot; tap pop / hold + right-stick flick while riding
+Right stick   camera; first decisive air flick after a successful ride pop
+South         jump on foot; immediate ollie / bunny hop while riding
 East          cancel / dismount
 West          interact / primary / ride style
 North         secondary on foot/combat; grind while riding

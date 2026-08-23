@@ -175,81 +175,182 @@ int main()
     assert(nearlyEqual(deadzoneY, 0.0f));
 
     RideControlInterpreter rideControls;
-    PhysicalInputFrame captureStart;
-    captureStart.activeDevice = InputDevice::Gamepad;
-    captureStart.gamepadAvailable = true;
-    captureStart.set(PhysicalControl::PadSouth, 1.0f, true);
-    RideControlFrame capture = rideControls.update(
-        resolver.resolve(captureStart),
+    PhysicalInputFrame popPress;
+    popPress.activeDevice = InputDevice::Gamepad;
+    popPress.gamepadAvailable = true;
+    popPress.set(PhysicalControl::PadSouth, 1.0f, true);
+    RideControlFrame rideFrame = rideControls.update(
+        resolver.resolve(popPress),
         true,
+        false,
         0.016f
     );
-    assert(capture.captureActive);
-    assert(capture.rightStickOwner == RightStickOwner::TrickCapture);
-    assert(!capture.standardPop);
+    assert(rideFrame.popIntent);
+    assert(!rideFrame.trickWindowArmed);
+    assert(rideFrame.rightStickOwner == RightStickOwner::Camera);
+
+    // Gameplay confirms that the discrete pop actually left the ground.
+    rideControls.armTrickWindow();
+    PhysicalInputFrame released;
+    released.activeDevice = InputDevice::Gamepad;
+    released.gamepadAvailable = true;
+    rideFrame = rideControls.update(
+        resolver.resolve(released),
+        true,
+        true,
+        0.03f
+    );
+    assert(!rideFrame.popIntent);
+    assert(rideFrame.trickWindowArmed);
+    assert(rideFrame.trickWindowListening);
+    assert(rideFrame.rightStickOwner == RightStickOwner::TrickWindow);
 
     PhysicalInputFrame flickPeak;
     flickPeak.activeDevice = InputDevice::Gamepad;
     flickPeak.gamepadAvailable = true;
-    flickPeak.set(PhysicalControl::PadSouth, 1.0f);
     flickPeak.set(PhysicalControl::PadLookX, 0.92f);
-    capture = rideControls.update(resolver.resolve(flickPeak), true, 0.06f);
-    assert(capture.captureActive);
+    rideFrame = rideControls.update(
+        resolver.resolve(flickPeak),
+        true,
+        true,
+        0.06f
+    );
+    assert(rideFrame.trickWindowArmed);
+    assert(!rideFrame.trickIntent);
 
-    PhysicalInputFrame flickRelease;
-    flickRelease.activeDevice = InputDevice::Gamepad;
-    flickRelease.gamepadAvailable = true;
-    flickRelease.set(PhysicalControl::PadSouth, 1.0f);
-    capture = rideControls.update(resolver.resolve(flickRelease), true, 0.06f);
-    assert(capture.trickResolved);
-    assert(capture.standardPop);
-    assert(capture.trick.direction == FlickDirection::Right);
-    assert(capture.rightStickOwner == RightStickOwner::Camera);
+    rideFrame = rideControls.update(
+        resolver.resolve(released),
+        true,
+        true,
+        0.06f
+    );
+    assert(rideFrame.trickIntent);
+    assert(rideFrame.trick.direction == FlickDirection::Right);
+    assert(!rideFrame.trickWindowArmed);
+    assert(rideFrame.rightStickOwner == RightStickOwner::Camera);
 
-    PhysicalInputFrame activationRelease;
-    activationRelease.activeDevice = InputDevice::Gamepad;
-    activationRelease.gamepadAvailable = true;
-    capture = rideControls.update(
-        resolver.resolve(activationRelease),
+    // A flick beginning on the first frame after pop is buffered through the
+    // tiny post-launch delay; South is already released throughout.
+    rideFrame = rideControls.update(
+        resolver.resolve(popPress),
+        true,
+        false,
+        0.016f
+    );
+    assert(rideFrame.popIntent);
+    rideControls.armTrickWindow();
+    rideFrame = rideControls.update(
+        resolver.resolve(flickPeak),
+        true,
         true,
         0.016f
     );
-    assert(!capture.captureActive);
-    assert(capture.rightStickOwner == RightStickOwner::Camera);
-
-    PhysicalInputFrame tapStart = captureStart;
-    capture = rideControls.update(resolver.resolve(tapStart), true, 0.016f);
-    assert(capture.captureActive);
-    capture = rideControls.update(
-        resolver.resolve(activationRelease),
+    assert(!rideFrame.popIntent);
+    assert(rideFrame.rightStickOwner == RightStickOwner::TrickWindow);
+    rideFrame = rideControls.update(
+        resolver.resolve(released),
         true,
-        0.08f
+        true,
+        0.016f
     );
-    assert(capture.standardPop);
-    assert(!capture.trickResolved);
+    assert(rideFrame.trickIntent);
+    assert(rideFrame.trick.direction == FlickDirection::Right);
+
+    // A pop without a flick remains a normal ollie/bunny hop and times out.
+    rideFrame = rideControls.update(
+        resolver.resolve(popPress),
+        true,
+        false,
+        0.016f
+    );
+    assert(rideFrame.popIntent);
+    rideControls.armTrickWindow();
+    for (int frameIndex = 0; frameIndex < 9; ++frameIndex) {
+        rideFrame = rideControls.update(
+            resolver.resolve(released),
+            true,
+            true,
+            0.10f
+        );
+    }
+    assert(!rideFrame.trickIntent);
+    assert(!rideFrame.trickWindowArmed);
+    assert(rideFrame.rightStickOwner == RightStickOwner::Camera);
+
+    // Grounded or late right-stick motion is camera input, never a trick.
+    rideFrame = rideControls.update(
+        resolver.resolve(flickPeak),
+        true,
+        false,
+        0.016f
+    );
+    assert(!rideFrame.trickIntent);
+    assert(rideFrame.rightStickOwner == RightStickOwner::Camera);
+
+    // The first decisive flick near the end of the window is still accepted.
+    rideControls.armTrickWindow();
+    for (int frameIndex = 0; frameIndex < 6; ++frameIndex) {
+        rideFrame = rideControls.update(
+            resolver.resolve(released),
+            true,
+            true,
+            0.10f
+        );
+    }
+    rideFrame = rideControls.update(
+        resolver.resolve(flickPeak),
+        true,
+        true,
+        0.05f
+    );
+    assert(!rideFrame.trickIntent);
+    rideFrame = rideControls.update(
+        resolver.resolve(released),
+        true,
+        true,
+        0.04f
+    );
+    assert(rideFrame.trickIntent);
+    assert(rideFrame.rightStickOwner == RightStickOwner::Camera);
+
+    // Landing, explicit close, disconnect, dismount, and reset all restore camera.
+    rideControls.armTrickWindow();
+    rideFrame = rideControls.update(
+        resolver.resolve(released),
+        true,
+        false,
+        0.016f
+    );
+    assert(!rideFrame.trickWindowArmed);
+    assert(rideFrame.rightStickOwner == RightStickOwner::Camera);
+
+    rideControls.armTrickWindow();
+    rideControls.closeTrickWindow();
+    assert(!rideControls.diagnostics().trickWindowArmed);
+    assert(rideControls.diagnostics().rightStickOwner == RightStickOwner::Camera);
 
     PhysicalInputFrame disconnected;
     disconnected.activeDevice = InputDevice::Gamepad;
     disconnected.gamepadDisconnected = true;
-    capture = rideControls.update(resolver.resolve(disconnected), true, 0.016f);
-    assert(!capture.captureActive);
-    assert(capture.rightStickOwner == RightStickOwner::Camera);
-
-    capture = rideControls.update(
-        resolver.resolve(activationRelease),
+    rideControls.armTrickWindow();
+    rideFrame = rideControls.update(
+        resolver.resolve(disconnected),
+        true,
         true,
         0.016f
     );
-    capture = rideControls.update(resolver.resolve(captureStart), true, 0.016f);
-    assert(capture.rightStickOwner == RightStickOwner::TrickCapture);
-    capture = rideControls.update(resolver.resolve(activationRelease), false, 0.016f);
-    assert(!capture.captureActive);
-    assert(capture.rightStickOwner == RightStickOwner::Camera);
+    assert(!rideFrame.trickWindowArmed);
+    assert(rideFrame.rightStickOwner == RightStickOwner::Camera);
 
-    capture = rideControls.update(resolver.resolve(captureStart), true, 0.016f);
-    assert(capture.rightStickOwner == RightStickOwner::TrickCapture);
+    rideControls.armTrickWindow();
+    rideFrame = rideControls.update(
+        resolver.resolve(released),
+        false,
+        false,
+        0.016f
+    );
+    assert(!rideFrame.trickWindowArmed);
     rideControls.reset();
-    assert(!rideControls.diagnostics().captureActive);
     assert(rideControls.diagnostics().rightStickOwner == RightStickOwner::Camera);
     return 0;
 }

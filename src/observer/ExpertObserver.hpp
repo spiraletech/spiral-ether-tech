@@ -20,7 +20,7 @@ struct Vec3 {
 };
 
 struct BuildObservation {
-    std::string hakuiVersion = "0.82-dev";
+    std::string hakuiVersion = "0.83-dev";
     std::string configuration = "unknown";
     std::string gitCommit = "unknown";
     std::string gitBranch = "unknown";
@@ -79,32 +79,35 @@ struct RuntimeObservation {
 
 struct RideControlObservation {
     std::string activeDiscipline = "ON_FOOT";
-    bool activationHeld = false;
-    bool captureActive = false;
+    bool popIntent = false;
+    bool airborne = false;
+    bool trickWindowArmed = false;
+    float trickWindowRemaining = 0.0f;
     float rawRightStickX = 0.0f;
     float rawRightStickY = 0.0f;
-    float normalizedTrickX = 0.0f;
-    float normalizedTrickY = 0.0f;
+    float normalizedFlickX = 0.0f;
+    float normalizedFlickY = 0.0f;
     std::string detectedFlick = "NONE";
-    bool grindHeld = false;
-    bool balanceHeld = false;
+    bool trickIntent = false;
+    bool cameraOwnsRightStick = true;
+    bool grindIntent = false;
+    bool balanceIntent = false;
     float propulsion = 0.0f;
     bool spinLeft = false;
     bool spinRight = false;
     std::string rightStickOwner = "CAMERA";
     std::string rideState = "INACTIVE";
     float cameraDeadzone = 0.0f;
-    float trickDeadzone = 0.0f;
-    float flickActivationThreshold = 0.0f;
+    float trickWindowDelay = 0.0f;
+    float trickWindowDuration = 0.0f;
+    float flickDeadzone = 0.0f;
+    float flickThreshold = 0.0f;
     float flickReleaseThreshold = 0.0f;
-    float minimumFlickDuration = 0.0f;
-    float maximumFlickDuration = 0.0f;
-    float maximumTapDuration = 0.0f;
 };
 
 struct CaptureContext {
     BuildObservation build;
-    std::string worldVersion = "black-room.v0.82";
+    std::string worldVersion = "black-room.v0.83";
     std::string environmentId = "data-grunge.black-room";
     std::span<const WorldPrimitive> geometry;
     std::span<const WorldAffordanceVolume> affordances;
