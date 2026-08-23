@@ -187,6 +187,7 @@ RideableFrame RideableMovementController::update(
             state_.speed = retainedSpeed;
             state_.phase = RidePhase::Grounded;
         }
+        updateBodyMechanics(player);
         return frame;
     }
 
@@ -213,6 +214,7 @@ RideableFrame RideableMovementController::update(
         const RideDiscipline retained = state_.discipline;
         reset();
         state_.discipline = retained;
+        updateBodyMechanics(player);
         return frame;
     }
 
@@ -465,6 +467,7 @@ RideableFrame RideableMovementController::update(
         frame.evaluatedLanding = quality;
         if (quality == LandingQuality::Failed || quality == LandingQuality::Bail) {
             beginBail(player, frame, reason, quality);
+            updateBodyMechanics(player);
             return frame;
         }
         state_.landingQuality = quality;
@@ -501,12 +504,20 @@ RideableFrame RideableMovementController::update(
         state_.landingQuality = LandingQuality::None;
         state_.bailReason = BailReason::None;
     }
+    updateBodyMechanics(player);
     return frame;
 }
 
 void RideableMovementController::reset() noexcept
 {
     state_ = {};
+    state_.body.skateStance = skateStance_;
+}
+
+void RideableMovementController::setSkateStance(SkateStance stance) noexcept
+{
+    skateStance_ = stance;
+    state_.body.skateStance = stance;
 }
 
 const RideableState& RideableMovementController::state() const noexcept
@@ -603,6 +614,291 @@ std::string_view RideableMovementController::rotationChannelLabel(
         case RideRotationChannel::BmxCrank: return "BMX_CRANK";
     }
     return "NONE";
+}
+
+std::string_view RideableMovementController::skateStanceLabel(
+    SkateStance stance
+) noexcept
+{
+    switch (stance) {
+        case SkateStance::Regular: return "REGULAR";
+        case SkateStance::Goofy: return "GOOFY";
+    }
+    return "REGULAR";
+}
+
+std::string_view RideableMovementController::footContactLabel(
+    RideFootContactState state
+) noexcept
+{
+    switch (state) {
+        case RideFootContactState::Anchored: return "ANCHORED";
+        case RideFootContactState::ReleasedForTrick: return "RELEASED_FOR_TRICK";
+        case RideFootContactState::Reacquiring: return "REACQUIRING";
+        case RideFootContactState::Landed: return "LANDED";
+    }
+    return "ANCHORED";
+}
+
+std::string_view RideableMovementController::airPoseLabel(
+    RideAirPose pose
+) noexcept
+{
+    switch (pose) {
+        case RideAirPose::None: return "NONE";
+        case RideAirPose::OlliePop: return "OLLIE_POP";
+        case RideAirPose::OllieRise: return "OLLIE_RISE";
+        case RideAirPose::OllieLevel: return "OLLIE_LEVEL";
+        case RideAirPose::OllieDescent: return "OLLIE_DESCENT";
+        case RideAirPose::Kickflip: return "KICKFLIP";
+        case RideAirPose::Heelflip: return "HEELFLIP";
+        case RideAirPose::PopShoveIt: return "POP_SHOVE_IT";
+        case RideAirPose::Impossible: return "IMPOSSIBLE";
+        case RideAirPose::VarialFlip: return "VARIAL_FLIP";
+        case RideAirPose::BoardGrab: return "BOARD_GRAB";
+        case RideAirPose::BmxPull: return "BMX_PULL";
+        case RideAirPose::BmxTuck: return "BMX_TUCK";
+        case RideAirPose::BmxDescent: return "BMX_DESCENT";
+        case RideAirPose::BmxTrick: return "BMX_TRICK";
+        case RideAirPose::Bail: return "BAIL";
+    }
+    return "NONE";
+}
+
+void RideableMovementController::updateBodyMechanics(
+    const PlayerState& player
+) noexcept
+{
+    RideBodyMechanicsState body;
+    body.skateStance = skateStance_;
+    body.frontFootAnchorError = skateStance_ == SkateStance::Regular
+        ? state_.leftFootAnchorError
+        : state_.rightFootAnchorError;
+    body.rearFootAnchorError = skateStance_ == SkateStance::Regular
+        ? state_.rightFootAnchorError
+        : state_.leftFootAnchorError;
+
+    if (state_.phase == RidePhase::Crash) {
+        body.footContact = RideFootContactState::ReleasedForTrick;
+        body.airPose = RideAirPose::Bail;
+        body.leftKneeFlex = 0.12f;
+        body.rightKneeFlex = 0.92f;
+        body.leftElbowFlex = 0.18f;
+        body.rightElbowFlex = 0.86f;
+        body.armCounterbalance = 1.0f;
+        body.torsoLean = 0.58f;
+        state_.body = body;
+        return;
+    }
+
+    const float preload = player.grounded && state_.phase != RidePhase::Landing
+        ? std::clamp(state_.popPreload, 0.0f, 1.0f)
+        : 0.0f;
+    body.preloadPoseWeight = preload;
+
+    if (state_.discipline == RideDiscipline::Skateboard) {
+        const float stanceDirection = skateStance_ == SkateStance::Regular
+            ? 1.0f
+            : -1.0f;
+        // The pelvis commits to the sideways board stance. The chest opens
+        // toward travel and the head nearly cancels the remaining yaw, so the
+        // avatar is articulated rather than rotated as one rigid mannequin.
+        body.pelvisYawRelativeToBoard = stanceDirection * 1.40f;
+        body.torsoYawRelativeToBoard = stanceDirection * 0.70f;
+        body.headYawRelativeToBoard = stanceDirection * 0.12f;
+        body.leftKneeFlex = 0.44f + preload * 0.68f;
+        body.rightKneeFlex = 0.52f + preload * 0.82f;
+        body.leftElbowFlex = 0.24f;
+        body.rightElbowFlex = 0.30f;
+        body.torsoLean = 0.04f + preload * 0.24f;
+        body.armCounterbalance = state_.steeringVisual * 0.20f;
+
+        if (state_.phase == RidePhase::Manual) {
+            body.leftKneeFlex += 0.18f;
+            body.rightKneeFlex += 0.34f;
+            body.torsoLean = -0.16f;
+            body.armCounterbalance = state_.balanceOffset * 0.85f;
+        } else if (state_.phase == RidePhase::Grinding) {
+            body.leftKneeFlex += 0.24f;
+            body.rightKneeFlex += 0.20f;
+            body.torsoLean = 0.10f;
+            body.armCounterbalance = state_.balanceOffset * 1.05f;
+        } else if (state_.phase == RidePhase::Airborne) {
+            const float airProgress = std::clamp(
+                state_.airSeconds / std::max(0.55f, state_.minimumTrickAirtime),
+                0.0f,
+                1.0f
+            );
+            if (state_.flipCommitted) {
+                if (state_.rotationCompletion < 0.66f) {
+                    body.footContact = RideFootContactState::ReleasedForTrick;
+                } else {
+                    body.footContact = RideFootContactState::Reacquiring;
+                }
+                switch (state_.activeTrick) {
+                    case RideTrick::Kickflip:
+                        body.airPose = RideAirPose::Kickflip;
+                        body.leftKneeFlex = 1.02f;
+                        body.rightKneeFlex = 0.66f;
+                        body.frontFootLift = 0.24f;
+                        body.armCounterbalance = -0.72f;
+                        break;
+                    case RideTrick::Heelflip:
+                        body.airPose = RideAirPose::Heelflip;
+                        body.leftKneeFlex = 0.66f;
+                        body.rightKneeFlex = 1.04f;
+                        body.frontFootLift = 0.16f;
+                        body.armCounterbalance = 0.76f;
+                        break;
+                    case RideTrick::PopShoveIt:
+                        body.airPose = RideAirPose::PopShoveIt;
+                        body.leftKneeFlex = 0.78f;
+                        body.rightKneeFlex = 0.74f;
+                        body.rearLegDrive = 0.30f;
+                        body.torsoYawRelativeToBoard += stanceDirection * 0.24f;
+                        break;
+                    case RideTrick::Impossible:
+                        body.airPose = RideAirPose::Impossible;
+                        body.leftKneeFlex = 1.12f;
+                        body.rightKneeFlex = 0.58f;
+                        body.frontFootLift = 0.34f;
+                        body.rearLegDrive = 0.38f;
+                        body.armCounterbalance = -0.42f;
+                        break;
+                    case RideTrick::VarialFlip:
+                        body.airPose = RideAirPose::VarialFlip;
+                        body.leftKneeFlex = 1.00f;
+                        body.rightKneeFlex = 0.88f;
+                        body.frontFootLift = 0.28f;
+                        body.rearLegDrive = 0.26f;
+                        body.armCounterbalance = 0.54f;
+                        break;
+                    case RideTrick::BoardGrab:
+                        body.airPose = RideAirPose::BoardGrab;
+                        body.leftKneeFlex = 1.18f;
+                        body.rightKneeFlex = 1.08f;
+                        body.torsoLean = 0.34f;
+                        break;
+                    default:
+                        body.airPose = RideAirPose::OllieLevel;
+                        break;
+                }
+            } else {
+                body.footContact = airProgress < 0.22f
+                    ? RideFootContactState::ReleasedForTrick
+                    : RideFootContactState::Reacquiring;
+                if (state_.airSeconds < 0.09f) {
+                    body.airPose = RideAirPose::OlliePop;
+                    body.rearLegDrive = 0.42f;
+                    body.leftKneeFlex = 0.70f;
+                    body.rightKneeFlex = 1.04f;
+                } else if (player.velocityY > 1.0f) {
+                    body.airPose = RideAirPose::OllieRise;
+                    body.frontFootLift = 0.30f;
+                    body.leftKneeFlex = 1.02f;
+                    body.rightKneeFlex = 0.76f;
+                } else if (player.velocityY > -1.2f) {
+                    body.airPose = RideAirPose::OllieLevel;
+                    body.frontFootLift = 0.10f;
+                    body.leftKneeFlex = 0.84f;
+                    body.rightKneeFlex = 0.84f;
+                } else {
+                    body.airPose = RideAirPose::OllieDescent;
+                    body.leftKneeFlex = 0.70f;
+                    body.rightKneeFlex = 0.74f;
+                }
+            }
+        } else if (state_.phase == RidePhase::Landing) {
+            const float landingProgress = std::clamp(
+                state_.phaseSeconds / 0.38f,
+                0.0f,
+                1.0f
+            );
+            const float qualityWeight = state_.landingQuality == LandingQuality::Sketchy
+                ? 0.92f
+                : 0.58f;
+            body.landingCompression = std::sin(landingProgress * kPi) * qualityWeight;
+            body.footContact = RideFootContactState::Landed;
+            body.leftKneeFlex += body.landingCompression *
+                (state_.landingQuality == LandingQuality::Sketchy ? 1.00f : 0.74f);
+            body.rightKneeFlex += body.landingCompression *
+                (state_.landingQuality == LandingQuality::Sketchy ? 0.72f : 0.74f);
+            body.armCounterbalance = state_.landingQuality == LandingQuality::Sketchy
+                ? 0.62f
+                : 0.18f;
+        }
+    } else if (state_.discipline == RideDiscipline::BMX) {
+        body.pelvisYawRelativeToBoard = state_.steeringVisual * 0.05f;
+        body.torsoYawRelativeToBoard = state_.steeringVisual * 0.12f;
+        body.headYawRelativeToBoard = 0.0f;
+        body.leftKneeFlex = 0.66f + preload * 0.54f;
+        body.rightKneeFlex = 0.72f + preload * 0.54f;
+        body.leftElbowFlex = 0.70f + preload * 0.22f;
+        body.rightElbowFlex = 0.70f + preload * 0.22f;
+        body.torsoLean = 0.24f + preload * 0.18f;
+        body.armCounterbalance = state_.steeringVisual * 0.34f;
+
+        if (state_.phase == RidePhase::Manual) {
+            body.leftKneeFlex += 0.24f;
+            body.rightKneeFlex += 0.24f;
+            body.leftElbowFlex = 0.42f;
+            body.rightElbowFlex = 0.42f;
+            body.torsoLean = -0.08f;
+        } else if (state_.phase == RidePhase::Grinding) {
+            body.leftKneeFlex += 0.18f;
+            body.rightKneeFlex += 0.18f;
+            body.torsoLean = 0.30f;
+            body.armCounterbalance = state_.balanceOffset * 0.82f;
+        } else if (state_.phase == RidePhase::Airborne) {
+            body.footContact = state_.flipCommitted &&
+                state_.rotationCompletion < 0.68f
+                ? RideFootContactState::ReleasedForTrick
+                : RideFootContactState::Reacquiring;
+            if (state_.flipCommitted) {
+                body.airPose = RideAirPose::BmxTrick;
+                body.leftKneeFlex = 0.96f;
+                body.rightKneeFlex = 0.96f;
+                body.leftElbowFlex = 0.54f;
+                body.rightElbowFlex = 0.54f;
+            } else if (state_.airSeconds < 0.13f || player.velocityY > 2.2f) {
+                body.airPose = RideAirPose::BmxPull;
+                body.leftKneeFlex = 0.84f;
+                body.rightKneeFlex = 0.90f;
+                body.leftElbowFlex = 0.34f;
+                body.rightElbowFlex = 0.34f;
+                body.torsoLean = 0.08f;
+            } else if (player.velocityY > -1.2f) {
+                body.airPose = RideAirPose::BmxTuck;
+                body.leftKneeFlex = 1.12f;
+                body.rightKneeFlex = 1.12f;
+                body.leftElbowFlex = 0.64f;
+                body.rightElbowFlex = 0.64f;
+            } else {
+                body.airPose = RideAirPose::BmxDescent;
+                body.leftKneeFlex = 0.78f;
+                body.rightKneeFlex = 0.82f;
+                body.leftElbowFlex = 0.76f;
+                body.rightElbowFlex = 0.76f;
+            }
+        } else if (state_.phase == RidePhase::Landing) {
+            const float landingProgress = std::clamp(
+                state_.phaseSeconds / 0.38f,
+                0.0f,
+                1.0f
+            );
+            const float qualityWeight = state_.landingQuality == LandingQuality::Sketchy
+                ? 0.88f
+                : 0.54f;
+            body.landingCompression = std::sin(landingProgress * kPi) * qualityWeight;
+            body.footContact = RideFootContactState::Landed;
+            body.leftKneeFlex += body.landingCompression * 0.78f;
+            body.rightKneeFlex += body.landingCompression * 0.96f;
+            body.leftElbowFlex += body.landingCompression * 0.24f;
+            body.rightElbowFlex += body.landingCompression * 0.24f;
+        }
+    }
+
+    state_.body = body;
 }
 
 TrickPhysicalIntent RideableMovementController::physicalIntentFor(

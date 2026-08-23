@@ -104,6 +104,37 @@ enum class RideRotationChannel : std::uint8_t {
     BmxCrank
 };
 
+enum class SkateStance : std::uint8_t {
+    Regular,
+    Goofy
+};
+
+enum class RideFootContactState : std::uint8_t {
+    Anchored,
+    ReleasedForTrick,
+    Reacquiring,
+    Landed
+};
+
+enum class RideAirPose : std::uint8_t {
+    None,
+    OlliePop,
+    OllieRise,
+    OllieLevel,
+    OllieDescent,
+    Kickflip,
+    Heelflip,
+    PopShoveIt,
+    Impossible,
+    VarialFlip,
+    BoardGrab,
+    BmxPull,
+    BmxTuck,
+    BmxDescent,
+    BmxTrick,
+    Bail
+};
+
 struct RideRotation {
     float x = 0.0f;
     float y = 0.0f;
@@ -132,6 +163,30 @@ struct RidePhysicsTuning {
     float sketchyImpactSpeed = 12.25f;
     float cleanAngularSpeed = 1.20f;
     float sketchyAngularSpeed = 3.80f;
+};
+
+// Deterministic pose vocabulary. This is intentionally renderer-independent:
+// the movement machine describes the body mechanics that explain its physical
+// state, while SDL merely turns those values into a temporary procedural rig.
+struct RideBodyMechanicsState {
+    SkateStance skateStance = SkateStance::Regular;
+    RideFootContactState footContact = RideFootContactState::Anchored;
+    RideAirPose airPose = RideAirPose::None;
+    float pelvisYawRelativeToBoard = 0.0f;
+    float torsoYawRelativeToBoard = 0.0f;
+    float headYawRelativeToBoard = 0.0f;
+    float leftKneeFlex = 0.0f;
+    float rightKneeFlex = 0.0f;
+    float leftElbowFlex = 0.0f;
+    float rightElbowFlex = 0.0f;
+    float preloadPoseWeight = 0.0f;
+    float landingCompression = 0.0f;
+    float frontFootAnchorError = 0.0f;
+    float rearFootAnchorError = 0.0f;
+    float frontFootLift = 0.0f;
+    float rearLegDrive = 0.0f;
+    float torsoLean = 0.0f;
+    float armCounterbalance = 0.0f;
 };
 
 struct RideableInput {
@@ -192,6 +247,7 @@ struct RideableState {
     std::size_t comboCount = 0;
     bool flipCommitted = false;
     bool rotationReturning = false;
+    RideBodyMechanicsState body{};
 };
 
 struct RideableFrame {
@@ -221,6 +277,7 @@ public:
     ) noexcept;
 
     void reset() noexcept;
+    void setSkateStance(SkateStance stance) noexcept;
     const RideableState& state() const noexcept;
     const RidePhysicsTuning& tuning() const noexcept;
 
@@ -231,6 +288,11 @@ public:
     static std::string_view rotationChannelLabel(
         RideRotationChannel channel
     ) noexcept;
+    static std::string_view skateStanceLabel(SkateStance stance) noexcept;
+    static std::string_view footContactLabel(
+        RideFootContactState state
+    ) noexcept;
+    static std::string_view airPoseLabel(RideAirPose pose) noexcept;
     static TrickPhysicalIntent physicalIntentFor(RideTrick trick) noexcept;
 
 private:
@@ -250,6 +312,7 @@ private:
     ) noexcept;
     void beginPhysicalTrick(RideTrick trick, RideableFrame& frame) noexcept;
     void updatePhysicalRotation(float deltaSeconds) noexcept;
+    void updateBodyMechanics(const PlayerState& player) noexcept;
     LandingQuality evaluateLanding(
         float verticalImpactSpeed,
         float horizontalSpeed,
@@ -273,6 +336,7 @@ private:
     PlayerMovementController movement_{};
     RidePhysicsTuning tuning_{};
     RideableState state_{};
+    SkateStance skateStance_ = SkateStance::Regular;
 };
 
 } // namespace hakui

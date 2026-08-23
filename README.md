@@ -1,4 +1,4 @@
-# PROJECT HAKUI — Native Client v0.84-dev
+# PROJECT HAKUI — Native Client v0.85-dev
 
 [![Hakui Build and Test](https://github.com/spiraletech/spiral-ether-tech/actions/workflows/native-build.yml/badge.svg)](https://github.com/spiraletech/spiral-ether-tech/actions/workflows/native-build.yml)
 [![C++20](https://img.shields.io/badge/C%2B%2B-20-00599C.svg)](https://en.cppreference.com/w/cpp/20)
@@ -36,6 +36,29 @@ cmake --build build --config Release --target hakui --parallel
 ```
 
 The resulting executable is `hakui` (`hakui.exe` on Windows). Run it from the selected build-configuration directory used by your generator.
+
+## v0.85 body mechanics + social embodiment
+
+v0.85 makes the procedural avatar explain the v0.84 physical simulation. The
+dependency-free ride controller now emits a deterministic body vocabulary:
+regular/goofy skate stance, sideways pelvis and counter-rotated torso/head,
+foot-contact phase, ollie/BMX air pose, asymmetric trick pose, preload weight,
+knee/elbow flex, landing compression, and body-machine anchor error. The SDL
+renderer consumes those values through articulated local transforms; it does
+not decide whether a trick succeeds.
+
+Skateboarding has a dedicated sideways idle/rolling stance and readable
+preload, pop, rise, level, descent, trick, reacquisition, landing, and bail
+poses. BMX retains steering-derived grips and crank-derived pedals while adding
+bent elbows/knees, forward torso commitment, steering response, and bunny-hop
+pull/tuck/descent mechanics.
+
+Furniture interaction now uses reservable local-space `SeatAnchor` slots. The
+VOID COUCH exposes left and right lounge positions rather than one center
+teleport; the Fusion table uses the same generic reservation/alignment/release
+path. Expert Observer snapshots expose body mechanics and active seat identity,
+alignment error, and occupancy. This remains a local development milestone;
+remote publication is intentionally separate.
 
 ## v0.84 ride physics + embodiment
 

@@ -96,6 +96,29 @@ int main()
         );
     }
     assert(boardController.state().speed > 3.0f);
+    assert(std::fabs(boardController.state().body.pelvisYawRelativeToBoard) > 1.2f);
+    assert(std::fabs(boardController.state().body.torsoYawRelativeToBoard) <
+           std::fabs(boardController.state().body.pelvisYawRelativeToBoard));
+
+    // Preload is a body state before it becomes a pop impulse.
+    PlayerState preloadPlayer;
+    preloadPlayer.locomotion = LocomotionMode::Skateboard;
+    RideableMovementController preloadController;
+    RideableInput preloadInput;
+    preloadInput.popPreload = 0.80f;
+    (void)preloadController.update(
+        preloadPlayer, preloadInput, testEnvironment(), kAffordances,
+        1.0f / 60.0f
+    );
+    assert(preloadController.state().body.preloadPoseWeight > 0.79f);
+    assert(preloadController.state().body.rightKneeFlex > 1.0f);
+    preloadController.setSkateStance(SkateStance::Goofy);
+    (void)preloadController.update(
+        preloadPlayer, preloadInput, testEnvironment(), kAffordances,
+        1.0f / 60.0f
+    );
+    assert(preloadController.state().body.skateStance == SkateStance::Goofy);
+    assert(preloadController.state().body.pelvisYawRelativeToBoard < -1.2f);
 
     // Pop preload affects the deterministic impulse only inside a safe cap.
     PlayerState normalPopPlayer;
@@ -140,6 +163,9 @@ int main()
     assert(ollie.movement.jumped);
     assert(boardController.state().phase == RidePhase::Airborne);
     assert(boardController.state().combo[0] == RideTrick::Ollie);
+    assert(boardController.state().body.airPose == RideAirPose::OlliePop);
+    assert(boardController.state().body.footContact ==
+           RideFootContactState::ReleasedForTrick);
 
     boardInput.popPressed = false;
     boardInput.trick = {RideTrickDirection::Left, -1.0f, 0.0f, 1.0f, 0.12f, true};
@@ -152,6 +178,9 @@ int main()
     );
     assert(flip.trickStarted);
     assert(boardController.state().activeTrick == RideTrick::Kickflip);
+    assert(boardController.state().body.airPose == RideAirPose::Kickflip);
+    assert(boardController.state().body.leftKneeFlex !=
+           boardController.state().body.rightKneeFlex);
     settleLanding(boardController, skateboard, boardInput);
     assert(skateboard.grounded);
     assert(boardController.state().phase != RidePhase::Crash);
@@ -159,6 +188,13 @@ int main()
            boardController.state().landingQuality == LandingQuality::Sketchy);
     assert(boardController.state().rotationCompletion >= 0.80f);
     assert(boardController.state().comboCount >= 3);
+    boardInput.trick = {};
+    (void)boardController.update(
+        skateboard, boardInput, testEnvironment(), kAffordances, 0.10f
+    );
+    assert(boardController.state().body.footContact ==
+           RideFootContactState::Landed);
+    assert(boardController.state().body.landingCompression > 0.0f);
 
     // Every v0.84 minimum trick maps to a distinct physical channel/axis
     // profile rather than a renderer-authored canned animation.
@@ -219,6 +255,9 @@ int main()
            underRotatedController.state().bailReason ==
                BailReason::ExcessiveAngularVelocity);
     assert(std::fabs(underRotatedController.state().rideableRotation.z) > 0.01f);
+    assert(underRotatedController.state().body.airPose == RideAirPose::Bail);
+    assert(underRotatedController.state().body.footContact ==
+           RideFootContactState::ReleasedForTrick);
 
     boardInput.trick = {};
     boardInput.manualHeld = true;
@@ -274,6 +313,8 @@ int main()
     );
     assert(hop.movement.jumped);
     assert(bmxController.state().activeTrick == RideTrick::BunnyHop);
+    assert(bmxController.state().body.airPose == RideAirPose::BmxPull);
+    assert(bmxController.state().body.leftElbowFlex > 0.0f);
 
     bmxInput.popPressed = false;
     bmxInput.trick = {RideTrickDirection::Up, 0.0f, -1.0f, 1.0f, 0.12f, true};

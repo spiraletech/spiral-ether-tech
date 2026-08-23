@@ -247,6 +247,9 @@ void furniture_and_casino_use_contextual_seat_anchors()
     assert(room.engageNearest(player));
     assert(player.activity == PlayerActivity::CasinoSeated);
     assert(player.activeAffordanceId == table.affordanceId);
+    assert(player.activeSeatAnchorId == table.seatAnchorId);
+    assert(player.seatOccupancy);
+    assert(room.seatOccupied(table.seatAnchorId));
     const auto* tableVolume = room.affordanceById(table.affordanceId);
     assert(tableVolume != nullptr);
     assert(nearlyEqual(player.x, tableVolume->primaryAnchor.x));
@@ -254,6 +257,8 @@ void furniture_and_casino_use_contextual_seat_anchors()
     assert(room.leaveInteraction(player));
     assert(player.activity == PlayerActivity::Roaming);
     assert(player.activeAffordanceId == 0);
+    assert(player.activeSeatAnchorId == 0);
+    assert(!room.seatOccupied(table.seatAnchorId));
     assert(nearlyEqual(player.x, tableVolume->secondaryAnchor.x));
     assert(nearlyEqual(player.z, tableVolume->secondaryAnchor.z));
 
@@ -264,10 +269,28 @@ void furniture_and_casino_use_contextual_seat_anchors()
     assert(room.engageNearest(player));
     assert(player.activity == PlayerActivity::CouchSeated);
     assert(player.activeAffordanceId == couch.affordanceId);
+    assert(player.activeSeatAnchorId == couch.seatAnchorId);
     const auto* couchVolume = room.affordanceById(couch.affordanceId);
     assert(couchVolume != nullptr);
-    assert(nearlyEqual(player.x, couchVolume->primaryAnchor.x));
-    assert(nearlyEqual(player.z, couchVolume->primaryAnchor.z));
+    const auto firstCouchSeat = room.resolvedSeatAnchor(couch.seatAnchorId);
+    assert(nearlyEqual(player.x, firstCouchSeat.worldPosition.x));
+    assert(nearlyEqual(player.z, firstCouchSeat.worldPosition.z));
+    assert(!nearlyEqual(player.x, couchVolume->primaryAnchor.x));
+
+    PlayerState secondPlayer;
+    secondPlayer.x = 5.72f;
+    secondPlayer.z = 3.28f;
+    const auto secondCouch = room.nearestInteraction(secondPlayer);
+    assert(secondCouch.kind == hakui::RoomInteractionKind::LoungeCouch);
+    assert(secondCouch.seatAnchorId != couch.seatAnchorId);
+    assert(room.engageNearest(secondPlayer));
+    assert(secondPlayer.activeSeatAnchorId == secondCouch.seatAnchorId);
+    assert(room.seatOccupied(secondCouch.seatAnchorId));
+
+    PlayerState thirdPlayer;
+    thirdPlayer.x = 5.72f;
+    thirdPlayer.z = 3.28f;
+    assert(!room.nearestInteraction(thirdPlayer));
 
     const auto seatedStep = hakui::PlayerMovementController{}.update(
         player,
@@ -276,6 +299,10 @@ void furniture_and_casino_use_contextual_seat_anchors()
         0.1f
     );
     assert(!seatedStep.moved);
+    assert(room.leaveInteraction(player));
+    assert(!room.seatOccupied(couch.seatAnchorId));
+    assert(room.nearestInteraction(thirdPlayer).seatAnchorId == couch.seatAnchorId);
+    assert(room.leaveInteraction(secondPlayer));
 }
 
 void modular_world_grammar_contains_canonical_roles()

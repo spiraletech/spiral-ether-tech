@@ -249,6 +249,23 @@ std::string entitiesJson(const std::vector<EntityObservation>& entities)
                << ",\"right_hand_grip_error\":" << entity.rightHandGripError
                << ",\"left_foot_anchor_error\":" << entity.leftFootAnchorError
                << ",\"right_foot_anchor_error\":" << entity.rightFootAnchorError
+               << "},\"body_mechanics\":{\"skate_stance\":\""
+               << jsonEscape(entity.skateStance)
+               << "\",\"foot_contact_state\":\""
+               << jsonEscape(entity.footContactState)
+               << "\",\"air_pose\":\"" << jsonEscape(entity.airPose)
+               << "\",\"pelvis_yaw_relative_to_board\":"
+               << entity.pelvisYawRelativeToBoard
+               << ",\"front_foot_anchor_error\":" << entity.frontFootAnchorError
+               << ",\"rear_foot_anchor_error\":" << entity.rearFootAnchorError
+               << ",\"left_knee_flex\":" << entity.leftKneeFlex
+               << ",\"right_knee_flex\":" << entity.rightKneeFlex
+               << ",\"preload_pose_weight\":" << entity.preloadPoseWeight
+               << ",\"landing_compression\":" << entity.landingCompression
+               << "},\"seat_state\":{\"seat_anchor_id\":" << entity.seatAnchorId
+               << ",\"seat_anchor_error\":" << entity.seatAnchorError
+               << ",\"seat_occupancy\":"
+               << (entity.seatOccupancy ? "true" : "false")
                << "},\"attachments\":[";
         for (std::size_t attachmentIndex = 0;
              attachmentIndex < entity.attachments.size(); ++attachmentIndex) {

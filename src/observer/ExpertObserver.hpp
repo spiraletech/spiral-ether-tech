@@ -20,7 +20,7 @@ struct Vec3 {
 };
 
 struct BuildObservation {
-    std::string hakuiVersion = "0.84-dev";
+    std::string hakuiVersion = "0.85-dev";
     std::string configuration = "unknown";
     std::string gitCommit = "unknown";
     std::string gitBranch = "unknown";
@@ -72,6 +72,19 @@ struct EntityObservation {
     float rightHandGripError = 0.0f;
     float leftFootAnchorError = 0.0f;
     float rightFootAnchorError = 0.0f;
+    std::string skateStance = "REGULAR";
+    std::string footContactState = "ANCHORED";
+    std::string airPose = "NONE";
+    float pelvisYawRelativeToBoard = 0.0f;
+    float frontFootAnchorError = 0.0f;
+    float rearFootAnchorError = 0.0f;
+    float leftKneeFlex = 0.0f;
+    float rightKneeFlex = 0.0f;
+    float preloadPoseWeight = 0.0f;
+    float landingCompression = 0.0f;
+    std::uint32_t seatAnchorId = 0;
+    float seatAnchorError = 0.0f;
+    bool seatOccupancy = false;
 };
 
 struct CameraObservation {
@@ -127,7 +140,7 @@ struct RideControlObservation {
 
 struct CaptureContext {
     BuildObservation build;
-    std::string worldVersion = "black-room.v0.84";
+    std::string worldVersion = "black-room.v0.85";
     std::string environmentId = "data-grunge.black-room";
     std::span<const WorldPrimitive> geometry;
     std::span<const WorldAffordanceVolume> affordances;

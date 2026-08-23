@@ -315,6 +315,81 @@ bool BlackRoom::hasAffordanceAt(
     return affordanceAt(affordance, x, y, z) != nullptr;
 }
 
+std::span<const SeatAnchor> BlackRoom::seatAnchors() const noexcept
+{
+    return seatAnchors_;
+}
+
+const SeatAnchor* BlackRoom::seatAnchorById(std::uint32_t id) const noexcept
+{
+    for (const SeatAnchor& anchor : seatAnchors_) {
+        if (anchor.id == id) {
+            return &anchor;
+        }
+    }
+    return nullptr;
+}
+
+SeatAnchor* BlackRoom::mutableSeatAnchorById(std::uint32_t id) noexcept
+{
+    for (SeatAnchor& anchor : seatAnchors_) {
+        if (anchor.id == id) {
+            return &anchor;
+        }
+    }
+    return nullptr;
+}
+
+const SeatAnchor* BlackRoom::firstAvailableSeat(
+    std::uint32_t furnitureAffordanceId
+) const noexcept
+{
+    for (const SeatAnchor& anchor : seatAnchors_) {
+        if (anchor.furnitureAffordanceId == furnitureAffordanceId &&
+            !anchor.occupied) {
+            return &anchor;
+        }
+    }
+    return nullptr;
+}
+
+ResolvedSeatAnchor BlackRoom::resolvedSeatAnchor(std::uint32_t id) const noexcept
+{
+    const SeatAnchor* seat = seatAnchorById(id);
+    if (!seat) {
+        return {};
+    }
+    const WorldAffordanceVolume* furniture = affordanceById(
+        seat->furnitureAffordanceId
+    );
+    if (!furniture) {
+        return {};
+    }
+
+    const float cosine = std::cos(furniture->primaryAnchor.yaw);
+    const float sine = std::sin(furniture->primaryAnchor.yaw);
+    WorldAnchor world;
+    world.x = furniture->primaryAnchor.x +
+        seat->localPosition.x * cosine + seat->localPosition.z * sine;
+    world.y = furniture->primaryAnchor.y + seat->localPosition.y;
+    world.z = furniture->primaryAnchor.z -
+        seat->localPosition.x * sine + seat->localPosition.z * cosine;
+    world.yaw = furniture->primaryAnchor.yaw + seat->localPosition.yaw;
+    return {
+        seat->id,
+        seat->furnitureAffordanceId,
+        world,
+        seat->occupied,
+        seat->poseProfile
+    };
+}
+
+bool BlackRoom::seatOccupied(std::uint32_t id) const noexcept
+{
+    const SeatAnchor* seat = seatAnchorById(id);
+    return seat && seat->occupied;
+}
+
 RoomInteractionFocus BlackRoom::nearestInteraction(
     const PlayerState& player
 ) const noexcept
@@ -327,6 +402,10 @@ RoomInteractionFocus BlackRoom::nearestInteraction(
     float nearestDistance = std::numeric_limits<float>::max();
     for (const WorldAffordanceVolume& volume : kSpecimenAffordances) {
         if (!hasAffordance(volume.affordances, WorldAffordance::Seat)) {
+            continue;
+        }
+        const SeatAnchor* seat = firstAvailableSeat(volume.id);
+        if (!seat) {
             continue;
         }
         const float dx = player.x - volume.secondaryAnchor.x;
@@ -343,6 +422,7 @@ RoomInteractionFocus BlackRoom::nearestInteraction(
                     ? RoomInteractionKind::FusionTable
                     : RoomInteractionKind::LoungeCouch,
                 volume.id,
+                seat->id,
                 distance,
                 casino
                     ? std::string_view{"SIT // FUSION TABLE"}
@@ -354,30 +434,39 @@ RoomInteractionFocus BlackRoom::nearestInteraction(
     return nearest;
 }
 
-bool BlackRoom::engageNearest(PlayerState& player) const noexcept
+bool BlackRoom::engageNearest(PlayerState& player) noexcept
 {
     const RoomInteractionFocus focus = nearestInteraction(player);
     if (!focus) {
         return false;
     }
 
+    const WorldAffordanceVolume* volume = affordanceById(focus.affordanceId);
+    SeatAnchor* seat = mutableSeatAnchorById(focus.seatAnchorId);
+    if (!volume || !seat || seat->occupied ||
+        seat->furnitureAffordanceId != volume->id) {
+        return false;
+    }
+    const ResolvedSeatAnchor resolved = resolvedSeatAnchor(seat->id);
+    if (resolved.id == 0) {
+        return false;
+    }
+
+    seat->occupied = true;
     player.velocityX = 0.0f;
     player.velocityY = 0.0f;
     player.velocityZ = 0.0f;
     player.grounded = true;
     player.movementBlend = 0.0f;
     player.activeAffordanceId = focus.affordanceId;
+    player.activeSeatAnchorId = seat->id;
+    player.seatAnchorError = 0.0f;
+    player.seatOccupancy = true;
 
-    const WorldAffordanceVolume* volume = affordanceById(focus.affordanceId);
-    if (!volume) {
-        player.activeAffordanceId = 0;
-        return false;
-    }
-
-    player.x = volume->primaryAnchor.x;
-    player.y = volume->primaryAnchor.y;
-    player.z = volume->primaryAnchor.z;
-    player.yaw = volume->primaryAnchor.yaw;
+    player.x = resolved.worldPosition.x;
+    player.y = resolved.worldPosition.y;
+    player.z = resolved.worldPosition.z;
+    player.yaw = resolved.worldPosition.yaw;
 
     switch (focus.kind) {
         case RoomInteractionKind::FusionTable:
@@ -391,10 +480,14 @@ bool BlackRoom::engageNearest(PlayerState& player) const noexcept
         case RoomInteractionKind::None:
             break;
     }
+    seat->occupied = false;
+    player.activeAffordanceId = 0;
+    player.activeSeatAnchorId = 0;
+    player.seatOccupancy = false;
     return false;
 }
 
-bool BlackRoom::leaveInteraction(PlayerState& player) const noexcept
+bool BlackRoom::leaveInteraction(PlayerState& player) noexcept
 {
     if (player.activity == PlayerActivity::Roaming) {
         return false;
@@ -407,6 +500,10 @@ bool BlackRoom::leaveInteraction(PlayerState& player) const noexcept
         return false;
     }
 
+    if (SeatAnchor* seat = mutableSeatAnchorById(player.activeSeatAnchorId)) {
+        seat->occupied = false;
+    }
+
     player.x = volume->secondaryAnchor.x;
     player.y = volume->secondaryAnchor.y;
     player.z = volume->secondaryAnchor.z;
@@ -417,6 +514,9 @@ bool BlackRoom::leaveInteraction(PlayerState& player) const noexcept
     player.grounded = true;
     player.activity = PlayerActivity::Roaming;
     player.activeAffordanceId = 0;
+    player.activeSeatAnchorId = 0;
+    player.seatAnchorError = 0.0f;
+    player.seatOccupancy = false;
     return true;
 }
 

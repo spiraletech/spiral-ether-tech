@@ -246,6 +246,30 @@ Exit signal: trick intent evolves as visible machine rotation, completed motion
 lands, unfinished motion bails, BMX hands stay on steering-derived grips, and
 feet visibly relate to pedals or deck contacts.
 
+## M4.85 — v0.85 body mechanics + social embodiment
+
+- Add deterministic regular/goofy skate-stance semantics with sideways pelvis,
+  counter-rotated torso, look compensation, dedicated ride idle/rolling pose,
+  and body preload driven by the existing pop-preload value.
+- Describe ollie and BMX hop phases, minimum trick-specific pose differences,
+  foot release/reacquisition, clean/sketchy landing compression, and bail loss
+  of stance without moving gameplay success into SDL presentation.
+- Preserve BMX grip/pedal attachment truth while adding bent limbs, torso
+  commitment, steering response, and pull/tuck/descent mechanics.
+- Generalize furniture interaction into reservable local-space seat anchors
+  with stable IDs, occupancy, pose profiles, resolved transforms, and release.
+- Give the VOID COUCH explicit left/right slots and preserve stable seated
+  alignment and camera framing.
+- Extend Expert Observer with requested body and social seating diagnostics.
+
+Current state: implemented locally on
+`codex/body-mechanics-social-seating-v0.85`; dependency-free specifications and
+the native SDL client compile locally. Remote operations remain unauthorized.
+
+Exit signal: the skater reads as sideways and connected, preload/air/landing
+mechanics are visible, BMX limbs explain the machine, and couch seating chooses
+a reservable side slot instead of the center.
+
 ## M5 — World persistence and replay
 
 - Define a versioned StateStore snapshot schema.

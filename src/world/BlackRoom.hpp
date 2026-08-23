@@ -1,6 +1,8 @@
 #pragma once
 
 #include <array>
+#include <cstdint>
+#include <span>
 #include <string_view>
 
 #include "player/PlayerMovementController.hpp"
@@ -15,9 +17,35 @@ enum class RoomInteractionKind {
     LoungeCouch
 };
 
+enum class SeatPoseProfile : std::uint8_t {
+    CasinoUpright,
+    LoungeRelaxed
+};
+
+// Local-space furniture semantics. A seat slot belongs to an affordance, can
+// be reserved independently, and resolves through that furniture's anchor.
+// This is deliberately usable by future chairs/benches/social furniture.
+struct SeatAnchor {
+    std::uint32_t id = 0;
+    std::uint32_t furnitureAffordanceId = 0;
+    std::string_view label{};
+    WorldAnchor localPosition{};
+    bool occupied = false;
+    SeatPoseProfile poseProfile = SeatPoseProfile::LoungeRelaxed;
+};
+
+struct ResolvedSeatAnchor {
+    std::uint32_t id = 0;
+    std::uint32_t furnitureAffordanceId = 0;
+    WorldAnchor worldPosition{};
+    bool occupied = false;
+    SeatPoseProfile poseProfile = SeatPoseProfile::LoungeRelaxed;
+};
+
 struct RoomInteractionFocus {
     RoomInteractionKind kind = RoomInteractionKind::None;
     std::uint32_t affordanceId = 0;
+    std::uint32_t seatAnchorId = 0;
     float distance = 0.0f;
     std::string_view prompt{};
 
@@ -55,13 +83,33 @@ public:
         float y,
         float z
     ) const noexcept;
+    std::span<const SeatAnchor> seatAnchors() const noexcept;
+    const SeatAnchor* seatAnchorById(std::uint32_t id) const noexcept;
+    ResolvedSeatAnchor resolvedSeatAnchor(std::uint32_t id) const noexcept;
+    bool seatOccupied(std::uint32_t id) const noexcept;
     RoomInteractionFocus nearestInteraction(const PlayerState& player) const noexcept;
-    bool engageNearest(PlayerState& player) const noexcept;
-    bool leaveInteraction(PlayerState& player) const noexcept;
+    bool engageNearest(PlayerState& player) noexcept;
+    bool leaveInteraction(PlayerState& player) noexcept;
 
 private:
+    SeatAnchor* mutableSeatAnchorById(std::uint32_t id) noexcept;
+    const SeatAnchor* firstAvailableSeat(
+        std::uint32_t furnitureAffordanceId
+    ) const noexcept;
+
     static const std::array<HorizontalCollider, 5> colliders_;
     static const std::array<WalkableSurface, 3> surfaces_;
+    std::array<SeatAnchor, 3> seatAnchors_{{
+        {100101, 1001, "FUSION TABLE SLOT",
+         {0.0f, 0.0f, 0.0f, 0.0f}, false,
+         SeatPoseProfile::CasinoUpright},
+        {100201, 1002, "VOID COUCH LEFT",
+         {-0.82f, 0.0f, 0.0f, 0.0f}, false,
+         SeatPoseProfile::LoungeRelaxed},
+        {100202, 1002, "VOID COUCH RIGHT",
+         {0.82f, 0.0f, 0.0f, 0.0f}, false,
+         SeatPoseProfile::LoungeRelaxed}
+    }};
 };
 
 } // namespace hakui

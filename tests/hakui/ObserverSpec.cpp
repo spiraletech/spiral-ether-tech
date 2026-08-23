@@ -51,7 +51,7 @@ int main()
 
     CaptureContext context;
     context.build = {
-        "0.84-dev", "spec", "abc123", "codex/ride-physics-embodiment-v0.84",
+        "0.85-dev", "spec", "abc123", "codex/body-mechanics-social-seating-v0.85",
         "2026-08-23", "test", "none"
     };
     context.geometry = geometry;
@@ -99,6 +99,12 @@ int main()
     rideable.rightHandGripError = 0.0f;
     rideable.leftFootAnchorError = 0.12f;
     rideable.rightFootAnchorError = 0.12f;
+    rideable.skateStance = "REGULAR";
+    rideable.footContactState = "REACQUIRING";
+    rideable.airPose = "BMX_TRICK";
+    rideable.leftKneeFlex = 0.96f;
+    rideable.rightKneeFlex = 0.96f;
+    rideable.preloadPoseWeight = 0.75f;
     context.entities.push_back(std::move(rideable));
     context.currentInteractionIntent = "INTERACT";
     context.input.controllerLayout = input::ControllerLayout::PlayStation;
@@ -185,6 +191,11 @@ int main()
     assert(entities.find("\"left_hand_grip_error\":0.0000") !=
            std::string::npos);
     assert(entities.find("\"bail_reason\":\"NONE\"") != std::string::npos);
+    assert(entities.find("\"body_mechanics\"") != std::string::npos);
+    assert(entities.find("\"air_pose\":\"BMX_TRICK\"") != std::string::npos);
+    assert(entities.find("\"preload_pose_weight\":0.7500") !=
+           std::string::npos);
+    assert(entities.find("\"seat_anchor_id\":0") != std::string::npos);
     assert(map.find("<svg") != std::string::npos);
     assert(map.find("FUSION TABLE") != std::string::npos);
 

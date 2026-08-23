@@ -302,7 +302,7 @@ bool DebugWorldRenderer::init(SDL_GPUDevice* device, SDL_Window* window)
         return false;
     }
 
-    SDL_Log("[HAKUI] v0.84 DATA GRUNGE renderer // physical ride state online");
+    SDL_Log("[HAKUI] v0.85 DATA GRUNGE renderer // body mechanics online");
     return true;
 }
 
@@ -1068,14 +1068,33 @@ bool DebugWorldRenderer::render(
         hakui::RideAnchorSemantic::RightHandGrip,
         bmxSteering
     );
+    const bool regularStance = scene.rideable.body.skateStance ==
+        hakui::SkateStance::Regular;
     Vec3 leftRideFoot = ridingBmx
         ? ridePoint(bmxRig, hakui::RideAnchorSemantic::LeftFootAnchor, 0.0f, bmxCrank)
-        : ridePoint(skateboardRig, hakui::RideAnchorSemantic::FrontFootAnchor);
+        : ridePoint(
+            skateboardRig,
+            regularStance
+                ? hakui::RideAnchorSemantic::FrontFootAnchor
+                : hakui::RideAnchorSemantic::RearFootAnchor
+        );
     Vec3 rightRideFoot = ridingBmx
         ? ridePoint(bmxRig, hakui::RideAnchorSemantic::RightFootAnchor, 0.0f, bmxCrank)
-        : ridePoint(skateboardRig, hakui::RideAnchorSemantic::RearFootAnchor);
+        : ridePoint(
+            skateboardRig,
+            regularStance
+                ? hakui::RideAnchorSemantic::RearFootAnchor
+                : hakui::RideAnchorSemantic::FrontFootAnchor
+        );
     leftRideFoot.y += scene.rideable.leftFootAnchorError;
     rightRideFoot.y += scene.rideable.rightFootAnchorError;
+    if (ridingSkateboard) {
+        Vec3& frontFoot = regularStance ? leftRideFoot : rightRideFoot;
+        Vec3& rearFoot = regularStance ? rightRideFoot : leftRideFoot;
+        frontFoot.y += scene.rideable.body.frontFootLift;
+        rearFoot.y += scene.rideable.body.rearLegDrive * 0.10f;
+        rearFoot.z -= scene.rideable.body.rearLegDrive * 0.12f;
+    }
 
     // A whole-machine tabletop carries contact targets with it. Component
     // tricks (tailwhip/crankflip) deliberately let the feet separate.
@@ -1124,6 +1143,29 @@ bool DebugWorldRenderer::render(
             avatarRoot,
             multiply(translation(position), scale(dimensions))
         ), palette);
+    };
+
+    auto orientedLocalBox = [&](const Vec3& position,
+                                const Vec3& dimensions,
+                                float yaw,
+                                Uint32 palette = Shell) {
+        drawModel(multiply(
+            avatarRoot,
+            multiply(
+                translation(position),
+                multiply(rotationY(yaw), scale(dimensions))
+            )
+        ), palette);
+    };
+
+    const auto rotateYawPoint = [](Vec3 point, float yaw) {
+        const float cosine = std::cos(yaw);
+        const float sine = std::sin(yaw);
+        return Vec3{
+            point.x * cosine + point.z * sine,
+            point.y,
+            -point.x * sine + point.z * cosine
+        };
     };
 
     auto hingedBox = [&](const Vec3& joint,
@@ -1236,30 +1278,44 @@ bool DebugWorldRenderer::render(
         );
     };
 
-    auto contactLeg = [&](float side, Vec3 target) {
+    auto contactLeg = [&](float side,
+                          Vec3 target,
+                          float kneeFlex,
+                          float hipYaw,
+                          float footYaw) {
         target.y -= groundContact.visualRootAbovePlayerBase;
-        const Vec3 hip{side * 0.23f, 1.17f, 0.0f};
+        const Vec3 hip = rotateYawPoint(
+            {side * 0.23f, 1.17f - kneeFlex * 0.08f, 0.0f},
+            hipYaw
+        );
         const Vec3 knee{
             (hip.x + target.x) * 0.5f + side * 0.04f,
-            (hip.y + target.y) * 0.5f + 0.08f,
-            (hip.z + target.z) * 0.5f - 0.22f
+            (hip.y + target.y) * 0.5f + 0.10f - kneeFlex * 0.10f,
+            (hip.z + target.z) * 0.5f - 0.14f - kneeFlex * 0.12f
         };
         contactSegment(hip, knee, 0.27f);
         contactSegment(knee, target, 0.25f);
-        localBox(
+        orientedLocalBox(
             {target.x, target.y + 0.06f, target.z + 0.10f},
             {0.32f, 0.14f, 0.50f},
+            footYaw,
             Cyan
         );
     };
 
-    auto contactArm = [&](float side, Vec3 target) {
+    auto contactArm = [&](float side,
+                          Vec3 target,
+                          float shoulderYaw,
+                          float elbowFlex) {
         target.y -= groundContact.visualRootAbovePlayerBase;
-        const Vec3 shoulder{side * 0.60f, 2.12f, 0.0f};
+        const Vec3 shoulder = rotateYawPoint(
+            {side * 0.60f, 2.12f, 0.0f},
+            shoulderYaw
+        );
         const Vec3 elbow{
             (shoulder.x + target.x) * 0.5f + side * 0.12f,
-            (shoulder.y + target.y) * 0.5f - 0.04f,
-            (shoulder.z + target.z) * 0.5f - 0.12f
+            (shoulder.y + target.y) * 0.5f - 0.04f - elbowFlex * 0.06f,
+            (shoulder.z + target.z) * 0.5f - 0.08f - elbowFlex * 0.08f
         };
         contactSegment(shoulder, elbow, 0.23f);
         contactSegment(elbow, target, 0.21f);
@@ -1267,14 +1323,38 @@ bool DebugWorldRenderer::render(
     };
 
     if (seated) {
-        leg(-1.0f, -1.28f, 1.26f);
-        leg(1.0f, -1.28f, 1.26f);
+        contactLeg(-1.0f, {-0.34f, 0.34f, 0.58f}, 0.98f, 0.0f, 0.0f);
+        contactLeg(1.0f, {0.34f, 0.34f, 0.58f}, 0.98f, 0.0f, 0.0f);
     } else if (mounted && ridingSkateboard) {
-        contactLeg(-1.0f, leftRideFoot);
-        contactLeg(1.0f, rightRideFoot);
+        contactLeg(
+            -1.0f,
+            leftRideFoot,
+            scene.rideable.body.leftKneeFlex,
+            scene.rideable.body.pelvisYawRelativeToBoard,
+            scene.rideable.body.pelvisYawRelativeToBoard
+        );
+        contactLeg(
+            1.0f,
+            rightRideFoot,
+            scene.rideable.body.rightKneeFlex,
+            scene.rideable.body.pelvisYawRelativeToBoard,
+            scene.rideable.body.pelvisYawRelativeToBoard
+        );
     } else if (mounted && ridingBmx) {
-        contactLeg(-1.0f, leftRideFoot);
-        contactLeg(1.0f, rightRideFoot);
+        contactLeg(
+            -1.0f,
+            leftRideFoot,
+            scene.rideable.body.leftKneeFlex,
+            scene.rideable.body.pelvisYawRelativeToBoard,
+            0.0f
+        );
+        contactLeg(
+            1.0f,
+            rightRideFoot,
+            scene.rideable.body.rightKneeFlex,
+            scene.rideable.body.pelvisYawRelativeToBoard,
+            0.0f
+        );
     } else if (scene.combatActive) {
         const float stanceStep = std::sin(player.gaitPhase) *
             0.18f * scene.playerStanceBlend;
@@ -1284,7 +1364,12 @@ bool DebugWorldRenderer::render(
         leg(-1.0f, gait * stride, std::max(0.0f, -gait) * 0.58f);
         leg(1.0f, counterGait * stride, std::max(0.0f, -counterGait) * 0.58f);
     }
-    localBox({0.0f, 1.20f, 0.0f}, {0.74f, 0.30f, 0.44f}, Midnight);
+    orientedLocalBox(
+        {0.0f, 1.20f - scene.rideable.body.landingCompression * 0.12f, 0.0f},
+        {0.74f, 0.30f, 0.44f},
+        mounted ? scene.rideable.body.pelvisYawRelativeToBoard : 0.0f,
+        Midnight
+    );
 
     const bool attackRelease = scene.combatActive &&
         scene.playerCombatState == hakui::combat::CombatState::Release;
@@ -1293,8 +1378,9 @@ bool DebugWorldRenderer::render(
         : 0.0f;
     const float impactLean = scene.playerCombatState ==
         hakui::combat::CombatState::Staggered ? -0.22f : 0.0f;
-    const float rideCompression = mounted && player.grounded
-        ? scene.rideable.popPreload * 0.18f
+    const float rideCompression = mounted
+        ? scene.rideable.body.preloadPoseWeight * 0.20f +
+            scene.rideable.body.landingCompression * 0.24f
         : 0.0f;
     const float bodyAssistVisual = mounted
         ? scene.rideable.bodyRotationAssist * std::sin(
@@ -1310,16 +1396,21 @@ bool DebugWorldRenderer::render(
                 attackCommitment
             }),
             multiply(
-                rotationX(
-                    airborneLean + expressiveRideLean +
-                    (ridingBmx ? 0.20f : 0.0f)
+                rotationY(
+                    mounted ? scene.rideable.body.torsoYawRelativeToBoard : 0.0f
                 ),
                 multiply(
-                    rotationZ(
-                        bodySway + expressiveRideSway + impactLean +
-                        bodyAssistVisual
+                    rotationX(
+                        airborneLean + expressiveRideLean +
+                        (mounted ? scene.rideable.body.torsoLean : 0.0f)
                     ),
-                    scale({0.92f, 0.94f, 0.48f})
+                    multiply(
+                        rotationZ(
+                            bodySway + expressiveRideSway + impactLean +
+                            bodyAssistVisual
+                        ),
+                        scale({0.92f, 0.94f, 0.48f})
+                    )
                 )
             )
         )
@@ -1352,14 +1443,70 @@ bool DebugWorldRenderer::render(
         }
     }
     if (mounted && ridingBmx) {
-        contactArm(-1.0f, leftRideHand);
-        contactArm(1.0f, rightRideHand);
+        contactArm(
+            -1.0f,
+            leftRideHand,
+            scene.rideable.body.torsoYawRelativeToBoard,
+            scene.rideable.body.leftElbowFlex
+        );
+        contactArm(
+            1.0f,
+            rightRideHand,
+            scene.rideable.body.torsoYawRelativeToBoard,
+            scene.rideable.body.rightElbowFlex
+        );
+    } else if (mounted && ridingSkateboard) {
+        const float counterbalance = scene.rideable.body.armCounterbalance;
+        Vec3 leftSkateHand = rotateYawPoint(
+            {-0.82f, 1.48f + counterbalance * 0.10f,
+             -0.10f - counterbalance * 0.24f},
+            scene.rideable.body.torsoYawRelativeToBoard
+        );
+        Vec3 rightSkateHand = rotateYawPoint(
+            {0.82f, 1.52f - counterbalance * 0.10f,
+             0.12f + counterbalance * 0.24f},
+            scene.rideable.body.torsoYawRelativeToBoard
+        );
+        if (scene.rideable.body.airPose == hakui::RideAirPose::BoardGrab) {
+            if (regularStance) {
+                rightSkateHand = rightRideFoot;
+                rightSkateHand.y += 0.16f;
+            } else {
+                leftSkateHand = leftRideFoot;
+                leftSkateHand.y += 0.16f;
+            }
+        }
+        contactArm(
+            -1.0f,
+            leftSkateHand,
+            scene.rideable.body.torsoYawRelativeToBoard,
+            scene.rideable.body.leftElbowFlex
+        );
+        contactArm(
+            1.0f,
+            rightSkateHand,
+            scene.rideable.body.torsoYawRelativeToBoard,
+            scene.rideable.body.rightElbowFlex
+        );
     } else {
         arm(-1.0f, leftArmAngle);
         arm(1.0f, rightArmAngle);
     }
-    localBox({0.0f, 2.28f + idleBreath, 0.0f}, {0.22f, 0.18f, 0.22f}, Cyan);
-    localBox({0.0f, 2.60f + idleBreath, 0.0f}, {0.56f, 0.58f, 0.52f}, Shell);
+    const float headYaw = mounted
+        ? scene.rideable.body.headYawRelativeToBoard
+        : 0.0f;
+    orientedLocalBox(
+        {0.0f, 2.28f + idleBreath - rideCompression, 0.0f},
+        {0.22f, 0.18f, 0.22f},
+        headYaw,
+        Cyan
+    );
+    orientedLocalBox(
+        {0.0f, 2.60f + idleBreath - rideCompression, 0.0f},
+        {0.56f, 0.58f, 0.52f},
+        headYaw,
+        Shell
+    );
 
     if (scene.sparDummyVisible) {
         using hakui::combat::AttackSemantic;

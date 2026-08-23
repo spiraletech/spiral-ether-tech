@@ -1,6 +1,6 @@
 # Hakui Product Requirements
 
-Status: working specification through the local v0.84 ride-physics and embodiment pass.
+Status: working specification through the local v0.85 body-mechanics and social-embodiment pass.
 
 Each requirement has a stable identifier so code, tests, issues, and release notes can refer to the same contract. A requirement is complete only when its acceptance criteria are automated or explicitly marked as a manual visual/audio check.
 
@@ -285,6 +285,33 @@ Automated in part by: `hakui.input`, `hakui.rideable_movement`,
 `hakui.avatar_rig`, and `hakui.observer`. Body-pose readability remains a native
 multi-angle visual smoke check.
 
+### HK-EXP-017 — Body mechanics and social seat slots
+
+The avatar shall visually explain deterministic ride state through articulated
+body mechanics, and social furniture shall align occupants through reservable
+local-space seat semantics rather than a single center teleport.
+
+Acceptance criteria:
+
+- Skate pose state includes future-selectable regular/goofy stance, a
+  substantially sideways pelvis, torso counter-rotation, and head compensation.
+- Preload, ollie rise/level/descent, each minimum skateboard trick,
+  foot release/reacquisition, landing quality, and bail expose deterministic
+  body fields that the renderer consumes without deciding gameplay outcomes.
+- BMX pose state retains steering-derived grips and crank-derived pedal targets
+  while adding knee/elbow flex, torso commitment, and bunny-hop phases.
+- Furniture exposes stable local-space `SeatAnchor` identifiers, position,
+  rotation, occupancy, and pose profile; engagement reserves an available slot,
+  alignment resolves through furniture space, and standing releases it.
+- The canonical VOID COUCH exposes left/right slots and never chooses its center.
+- Observer entity snapshots expose skate stance, pelvis yaw, foot-anchor errors,
+  knee flex, preload pose, air pose, landing compression, seat anchor ID/error,
+  and occupancy.
+
+Automated in part by: `hakui.gameplay_movement`, `hakui.rideable_movement`, and
+`hakui.observer`. Final silhouette/contact quality remains a native multi-angle
+visual smoke check.
+
 ## Engine requirements
 
 ### HK-ENG-001 — Dependency firewall
@@ -371,6 +398,7 @@ Before a public v1.0 release, the repository shall include an owner-selected lic
 | HK-EXP-014 | Implemented locally | `ExpertObserver`, native F12 frame capture, observer spec, versioned read-only bundle |
 | HK-EXP-015 | Implemented locally | `RideControlInterpreter`, semantic controller-family prompts, rideable/input/observer specs |
 | HK-EXP-016 | Implemented locally | Deterministic trick physics/landing/bail, hierarchical ride anchors, observer diagnostics |
+| HK-EXP-017 | Implemented locally | Deterministic body-pose vocabulary, articulated renderer, reservable furniture seat slots, observer diagnostics |
 | HK-ENG-001–005 | Implemented, awaiting CI | Firewall and Spiral specs |
 | HK-ENG-006 | Implemented locally | Semantic affordances and dependency-free combat/gameplay targets |
 | HK-QLT-001–003 | Implemented, awaiting CI | CMake, workflow, dependency manifest |
