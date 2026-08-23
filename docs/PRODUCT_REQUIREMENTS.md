@@ -1,6 +1,6 @@
 # Hakui Product Requirements
 
-Status: working specification through the local v0.75 expressive-movement pass.
+Status: working specification through the local v0.8 control-nervous-system pass.
 
 Each requirement has a stable identifier so code, tests, issues, and release notes can refer to the same contract. A requirement is complete only when its acceptance criteria are automated or explicitly marked as a manual visual/audio check.
 
@@ -138,7 +138,7 @@ Acceptance criteria:
   interruption, knockdown, and recovery.
 - Unarmed supports stance, jab, cross, guard, receive-hit, knockdown, recovery,
   and exit.
-- Sword and bow semantics remain disabled extension points through v0.75.
+- Sword and bow semantics remain disabled extension points through v0.8.
 - Damage events identify source, target, discipline, semantic, amount, impact,
   stagger, knockdown potential, and result.
 - The camera and procedural avatars remain third-person and full-body readable.
@@ -180,6 +180,26 @@ Acceptance criteria:
 
 Automated in part by: `hakui.gameplay_movement` and
 `hakui.rideable_movement`. Mesh readability is a native visual smoke check.
+
+### HK-EXP-013 — Semantic multi-device control
+
+Hardware shall express intent through a platform-neutral action layer before an
+active discipline interprets gameplay meaning.
+
+Acceptance criteria:
+
+- Gameplay consumers do not read SDL scancodes or gamepad button names.
+- The same jump action becomes jump, ollie, or bunny hop by active discipline.
+- Keyboard/mouse and SDL gamepads can hot-swap without restarting the client.
+- The last active device selects prompt presentation.
+- Controller disconnect clears stale ride input and never corrupts camera state.
+- Public skateboard/BMX activation without a gamepad produces a clear status
+  message; a developer-only keyboard fallback remains available.
+- BMX front/rear axle and grip placement obey a tested local `+Z`-forward
+  convention.
+
+Automated in part by: `hakui.input`, `hakui.avatar_rig`,
+`hakui.gameplay_movement`, `hakui.rideable_movement`, and `hakui.combat`.
 
 ## Engine requirements
 
@@ -259,10 +279,11 @@ Before a public v1.0 release, the repository shall include an owner-selected lic
 | HK-EXP-006 | Implemented, awaiting CI | Card deck, dice, blackjack, tabletop spec |
 | HK-EXP-007 | Implemented, awaiting CI | Game terminal, interaction routing, tabletop spec |
 | HK-EXP-008 | Implemented locally | `BlackRoom`, `WorldGeometry`, gameplay spec |
-| HK-EXP-009 | Implemented locally | Native v0.75 movement/combat acceptance loop; remote CI unauthorized |
+| HK-EXP-009 | Implemented locally | Native v0.8 control/embodiment acceptance loop; remote CI unauthorized |
 | HK-EXP-010 | Implemented locally | `CombatSimulation`, deterministic footwork, combat spec, native spar presentation |
 | HK-EXP-011 | Implemented locally | `ThirdPersonCameraRig`, camera spec, native capture smoke |
 | HK-EXP-012 | Implemented locally | `RideableMovementController`, rideable spec, distinct procedural models |
+| HK-EXP-013 | Implemented locally | `HakuiInput`, `SdlInputBridge`, discipline interpreter, semantic HUD prompts, ride attachment spec |
 | HK-ENG-001–005 | Implemented, awaiting CI | Firewall and Spiral specs |
 | HK-ENG-006 | Implemented locally | Semantic affordances and dependency-free combat/gameplay targets |
 | HK-QLT-001–003 | Implemented, awaiting CI | CMake, workflow, dependency manifest |

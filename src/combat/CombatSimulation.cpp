@@ -156,7 +156,7 @@ AttackDefinition CombatSimulation::attackDefinition(
     }
 
     // Directional sword and projectile semantics are intentionally declared
-    // but disabled through v0.75. Enabling them later means adding discipline
+    // but disabled through v0.8. Enabling them later means adding discipline
     // profiles, not replacing shared encounter, hit, or damage machinery.
     return {discipline, semantic};
 }

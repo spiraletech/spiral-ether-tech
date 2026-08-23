@@ -4,6 +4,7 @@
 #include <unordered_set>
 
 #include "avatar/HakuiSkeleton.hpp"
+#include "avatar/RideAttachmentRig.hpp"
 
 namespace {
 
@@ -57,11 +58,37 @@ void hierarchy_and_attachment_references_are_valid()
     assert(skeleton.findBone("missing") == -1);
 }
 
+void rideable_anchors_use_a_stable_forward_convention()
+{
+    using namespace hakui;
+
+    const RideAttachmentRig board = RideAttachmentRig::skateboard();
+    const RideAttachmentRig bmx = RideAttachmentRig::bmx();
+    assert(board.valid());
+    assert(bmx.valid());
+    assert(board.find(RideAnchorSemantic::BoardDeckAnchor) != nullptr);
+
+    const RideAnchor* front = bmx.find(RideAnchorSemantic::FrontAxle);
+    const RideAnchor* rear = bmx.find(RideAnchorSemantic::RearAxle);
+    const RideAnchor* pelvis = bmx.find(RideAnchorSemantic::PelvisAnchor);
+    const RideAnchor* leftGrip = bmx.find(RideAnchorSemantic::LeftHandGrip);
+    const RideAnchor* rightGrip = bmx.find(RideAnchorSemantic::RightHandGrip);
+    assert(front && rear && pelvis && leftGrip && rightGrip);
+    assert(front->z > rear->z);
+    assert(leftGrip->z > pelvis->z);
+    assert(rightGrip->z > pelvis->z);
+    assert(leftGrip->x < 0.0f);
+    assert(rightGrip->x > 0.0f);
+    assert(leftGrip->y == rightGrip->y);
+    assert(leftGrip->z == rightGrip->z);
+}
+
 } // namespace
 
 int main()
 {
     default_humanoid_is_complete_and_rebuildable();
     hierarchy_and_attachment_references_are_valid();
+    rideable_anchors_use_a_stable_forward_convention();
     return 0;
 }

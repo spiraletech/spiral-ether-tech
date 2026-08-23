@@ -345,8 +345,8 @@ RoomInteractionFocus BlackRoom::nearestInteraction(
                 volume.id,
                 distance,
                 casino
-                    ? std::string_view{"E SIT // FUSION TABLE"}
-                    : std::string_view{"E SIT // VOID COUCH"}
+                    ? std::string_view{"SIT // FUSION TABLE"}
+                    : std::string_view{"SIT // VOID COUCH"}
             };
             nearestDistance = distance;
         }

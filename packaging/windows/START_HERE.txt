@@ -1,49 +1,67 @@
 SPIRAL OS: HAKUI ENGINE
-WINDOWS STARTUP PACK
+WINDOWS STARTUP PACK // v0.8 CONTROL NERVOUS SYSTEM
 
 Run:
 SPIRAL-OS-HAKUI-ENGINE.exe
 
-Controls:
-WASD  MOVE
-SHIFT SPRINT
-SPACE JUMP / OLLIE / BUNNY HOP
-M     HOLD MANUAL IN MANUAL ZONE
-F     HOLD GRIND NEAR GRINDABLE GEOMETRY
-Z / X AIR TRICK WHILE RIDING
-E     SIT / STAND / USE ANCHOR
-RMB   ORBIT CAMERA
-WHEEL ZOOM CAMERA
-Q     SWITCH SHOULDER
-R     RESET CAMERA
-1     ON FOOT
-2     SKATEBOARD (VISIBLE RIDE MODE)
-3     BMX (VISIBLE RIDE MODE)
-4     CAR (DEFERRED / IMMOBILE)
-[ / ] LOOK SENSITIVITY
-- / + AUDIO VOLUME
+KEYBOARD + MOUSE:
+WASD        MOVE
+MOUSE       CAMERA INPUT
+RMB + MOUSE ORBIT CAMERA
+WHEEL       ZOOM CAMERA
+SPACE       JUMP
+LEFT SHIFT  SPRINT
+E           INTERACT / USE / SIT / STAND
+Q           GUARD / CONTEXTUAL MODIFIER
+F           CONTEXT / GRIND
+LEFT CTRL   BALANCE / MANUAL
+C           CANCEL / DISMOUNT / ENTER OR LEAVE SPAR
+R           RECOVER / CAMERA RESET
+TAB         SWITCH CAMERA SHOULDER
+ESC         PAUSE / RESUME
+F10         QUIT
+
+GAMEPAD (SDL-COMPATIBLE):
+LEFT STICK  MOVE / STEER
+RIGHT STICK CAMERA
+SOUTH       JUMP / OLLIE / BUNNY HOP
+EAST        CANCEL / DISMOUNT
+WEST        INTERACT / PRIMARY DISCIPLINE ACTION
+NORTH       SECONDARY DISCIPLINE ACTION / RECOVER
+LB / LT     GUARD / BALANCE
+RB          CONTEXT / GRIND
+RT          ACCELERATE
+START       PAUSE / RESUME
+R3          RESET CAMERA
+DPAD UP     ON FOOT
+DPAD LEFT   SKATEBOARD
+DPAD RIGHT  BMX
+DPAD DOWN   SWITCH CAMERA SHOULDER
+
+RIDE INPUT POLICY:
+Advanced skateboard and BMX activation requires a connected SDL gamepad.
+If none is available HAKUI displays:
+RIDE INPUT UNAVAILABLE // CONNECT GAMEPAD TO SYNCHRONIZE
+
+Developer-only keyboard ride fallback:
+F9          TOGGLE FALLBACK
+1           ON FOOT
+2           SKATEBOARD
+3           BMX
+4           CAR (DEFERRED / IMMOBILE)
+Z / X       PRIMARY / SECONDARY RIDE OR COMBAT ACTION
+V           LEGACY GUARD
+M           LEGACY MANUAL
 
 FUSION TABLE (ONLY WHILE SEATED):
-T     TERMINAL / DICE
-G     CARD SUITE
-B     BET 25 VIRTUAL CREDITS
-H     HIT CARD
-J     STAND CARD HAND
-I     INSPECT TERMINAL
+KEYBOARD    T DICE // G CARDS // B BET // H HIT // J STAND // I INSPECT
+GAMEPAD     DPAD UP DICE // LEFT CARDS // DOWN BET // SOUTH HIT
+            NORTH STAND // RIGHT INSPECT
 
-SPARRING DATUM:
-C     ENTER / LEAVE COMBAT
-WASD  STANCE FOOTWORK
-Z     JAB
-X     CROSS
-V     HOLD GUARD
-K     RECOVER AFTER KNOCKDOWN
+SETTINGS:
+[ / ]       LOOK SENSITIVITY
+- / +       AUDIO VOLUME
 
-ESC   PAUSE / RESUME
-F10   QUIT
-
-Skateboard: ollie, manual, grind, kickflip, heelflip, landing quality, bail.
-BMX: bunny hop, wheel manual, peg grind, tabletop, landing quality, bail.
-These are focused expressive grammars, not full trick encyclopedias.
-Approaching a seat or spar datum dismounts supported ride modes to ON FOOT.
+HAKUI uses semantic actions internally. Prompts change to the most recently
+active device, and controllers may connect or disconnect while the game runs.
 Virtual credits only. No purchase or cash-out.

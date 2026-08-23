@@ -130,6 +130,30 @@ Exit signal: a player can connect a short board/BMX movement line, read the
 resulting trick and landing feedback, then dismount into kinetic unarmed
 sparring without losing camera fluency.
 
+## M4.8 — v0.8 control nervous system
+
+- Terminate SDL controls at one native adapter and publish platform-neutral
+  action/axis frames to gameplay consumers.
+- Interpret the shared intent grammar through on-foot, skateboard, BMX, boxing,
+  and seated contexts without changing deterministic movement rules.
+- Track the last active device, hot-swap prompts, and recover safely after a
+  controller disconnect.
+- Require a connected controller to activate advanced public ride modes while
+  retaining an explicitly marked developer keyboard fallback.
+- Resolve prompts from semantic actions instead of storing physical keys in
+  world-interaction text.
+- Define ride attachment anchors and rebuild BMX front steering around a stable
+  `+Z`-forward local convention.
+
+Current state: implemented locally on `codex/control-nervous-system-v0.8`; nine
+deterministic CTests and the native SDL client compile locally. Runtime visual
+and control-feel checks remain part of the local acceptance pass. Remote
+operations remain unauthorized.
+
+Exit signal: keyboard/mouse and hot-swapped SDL gamepads speak one coherent
+intent language, advanced rides fail clearly without a controller, and the BMX
+front assembly stays visibly and structurally forward while steering.
+
 ## M5 — World persistence and replay
 
 - Define a versioned StateStore snapshot schema.

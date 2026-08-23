@@ -17,6 +17,7 @@ hakui_enforce_first_party_firewall(
 
 add_library(hakui_avatar_rig STATIC
     ${CMAKE_CURRENT_LIST_DIR}/../src/avatar/HakuiSkeleton.cpp
+    ${CMAKE_CURRENT_LIST_DIR}/../src/avatar/RideAttachmentRig.cpp
 )
 
 target_include_directories(hakui_avatar_rig

@@ -8,6 +8,7 @@
 #include <cstring>
 #include <vector>
 
+#include "avatar/RideAttachmentRig.hpp"
 #include "render/Math3D.hpp"
 
 // Temporary bootstrap shaders from SDL's own GPU test suite.
@@ -292,7 +293,7 @@ bool DebugWorldRenderer::init(SDL_GPUDevice* device, SDL_Window* window)
         return false;
     }
 
-    SDL_Log("[HAKUI] v0.75 DATA GRUNGE renderer // expressive movement online");
+    SDL_Log("[HAKUI] v0.8 DATA GRUNGE renderer // control nervous system online");
     return true;
 }
 
@@ -736,42 +737,77 @@ bool DebugWorldRenderer::render(
         constexpr float wheelRadius = 0.62f;
         constexpr int wheelSegments = 12;
         const float steering = scene.rideable.steeringVisual * 0.48f;
-        auto bikeWheel = [&](float centerZ, float steeringAngle) {
-            const Vec3 center{0.0f, wheelRadius + 0.03f, centerZ};
+        static const hakui::RideAttachmentRig bmxRig =
+            hakui::RideAttachmentRig::bmx();
+        const auto anchorPosition = [&](
+            hakui::RideAnchorSemantic semantic,
+            const Vec3& fallback
+        ) {
+            const hakui::RideAnchor* anchor = bmxRig.find(semantic);
+            return anchor ? Vec3{anchor->x, anchor->y, anchor->z} : fallback;
+        };
+        const Vec3 rearHub = anchorPosition(
+            hakui::RideAnchorSemantic::RearAxle,
+            {0.0f, 0.65f, -0.88f}
+        );
+        const Vec3 frontHub = anchorPosition(
+            hakui::RideAnchorSemantic::FrontAxle,
+            {0.0f, 0.65f, 0.88f}
+        );
+        const Vec3 leftGrip = anchorPosition(
+            hakui::RideAnchorSemantic::LeftHandGrip,
+            {-0.62f, 1.53f, 0.68f}
+        );
+        const Vec3 rightGrip = anchorPosition(
+            hakui::RideAnchorSemantic::RightHandGrip,
+            {0.62f, 1.53f, 0.68f}
+        );
+        const Vec3 leftPedal = anchorPosition(
+            hakui::RideAnchorSemantic::LeftFootAnchor,
+            {-0.28f, 0.66f, 0.05f}
+        );
+        const Vec3 rightPedal = anchorPosition(
+            hakui::RideAnchorSemantic::RightFootAnchor,
+            {0.28f, 0.66f, 0.05f}
+        );
+
+        // The wheel and every steering component share one local assembly.
+        // +Z is bicycle-forward, so the front root must have greater Z than
+        // the rear root in every camera view.
+        const Mat4 rearAssembly = translation(rearHub);
+        const Mat4 frontAssembly = multiply(
+            translation(frontHub),
+            rotationY(steering)
+        );
+        auto bikeWheel = [&](const Mat4& assembly) {
             for (int segment = 0; segment < wheelSegments; ++segment) {
                 const float angle =
                     (2.0f * kPi * static_cast<float>(segment) /
                      static_cast<float>(wheelSegments)) +
                     player.gaitPhase * 0.42f;
                 const Mat4 tire = multiply(
-                    translation(center),
+                    assembly,
                     multiply(
-                        rotationY(steeringAngle),
+                        rotationX(angle),
                         multiply(
-                            rotationX(angle),
-                            multiply(
-                                translation({0.0f, wheelRadius, 0.0f}),
-                                scale({0.13f, 0.11f, 0.34f})
-                            )
+                            translation({0.0f, wheelRadius, 0.0f}),
+                            scale({0.13f, 0.11f, 0.34f})
                         )
                     )
                 );
                 locomotionModel(tire, Midnight);
             }
-            locomotionBox(center, {0.22f, 0.22f, 0.22f}, Amber);
+            locomotionModel(multiply(assembly, scale({0.22f, 0.22f, 0.22f})), Amber);
             for (int spoke = 0; spoke < 4; ++spoke) {
                 const float angle =
                     kPi * static_cast<float>(spoke) * 0.25f +
                     player.gaitPhase * 0.42f;
                 locomotionModel(
                     multiply(
-                        translation(center),
+                        assembly,
                         multiply(
-                            rotationY(steeringAngle),
-                            multiply(
-                                rotationX(angle),
-                                scale({0.045f, wheelRadius * 1.75f, 0.045f})
-                            )
+                            rotationX(angle),
+                            scale({0.045f, wheelRadius * 1.75f, 0.045f})
                         )
                     ),
                     Cyan
@@ -801,31 +837,25 @@ bool DebugWorldRenderer::render(
             );
         };
 
-        bikeWheel(-0.88f, steering);
-        bikeWheel(0.88f, 0.0f);
-        const Vec3 rearHub{0.0f, 0.65f, 0.88f};
-        const Vec3 frontHub{0.0f, 0.65f, -0.88f};
+        bikeWheel(rearAssembly);
+        bikeWheel(frontAssembly);
         const Vec3 crank{0.0f, 0.66f, 0.05f};
-        const Vec3 seatPost{0.0f, 1.30f, 0.30f};
-        const Vec3 headTube{0.0f, 1.18f, -0.58f};
+        const Vec3 seatPost{0.0f, 1.30f, -0.30f};
+        const Vec3 headTube{0.0f, 1.18f, 0.58f};
         frameBar(rearHub, crank, 0.10f, Magenta);
         frameBar(rearHub, seatPost, 0.10f, Magenta);
         frameBar(seatPost, crank, 0.10f, Magenta);
         frameBar(seatPost, headTube, 0.10f, Cyan);
         frameBar(headTube, crank, 0.10f, Cyan);
         frameBar(headTube, frontHub, 0.085f, Shell);
-        locomotionBox({0.0f, 1.36f, 0.32f}, {0.48f, 0.11f, 0.32f}, Shell);
-        const Mat4 frontAssembly = multiply(
-            translation(frontHub),
-            rotationY(steering)
-        );
+        locomotionBox({0.0f, 1.36f, -0.32f}, {0.48f, 0.11f, 0.32f}, Shell);
         for (float forkSide : {-1.0f, 1.0f}) {
             locomotionModel(
                 multiply(
                     frontAssembly,
                     multiply(
-                        translation({forkSide * 0.16f, 0.29f, 0.15f}),
-                        multiply(rotationX(-0.48f), scale({0.065f, 0.68f, 0.065f}))
+                        translation({forkSide * 0.16f, 0.29f, -0.15f}),
+                        multiply(rotationX(0.48f), scale({0.065f, 0.68f, 0.065f}))
                     )
                 ),
                 Shell
@@ -835,8 +865,8 @@ bool DebugWorldRenderer::render(
             multiply(
                 frontAssembly,
                 multiply(
-                    translation({0.0f, 0.68f, 0.27f}),
-                    multiply(rotationX(-0.18f), scale({0.10f, 0.42f, 0.10f}))
+                    translation({0.0f, 0.68f, -0.23f}),
+                    multiply(rotationX(0.18f), scale({0.10f, 0.42f, 0.10f}))
                 )
             ),
             Magenta
@@ -845,18 +875,22 @@ bool DebugWorldRenderer::render(
             multiply(
                 frontAssembly,
                 multiply(
-                    translation({0.0f, 0.88f, 0.24f}),
+                    translation({0.0f, leftGrip.y - frontHub.y, leftGrip.z - frontHub.z}),
                     scale({1.18f, 0.09f, 0.10f})
                 )
             ),
             Cyan
         );
-        for (float gripSide : {-1.0f, 1.0f}) {
+        for (const Vec3& grip : {leftGrip, rightGrip}) {
             locomotionModel(
                 multiply(
                     frontAssembly,
                     multiply(
-                        translation({gripSide * 0.62f, 0.88f, 0.24f}),
+                        translation({
+                            grip.x - frontHub.x,
+                            grip.y - frontHub.y,
+                            grip.z - frontHub.z
+                        }),
                         scale({0.20f, 0.13f, 0.15f})
                     )
                 ),
@@ -864,11 +898,11 @@ bool DebugWorldRenderer::render(
             );
         }
         locomotionBox(crank, {0.28f, 0.28f, 0.12f}, Amber);
-        locomotionBox({-0.28f, 0.66f, 0.05f}, {0.42f, 0.07f, 0.13f}, Shell);
-        locomotionBox({0.28f, 0.66f, 0.05f}, {0.42f, 0.07f, 0.13f}, Shell);
+        locomotionBox(leftPedal, {0.42f, 0.07f, 0.13f}, Shell);
+        locomotionBox(rightPedal, {0.42f, 0.07f, 0.13f}, Shell);
     }
 
-    // HAKUI PROCEDURAL HUMANOID v0.75: acceleration-aware blending, turning,
+    // HAKUI PROCEDURAL HUMANOID: acceleration-aware blending, turning,
     // airborne posture, and shared seated poses for furniture/table anchors.
     const bool seated = player.activity != PlayerActivity::Roaming;
     const bool mounted = ridingSkateboard || ridingBmx;

@@ -1,6 +1,7 @@
 #pragma once
 
 #include <memory>
+#include <string>
 #include <string_view>
 
 #include <SDL3/SDL.h>
@@ -10,6 +11,7 @@
 #include "combat/CombatSimulation.hpp"
 #include "games/GameTerminal.hpp"
 #include "interaction/InteractionService.hpp"
+#include "input/SdlInputBridge.hpp"
 #include "player/PlayerMovementController.hpp"
 #include "player/RideableMovementController.hpp"
 #include "player/PlayerState.hpp"
@@ -31,16 +33,16 @@ private:
     bool initGPU();
     void initSpiralCore();
     void switchLocomotion(LocomotionMode mode, std::string_view label);
+    void requestRideLocomotion(LocomotionMode mode, std::string_view label);
+    void showInputStatus(std::string message, float seconds = 2.8f);
     void interactWithTerminal(hakui::InteractionVerb verb);
-    void handleCasinoCommand(SDL_Keycode key);
+    void handleCasinoAction(hakui::input::Action action);
     void handlePrimaryInteraction();
     void toggleCombat();
-    void updateCombat(float dt, const bool* keys);
+    void updateCombat(float dt, const hakui::input::DisciplineIntent& intent);
     bool setCameraCapture(bool enabled);
-    void updateCameraOrbitInput();
     void setPaused(bool paused);
     void openGamepad(SDL_JoystickID instanceId);
-    void handleGamepadButton(SDL_GamepadButton button);
     void updateHud();
     void update(float dt);
     bool render();
@@ -54,13 +56,11 @@ private:
     bool cameraDragging_ = false;
     int cameraCaptureWarmupFrames_ = 0;
     bool paused_ = false;
-    bool jumpQueued_ = false;
-    bool rideFlipLeftQueued_ = false;
-    bool rideFlipRightQueued_ = false;
-    bool combatRecoverQueued_ = false;
+    bool quitRequested_ = false;
+    bool developerRideFallback_ = false;
     bool alternateFootstep_ = false;
-    hakui::combat::AttackSemantic combatAttackQueued_ =
-        hakui::combat::AttackSemantic::None;
+    float inputStatusTimer_ = 0.0f;
+    std::string inputStatus_;
     float opponentDecisionTimer_ = 1.15f;
     float playerHitPulse_ = 0.0f;
     float opponentHitPulse_ = 0.0f;
@@ -75,6 +75,8 @@ private:
 
     HakuiSkeleton avatarSkeleton_;
     HakuiAudio audio_;
+    hakui::input::SdlInputBridge inputBridge_;
+    hakui::input::InputFrame inputFrame_{};
     DebugWorldRenderer debugRenderer_;
     WorldState world_;
     hakui::BlackRoom blackRoom_;

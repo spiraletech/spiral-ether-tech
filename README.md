@@ -1,4 +1,4 @@
-# PROJECT HAKUI — Native Client v0.75-dev
+# PROJECT HAKUI — Native Client v0.8-dev
 
 [![Hakui Build and Test](https://github.com/spiraletech/spiral-ether-tech/actions/workflows/native-build.yml/badge.svg)](https://github.com/spiraletech/spiral-ether-tech/actions/workflows/native-build.yml)
 [![C++20](https://img.shields.io/badge/C%2B%2B-20-00599C.svg)](https://en.cppreference.com/w/cpp/20)
@@ -36,6 +36,28 @@ cmake --build build --config Release --target hakui --parallel
 ```
 
 The resulting executable is `hakui` (`hakui.exe` on Windows). Run it from the selected build-configuration directory used by your generator.
+
+## v0.8 control nervous system
+
+v0.8 replaces hardware-specific gameplay checks with one platform-neutral
+intent grammar. SDL keyboard, mouse, and gamepad state terminates at a native
+adapter; deterministic binding and discipline layers resolve it into actions
+such as `Jump`, `Interact`, `PrimaryAction`, `Guard`, `Grind`, `Balance`, and
+`Dismount`. The active discipline then interprets the same traversal intent as
+an on-foot jump, skateboard ollie, or BMX bunny hop.
+
+The last active device controls presentation prompts without a restart. SDL
+gamepads can connect or disconnect at runtime, and disconnecting during an
+advanced ride returns the avatar safely to on-foot movement. Skateboard and BMX
+activation is controller-native in the player-facing path; without a gamepad,
+HAKUI displays `RIDE INPUT UNAVAILABLE // CONNECT GAMEPAD TO SYNCHRONIZE`.
+`F9` retains a clearly marked developer-only keyboard fallback.
+
+The BMX now uses a stable `+Z`-forward ride coordinate convention. Its front
+wheel, fork, stem, handlebars, and grips share a single steering assembly rooted
+at the front axle. Data-owned rider, pelvis, foot, hand-grip, axle, and board
+deck anchors establish a clean seam for future IK without introducing an IK
+system in this milestone.
 
 ## v0.75 expressive movement pass
 
@@ -353,6 +375,7 @@ spiral_core
 hakui_avatar_rig
 hakui_interaction
 hakui_gameplay
+hakui_input
 hakui_tabletop
 hakui
 ```
@@ -367,6 +390,7 @@ hakui_interaction_spec
 hakui_avatar_rig_spec
 hakui_gameplay_spec
 hakui_rideable_spec
+hakui_input_spec
 hakui_camera_spec
 hakui_combat_spec
 hakui_tabletop_spec
@@ -376,33 +400,38 @@ imvu_cal3d_backend_spec
 ## Controls
 
 ```text
-W A S D       move / steer; stance footwork while sparring
-Shift         sprint / push / pedal
-Space         jump / ollie / bunny hop
-M             hold manual in a ManualZone
-F             hold grind near Grindable geometry
-Z / X         air trick while riding; jab / cross while sparring
-RMB           orbit third-person camera
-Mouse wheel   zoom camera
-Q             switch shoulder
-R             reset camera framing
-1             on-foot mode
-2             skateboard mode
-3             BMX mode
-4             car mode (explicitly deferred / immobile)
-E             sit, stand, or use nearest authored anchor
-C             enter / leave sparring datum
-V             hold guard
-K             recover after knockdown
-T             power/use terminal; roll dice when online
-G             open the 52-card table suite
-B             begin a round with 25 virtual credits
-H             hit
-J             stand
-I             inspect the terminal
+KEYBOARD + MOUSE
+WASD          move / steer / sparring footwork
+Mouse         camera; RMB orbit; wheel zoom
+Space         jump
+Left Shift    sprint
+E             interact / use / sit / stand
+Q             guard / contextual modifier
+F             context / grind
+Left Ctrl     balance / manual
+C             cancel / dismount / enter or leave sparring
+R             recover / camera reset
+Tab           switch shoulder
 Esc           pause / resume
-F10           quit
+
+GAMEPAD
+Left stick    move / steer
+Right stick   camera
+South         jump / ollie / bunny hop
+East          cancel / dismount
+West / North  primary / secondary discipline action
+LB / LT       guard / balance
+RB            context / grind
+RT            accelerate
+Start         pause / resume
+D-pad         on-foot / skateboard / BMX / contextual table controls
 ```
+
+Advanced skateboard and BMX activation is controller-native. Without a
+connected SDL gamepad, HAKUI presents a clear ride-input message. `F9` enables a
+developer-only keyboard fallback; `1–4`, `Z/X`, `V`, and `M` remain marked
+internal bindings rather than player-facing defaults. See the packaged
+`START_HERE.txt` for the table and developer mappings.
 
 The tabletop suite uses fictional virtual credits only. It has no real-money purchase, deposit, cash-out, marketplace, or external gambling integration. Terminal models—Nebula Tower, Orchard Glass, and Fusion Deck—are original in-world identities and do not represent real hardware companies.
 
