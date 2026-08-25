@@ -1,0 +1,105 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Spiral OS Skeleton Prototype</title>
+    <style>
+      :root {
+        color-scheme: dark;
+      }
+
+      body {
+        margin: 0;
+        min-height: 100vh;
+        display: grid;
+        place-items: center;
+        background: radial-gradient(circle at top, #1e293b, #020617 70%);
+        font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+        color: #e2e8f0;
+      }
+
+      .stage {
+        position: relative;
+      }
+
+      canvas {
+        border: 1px solid #334155;
+        background: linear-gradient(180deg, #0b1220, #020617);
+        box-shadow: 0 20px 40px rgb(0 0 0 / 45%);
+      }
+
+      .hud {
+        position: absolute;
+        top: 12px;
+        left: 12px;
+        width: 330px;
+        font-size: 12px;
+        line-height: 1.45;
+        background: rgb(15 23 42 / 76%);
+        border: 1px solid #334155;
+        border-radius: 10px;
+        padding: 10px 12px;
+        backdrop-filter: blur(4px);
+      }
+
+      .hud code {
+        color: #93c5fd;
+      }
+
+      .hud label,
+      .hud select,
+      .hud button {
+        font: inherit;
+      }
+
+      .hud select,
+      .hud button {
+        margin-top: 6px;
+        border: 1px solid #334155;
+        background: #0f172a;
+        color: #e2e8f0;
+        border-radius: 6px;
+        padding: 5px 8px;
+      }
+
+      .hud button {
+        cursor: pointer;
+      }
+
+      .clock {
+        margin: 6px 0;
+        font-size: 15px;
+      }
+
+      .receipt {
+        margin-top: 8px;
+        padding-top: 8px;
+        border-top: 1px solid rgb(51 65 85 / 65%);
+      }
+
+      .barcode {
+        margin-top: 6px;
+        letter-spacing: 1px;
+        white-space: nowrap;
+        overflow: hidden;
+        color: #cbd5e1;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="stage">
+      <canvas id="viewport" width="760" height="440"></canvas>
+      <div class="hud" id="hud"></div>
+    </div>
+    <script src="engine.js"></script>
+    <script src="skeleton.js"></script>
+    <script src="cardLibrary.js"></script>
+    <script src="cards.js"></script>
+    <script src="hud.js"></script>
+    <script src="attachments.js"></script>
+    <script src="input.js"></script>
+    <script src="fx.js"></script>
+    <script src="main.js"></script>
+  </body>
+</html>
