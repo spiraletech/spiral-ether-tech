@@ -37,6 +37,9 @@ jobs:
       - name: Apply v1.01 skate embodiment pass
         run: python tools/apply_skate_embodiment_v101.py
 
+      - name: Apply Mannequin Lab isolation patch
+        run: python tools/apply_mannequin_lab_v01.py
+
       - name: Configure dependency-free targets
         run: >-
           cmake -S . -B build
@@ -51,7 +54,7 @@ jobs:
         run: ctest --test-dir build --build-config Debug --output-on-failure
 
   native-windows:
-    name: Native client (Windows)
+    name: Native clients (Windows)
     runs-on: windows-latest
     timeout-minutes: 20
     permissions:
@@ -70,28 +73,49 @@ jobs:
       - name: Apply v1.01 skate embodiment pass
         run: python tools/apply_skate_embodiment_v101.py
 
-      - name: Configure native client
+      - name: Apply Mannequin Lab isolation patch
+        run: python tools/apply_mannequin_lab_v01.py
+
+      - name: Configure native clients
         run: >-
           cmake -S . -B build
           -DHAKUI_BUILD_NATIVE_CLIENT=ON
           -DHAKUI_ENABLE_IMVU_CAL3D=OFF
           -DBUILD_TESTING=OFF
 
-      - name: Build native client
+      - name: Build HAKUI v1.01
         run: cmake --build build --config Release --target hakui --parallel 2
 
-      - name: Build Windows startup pack
+      - name: Build Mannequin Lab
+        run: cmake --build build --config Release --target hakui_mannequin_lab --parallel 2
+
+      - name: Build HAKUI Windows startup pack
         shell: pwsh
         run: >-
           ./packaging/windows/package.ps1
           -BuildDirectory ./build
           -OutputDirectory ./dist
 
-      - name: Upload Windows startup pack
+      - name: Build Mannequin Lab Windows pack
+        shell: pwsh
+        run: >-
+          ./packaging/windows/package_mannequin_lab.ps1
+          -BuildDirectory ./build
+          -OutputDirectory ./dist
+
+      - name: Upload HAKUI Windows startup pack
         uses: actions/upload-artifact@v4
         with:
           name: spiral-os-hakui-engine-windows-x64
           path: dist/spiral-os-hakui-engine-windows-x64.zip
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Upload Mannequin Lab Windows pack
+        uses: actions/upload-artifact@v4
+        with:
+          name: hakui-mannequin-lab-v0.1-windows-x64
+          path: dist/hakui-mannequin-lab-v0.1-windows-x64.zip
           if-no-files-found: error
           retention-days: 30
 
