@@ -40,6 +40,9 @@ jobs:
       - name: Apply Mannequin Lab isolation patch
         run: python tools/apply_mannequin_lab_v01.py
 
+      - name: Fix Mannequin Lab default facing
+        run: python tools/apply_mannequin_facing_v011.py
+
       - name: Configure dependency-free targets
         run: >-
           cmake -S . -B build
@@ -75,6 +78,9 @@ jobs:
 
       - name: Apply Mannequin Lab isolation patch
         run: python tools/apply_mannequin_lab_v01.py
+
+      - name: Fix Mannequin Lab default facing
+        run: python tools/apply_mannequin_facing_v011.py
 
       - name: Configure native clients
         run: >-
