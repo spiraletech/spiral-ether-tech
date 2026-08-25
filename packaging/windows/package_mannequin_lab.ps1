@@ -15,7 +15,7 @@ if (-not (Test-Path -LiteralPath $outputRoot)) {
 }
 
 $packDirectory = Join-Path $outputRoot 'HAKUI-MANNEQUIN-LAB'
-$zipPath = Join-Path $outputRoot 'hakui-mannequin-lab-v0.1-windows-x64.zip'
+$zipPath = Join-Path $outputRoot 'HAKUI-MANNEQUIN-LAB-v0.13-SILHOUETTE-PASS-windows-x64.zip'
 
 if (Test-Path -LiteralPath $packDirectory) {
     Remove-Item -LiteralPath $packDirectory -Recurse -Force
@@ -41,10 +41,19 @@ Copy-Item -LiteralPath $labExecutable.FullName -Destination $packDirectory
 Copy-Item -LiteralPath $sdlRuntime.FullName -Destination $packDirectory
 
 $readme = @'
-HAKUI MANNEQUIN LAB v0.1
-========================
+HAKUI MANNEQUIN LAB v0.13 — SILHOUETTE PASS
+============================================
 
-This is a separate rig-science executable. It does not boot the HAKUI game world.
+Separate rig-science executable. It does not boot the HAKUI game world.
+
+SILHOUETTE PASS
+- lower, narrower shoulders with visible clavicle slope
+- ribcage-to-waist torso taper
+- pelvis-to-waist bridge
+- tapered upper/lower arms and smaller hands
+- thigh-to-calf taper and smaller feet
+- cleaner neck/head connection
+- front-facing default preserved
 
 POSE PRESETS
 1  Neutral
@@ -65,8 +74,8 @@ RMB drag    Orbit camera
 Mouse wheel Zoom
 Esc         Quit
 
-The block avatar remains HAKUI's engineering truth rig. This lab studies the
-human mannequin presentation layer before avatar skinning/clothing work begins.
+The block avatar remains HAKUI's engineering truth rig. This executable studies
+HAKUI's human mannequin presentation layer before skinning, clothing and face work.
 '@
 Set-Content -LiteralPath (Join-Path $packDirectory 'README.txt') -Value $readme -Encoding UTF8
 
