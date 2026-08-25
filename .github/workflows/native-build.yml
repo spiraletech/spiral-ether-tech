@@ -28,6 +28,9 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Apply v0.867 chat UI source fix
+        run: python tools/apply_chat_ui_v0867.py
+
       - name: Configure dependency-free targets
         run: >-
           cmake -S . -B build
@@ -51,6 +54,9 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+
+      - name: Apply v0.867 chat UI source fix
+        run: python tools/apply_chat_ui_v0867.py
 
       - name: Configure native client
         run: >-
