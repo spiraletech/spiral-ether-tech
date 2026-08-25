@@ -43,6 +43,9 @@ jobs:
       - name: Fix Mannequin Lab default facing
         run: python tools/apply_mannequin_facing_v011.py
 
+      - name: Apply Mannequin Lab v0.13 silhouette pass
+        run: python tools/apply_mannequin_silhouette_v013.py
+
       - name: Configure dependency-free targets
         run: >-
           cmake -S . -B build
@@ -82,6 +85,9 @@ jobs:
       - name: Fix Mannequin Lab default facing
         run: python tools/apply_mannequin_facing_v011.py
 
+      - name: Apply Mannequin Lab v0.13 silhouette pass
+        run: python tools/apply_mannequin_silhouette_v013.py
+
       - name: Configure native clients
         run: >-
           cmake -S . -B build
@@ -120,8 +126,8 @@ jobs:
       - name: Upload Mannequin Lab Windows pack
         uses: actions/upload-artifact@v4
         with:
-          name: hakui-mannequin-lab-v0.1-windows-x64
-          path: dist/hakui-mannequin-lab-v0.1-windows-x64.zip
+          name: hakui-mannequin-lab-v0.13-silhouette-pass-windows-x64
+          path: dist/HAKUI-MANNEQUIN-LAB-v0.13-SILHOUETTE-PASS-windows-x64.zip
           if-no-files-found: error
           retention-days: 30
 
