@@ -136,10 +136,34 @@ using GlyphRows = std::array<std::uint8_t, 7>;
 
 GlyphRows glyphRows(char source) noexcept
 {
-    const char character = static_cast<char>(std::toupper(
-        static_cast<unsigned char>(source)
-    ));
+    const char character = source;
     switch (character) {
+    case 'a': return {0,0,14,1,15,17,15};
+    case 'b': return {16,16,30,17,17,17,30};
+    case 'c': return {0,0,14,17,16,17,14};
+    case 'd': return {1,1,15,17,17,17,15};
+    case 'e': return {0,0,14,17,31,16,14};
+    case 'f': return {6,9,8,28,8,8,8};
+    case 'g': return {0,0,15,17,15,1,14};
+    case 'h': return {16,16,30,17,17,17,17};
+    case 'i': return {4,0,12,4,4,4,14};
+    case 'j': return {2,0,6,2,2,18,12};
+    case 'k': return {16,16,18,20,24,20,18};
+    case 'l': return {12,4,4,4,4,4,14};
+    case 'm': return {0,0,26,21,21,17,17};
+    case 'n': return {0,0,30,17,17,17,17};
+    case 'o': return {0,0,14,17,17,17,14};
+    case 'p': return {0,0,30,17,30,16,16};
+    case 'q': return {0,0,15,17,15,1,1};
+    case 'r': return {0,0,22,25,16,16,16};
+    case 's': return {0,0,15,16,14,1,30};
+    case 't': return {8,8,28,8,8,9,6};
+    case 'u': return {0,0,17,17,17,19,13};
+    case 'v': return {0,0,17,17,17,10,4};
+    case 'w': return {0,0,17,17,21,21,10};
+    case 'x': return {0,0,17,10,4,10,17};
+    case 'y': return {0,0,17,17,15,1,14};
+    case 'z': return {0,0,31,2,4,8,31};
     case 'A': return {14,17,17,31,17,17,17};
     case 'B': return {30,17,17,30,17,17,30};
     case 'C': return {14,17,16,16,16,17,14};
@@ -326,6 +350,12 @@ float DebugWorldRenderer::cameraTargetY() const noexcept { return cameraTargetY_
 float DebugWorldRenderer::cameraTargetZ() const noexcept { return cameraTargetZ_; }
 float DebugWorldRenderer::fieldOfViewDegrees() const noexcept { return 50.0f; }
 
+const BubbleVisualTelemetry&
+DebugWorldRenderer::bubbleVisualTelemetry() const noexcept
+{
+    return bubbleVisualTelemetry_;
+}
+
 void DebugWorldRenderer::setCameraRole(CameraRole role)
 {
     if (cameraRole_ == role) {
@@ -390,7 +420,7 @@ bool DebugWorldRenderer::init(SDL_GPUDevice* device, SDL_Window* window)
         return false;
     }
 
-    SDL_Log("[HAKUI] v0.86 DATA GRUNGE renderer // social language online");
+    SDL_Log("[HAKUI] v0.861 DATA GRUNGE renderer // translucent social glass online");
     return true;
 }
 
@@ -556,10 +586,29 @@ bool DebugWorldRenderer::createPipeline()
 
     pipeline_ = SDL_CreateGPUGraphicsPipeline(device_, &pipelineInfo);
 
+    // The bootstrap fragment shader emits alpha=1. A dedicated social-glass
+    // pipeline therefore uses the GPU blend constant as authored opacity.
+    // This gives the bubble real destination-color transparency without
+    // coupling alpha or social policy to the shared world vertex format.
+    colorTarget.blend_state.enable_blend = true;
+    colorTarget.blend_state.color_write_mask = 0xF;
+    colorTarget.blend_state.color_blend_op = SDL_GPU_BLENDOP_ADD;
+    colorTarget.blend_state.alpha_blend_op = SDL_GPU_BLENDOP_ADD;
+    colorTarget.blend_state.src_color_blendfactor =
+        SDL_GPU_BLENDFACTOR_CONSTANT_COLOR;
+    colorTarget.blend_state.dst_color_blendfactor =
+        SDL_GPU_BLENDFACTOR_ONE_MINUS_CONSTANT_COLOR;
+    colorTarget.blend_state.src_alpha_blendfactor =
+        SDL_GPU_BLENDFACTOR_CONSTANT_COLOR;
+    colorTarget.blend_state.dst_alpha_blendfactor =
+        SDL_GPU_BLENDFACTOR_ONE_MINUS_CONSTANT_COLOR;
+    pipelineInfo.depth_stencil_state.enable_depth_write = false;
+    glassPipeline_ = SDL_CreateGPUGraphicsPipeline(device_, &pipelineInfo);
+
     SDL_ReleaseGPUShader(device_, vertexShader);
     SDL_ReleaseGPUShader(device_, fragmentShader);
 
-    return pipeline_ != nullptr;
+    return pipeline_ != nullptr && glassPipeline_ != nullptr;
 }
 
 bool DebugWorldRenderer::ensureDepthTexture(Uint32 width, Uint32 height)
@@ -607,6 +656,8 @@ bool DebugWorldRenderer::render(
     std::span<const hakui::WorldPrimitive> worldGeometry)
 {
     using namespace hakui::math;
+
+    bubbleVisualTelemetry_ = {};
 
     if (!commands || !swapchain) {
         return true;
@@ -729,12 +780,19 @@ bool DebugWorldRenderer::render(
                              float depth,
                              std::size_t charactersPerLine,
                              Uint32 palette) {
-        std::size_t column = 0;
+        float cursorUnits = 0.0f;
+        std::size_t characterCount = 0;
         std::size_t line = 0;
-        for (const char character : text) {
-            if (character == '\n' || column >= charactersPerLine) {
+        for (std::size_t index = 0; index < text.size(); ++index) {
+            const unsigned char byte = static_cast<unsigned char>(text[index]);
+            if ((byte & 0xc0u) == 0x80u) {
+                continue;
+            }
+            const char character = byte < 0x80u ? text[index] : '?';
+            if (character == '\n' || characterCount >= charactersPerLine) {
                 ++line;
-                column = 0;
+                cursorUnits = 0.0f;
+                characterCount = 0;
                 if (character == '\n') {
                     continue;
                 }
@@ -745,9 +803,8 @@ bool DebugWorldRenderer::render(
                     if ((rows[row] & (1u << (4u - bit))) == 0) {
                         continue;
                     }
-                    const float x = (
-                        static_cast<float>(column * 6 + bit) + 0.5f
-                    ) * cellWidth;
+                    const float x = (cursorUnits +
+                        static_cast<float>(bit) + 0.5f) * cellWidth;
                     const float y = -(
                         static_cast<float>(line * 9 + row) + 0.5f
                     ) * cellHeight;
@@ -765,7 +822,9 @@ bool DebugWorldRenderer::render(
                     );
                 }
             }
-            ++column;
+            cursorUnits += hakui::social::ChatBubblePresentation::
+                glyphAdvanceUnits(character);
+            ++characterCount;
         }
     };
 
@@ -788,15 +847,21 @@ bool DebugWorldRenderer::render(
                             float cellWidth,
                             float cellHeight,
                             Uint32 palette) {
-        for (std::size_t column = 0; column < text.size(); ++column) {
-            const GlyphRows rows = glyphRows(text[column]);
+        float cursorUnits = 0.0f;
+        for (std::size_t index = 0; index < text.size(); ++index) {
+            const unsigned char byte = static_cast<unsigned char>(text[index]);
+            if ((byte & 0xc0u) == 0x80u) {
+                continue;
+            }
+            const char character = byte < 0x80u ? text[index] : '?';
+            const GlyphRows rows = glyphRows(character);
             for (std::size_t row = 0; row < rows.size(); ++row) {
                 for (std::size_t bit = 0; bit < 5; ++bit) {
                     if ((rows[row] & (1u << (4u - bit))) == 0) {
                         continue;
                     }
                     const float x = originX +
-                        static_cast<float>(column * 6 + bit) * cellWidth;
+                        (cursorUnits + static_cast<float>(bit)) * cellWidth;
                     const float y = originY -
                         static_cast<float>(row) * cellHeight;
                     drawClipModel(
@@ -810,7 +875,22 @@ bool DebugWorldRenderer::render(
                     );
                 }
             }
+            cursorUnits += hakui::social::ChatBubblePresentation::
+                glyphAdvanceUnits(character);
         }
+    };
+
+    const auto bindGlass = [&](float alpha) {
+        SDL_BindGPUGraphicsPipeline(pass, glassPipeline_);
+        const float opacity = std::clamp(alpha, 0.0f, 1.0f);
+        SDL_SetGPUBlendConstants(
+            pass,
+            SDL_FColor{opacity, opacity, opacity, opacity}
+        );
+    };
+
+    const auto bindOpaque = [&]() {
+        SDL_BindGPUGraphicsPipeline(pass, pipeline_);
     };
 
     // The renderer consumes a semantic world description. Layout, repetition,
@@ -1745,73 +1825,209 @@ bool DebugWorldRenderer::render(
     );
 
     if (scene.chatBubbleActive && !scene.chatBubbleText.empty()) {
-        const std::string display = fontDisplayText(scene.chatBubbleText, 36);
-        constexpr std::size_t charactersPerLine = 18;
-        const std::size_t lineCount = std::max<std::size_t>(
-            1,
-            (display.size() + charactersPerLine - 1) / charactersPerLine
-        );
-        const std::size_t longestLine = std::min(
-            display.size(), charactersPerLine
-        );
-        const float distanceScale = std::clamp(
-            cameraDistance_ / 9.5f, 0.82f, 1.42f
-        );
-        const float cellWidth = 0.026f * distanceScale;
-        const float cellHeight = 0.034f * distanceScale;
-        const float panelWidth = std::max(
-            1.20f * distanceScale,
-            (static_cast<float>(longestLine * 6) + 3.0f) * cellWidth
-        );
-        const float panelHeight = (
-            static_cast<float>(lineCount * 9) + 3.0f
-        ) * cellHeight;
-        const float bubbleYaw = std::atan2(
-            cameraEyeX_ - player.x,
-            cameraEyeZ_ - player.z
-        );
-        const Mat4 bubbleRoot = multiply(
-            translation({
+        const float anchorY = player.y +
+            groundContact.visualRootAbovePlayerBase + 2.95f + idleBreath -
+            rideCompression;
+        const float dx = cameraEyeX_ - player.x;
+        const float dy = cameraEyeY_ - anchorY;
+        const float dz = cameraEyeZ_ - player.z;
+        const float cameraDistance = std::sqrt(dx * dx + dy * dy + dz * dz);
+        const hakui::social::BubblePresentationLayout layout =
+            hakui::social::ChatBubblePresentation::resolve(
+                scene.chatBubbleText,
+                scene.chatBubbleRemaining,
+                scene.chatBubbleTotal,
+                cameraDistance,
+                scene.chatBubbleStyle.material
+            );
+        if (layout.visible) {
+            const float bubbleYaw = std::atan2(dx, dz);
+            const float visualAnchorY = anchorY + layout.verticalOffset;
+            const Mat4 bubbleRoot = multiply(
+                translation({player.x, visualAnchorY, player.z}),
+                rotationY(bubbleYaw)
+            );
+            const float presentationScale = layout.scale;
+            const float panelWidth = layout.width * presentationScale;
+            const float panelHeight = layout.height * presentationScale;
+            const float tailSize = scene.chatBubbleStyle.material.tailSize *
+                presentationScale;
+            const float cornerRadius = std::min(
+                scene.chatBubbleStyle.material.cornerRadius * presentationScale,
+                panelHeight * 0.32f
+            );
+            const float bodyCenterY = tailSize + panelHeight * 0.5f;
+
+            const auto roundedSurface = [&](float surfaceWidth,
+                                            float surfaceHeight,
+                                            float radius,
+                                            float z,
+                                            Uint32 palette) {
+                const float middleHeight = std::max(
+                    0.02f, surfaceHeight - radius * 2.0f
+                );
+                drawModel(
+                    multiply(
+                        bubbleRoot,
+                        multiply(
+                            translation({0.0f, bodyCenterY, z}),
+                            scale({surfaceWidth, middleHeight, 0.042f})
+                        )
+                    ),
+                    palette
+                );
+                for (const float side : {-1.0f, 1.0f}) {
+                    drawModel(
+                        multiply(
+                            bubbleRoot,
+                            multiply(
+                                translation({
+                                    0.0f,
+                                    bodyCenterY + side *
+                                        (surfaceHeight * 0.5f - radius * 0.68f),
+                                    z
+                                }),
+                                scale({surfaceWidth - radius * 0.52f,
+                                       radius * 0.72f,
+                                       0.042f})
+                            )
+                        ),
+                        palette
+                    );
+                    drawModel(
+                        multiply(
+                            bubbleRoot,
+                            multiply(
+                                translation({
+                                    0.0f,
+                                    bodyCenterY + side *
+                                        (surfaceHeight * 0.5f - radius * 0.18f),
+                                    z
+                                }),
+                                scale({surfaceWidth - radius * 1.48f,
+                                       radius * 0.36f,
+                                       0.042f})
+                            )
+                        ),
+                        palette
+                    );
+                }
+            };
+            const auto taperedTail = [&](float size,
+                                         float z,
+                                         Uint32 palette) {
+                for (int segment = 0; segment < 3; ++segment) {
+                    const float fraction = static_cast<float>(segment + 1) / 3.0f;
+                    const float segmentSize = size * (0.28f + fraction * 0.42f);
+                    drawModel(
+                        multiply(
+                            bubbleRoot,
+                            multiply(
+                                translation({
+                                    0.0f,
+                                    size * (0.16f + fraction * 0.56f),
+                                    z
+                                }),
+                                multiply(
+                                    rotationZ(kPi * 0.25f),
+                                    scale({segmentSize, segmentSize, 0.045f})
+                                )
+                            )
+                        ),
+                        palette
+                    );
+                }
+            };
+
+            const Uint32 bubbleAccent = scene.speechIntent ==
+                hakui::social::SpeechIntent::Excited ? Magenta : Cyan;
+            bindGlass(
+                layout.alpha * scene.chatBubbleStyle.material.borderAlpha * 0.30f
+            );
+            roundedSurface(
+                panelWidth + 0.055f,
+                panelHeight + 0.055f,
+                cornerRadius + 0.025f,
+                0.052f,
+                bubbleAccent
+            );
+            taperedTail(tailSize + 0.025f, 0.052f, bubbleAccent);
+
+            bindGlass(
+                layout.alpha * scene.chatBubbleStyle.material.backgroundAlpha
+            );
+            roundedSurface(
+                panelWidth,
+                panelHeight,
+                cornerRadius,
+                0.045f,
+                Midnight
+            );
+            taperedTail(tailSize, 0.045f, Midnight);
+
+            std::string wrappedText;
+            for (std::size_t line = 0; line < layout.lines.size(); ++line) {
+                if (line > 0) wrappedText.push_back('\n');
+                wrappedText += fontDisplayText(layout.lines[line], 96);
+            }
+            const float cellWidth = scene.chatBubbleStyle.material.textScale *
+                presentationScale;
+            const float cellHeight = cellWidth * 1.18f;
+            const float textLeft = -panelWidth * 0.5f +
+                scene.chatBubbleStyle.material.padding * presentationScale;
+            const float textTop = tailSize + panelHeight -
+                scene.chatBubbleStyle.material.padding * presentationScale;
+            bindGlass(layout.alpha);
+            drawWorldText(
+                wrappedText,
+                multiply(
+                    bubbleRoot,
+                    translation({textLeft, textTop, -0.006f})
+                ),
+                cellWidth,
+                cellHeight,
+                0.040f,
+                96,
+                Shell
+            );
+            bindOpaque();
+
+            const Vec3 bubbleCenter{
                 player.x,
-                player.y + groundContact.visualRootAbovePlayerBase +
-                    3.34f - rideCompression,
+                visualAnchorY + tailSize + panelHeight * 0.5f,
                 player.z
-            }),
-            rotationY(bubbleYaw)
-        );
-        drawModel(
-            multiply(
-                bubbleRoot,
-                multiply(
-                    translation({panelWidth * 0.5f, -panelHeight * 0.5f, 0.05f}),
-                    scale({panelWidth, panelHeight, 0.075f})
-                )
-            ),
-            Void
-        );
-        const Uint32 bubbleAccent = scene.speechIntent ==
-            hakui::social::SpeechIntent::Excited ? Magenta : Cyan;
-        drawModel(
-            multiply(
-                bubbleRoot,
-                multiply(
-                    translation({panelWidth * 0.5f, 0.015f, 0.0f}),
-                    scale({panelWidth, 0.045f, 0.085f})
-                )
-            ),
-            bubbleAccent
-        );
-        drawWorldText(
-            display,
-            multiply(bubbleRoot, translation({cellWidth * 1.5f,
-                                               -cellHeight * 1.8f,
-                                               -0.006f})),
-            cellWidth,
-            cellHeight,
-            0.045f,
-            charactersPerLine,
-            Shell
-        );
+            };
+            const float clipX = viewProjection.m[0] * bubbleCenter.x +
+                viewProjection.m[4] * bubbleCenter.y +
+                viewProjection.m[8] * bubbleCenter.z + viewProjection.m[12];
+            const float clipY = viewProjection.m[1] * bubbleCenter.x +
+                viewProjection.m[5] * bubbleCenter.y +
+                viewProjection.m[9] * bubbleCenter.z + viewProjection.m[13];
+            const float clipW = viewProjection.m[3] * bubbleCenter.x +
+                viewProjection.m[7] * bubbleCenter.y +
+                viewProjection.m[11] * bubbleCenter.z + viewProjection.m[15];
+            bubbleVisualTelemetry_.active = true;
+            bubbleVisualTelemetry_.worldX = bubbleCenter.x;
+            bubbleVisualTelemetry_.worldY = bubbleCenter.y;
+            bubbleVisualTelemetry_.worldZ = bubbleCenter.z;
+            if (std::fabs(clipW) > 0.0001f) {
+                bubbleVisualTelemetry_.screenX =
+                    (clipX / clipW * 0.5f + 0.5f) * static_cast<float>(width);
+                bubbleVisualTelemetry_.screenY =
+                    (0.5f - clipY / clipW * 0.5f) * static_cast<float>(height);
+            }
+            bubbleVisualTelemetry_.scale = presentationScale;
+            bubbleVisualTelemetry_.alpha = layout.alpha *
+                scene.chatBubbleStyle.material.backgroundAlpha;
+            bubbleVisualTelemetry_.width = panelWidth;
+            bubbleVisualTelemetry_.height = panelHeight + tailSize;
+            bubbleVisualTelemetry_.lineCount = layout.lines.size();
+            bubbleVisualTelemetry_.styleProfile =
+                scene.chatBubbleStyle.profile;
+            bubbleVisualTelemetry_.lifePhase = layout.phase;
+            bubbleVisualTelemetry_.distanceToCamera = cameraDistance;
+            bubbleVisualTelemetry_.anchorError = std::fabs(layout.verticalOffset);
+        }
     }
 
     if (scene.sparDummyVisible) {
@@ -1905,24 +2121,44 @@ bool DebugWorldRenderer::render(
     }
 
     if (scene.chatInputActive) {
-        std::string entry = "CHAT//> ";
-        entry += fontDisplayText(scene.chatInputBuffer, 44);
+        std::string entry = "say  ";
+        entry += fontDisplayText(scene.chatInputBuffer, 34);
         entry += "_";
-        drawClipModel(
-            multiply(
-                translation({0.0f, -0.82f, 0.016f}),
-                scale({1.82f, 0.24f, 0.004f})
-            ),
-            Void
+        float entryUnits = 0.0f;
+        for (const char character : entry) {
+            entryUnits += hakui::social::ChatBubblePresentation::
+                glyphAdvanceUnits(character);
+        }
+        const float panelWidth = std::clamp(
+            entryUnits * 0.0044f + 0.18f, 0.54f, 1.28f
         );
+        constexpr float panelHeight = 0.13f;
+        bindGlass(0.26f);
         drawClipModel(
             multiply(
-                translation({0.0f, -0.695f, 0.012f}),
-                scale({1.82f, 0.018f, 0.004f})
+                translation({0.0f, -0.86f, 0.016f}),
+                scale({panelWidth, panelHeight * 0.66f, 0.004f})
             ),
             Cyan
         );
-        drawClipText(entry, -0.84f, -0.765f, 0.0042f, 0.017f, Shell);
+        bindGlass(0.48f);
+        drawClipModel(
+            multiply(
+                translation({0.0f, -0.86f, 0.012f}),
+                scale({panelWidth - 0.018f, panelHeight * 0.56f, 0.004f})
+            ),
+            Midnight
+        );
+        bindGlass(0.94f);
+        drawClipText(
+            entry,
+            -panelWidth * 0.5f + 0.075f,
+            -0.825f,
+            0.0044f,
+            0.014f,
+            Shell
+        );
+        bindOpaque();
     }
 
     SDL_EndGPURenderPass(pass);
@@ -1943,6 +2179,11 @@ void DebugWorldRenderer::shutdown()
     if (pipeline_) {
         SDL_ReleaseGPUGraphicsPipeline(device_, pipeline_);
         pipeline_ = nullptr;
+    }
+
+    if (glassPipeline_) {
+        SDL_ReleaseGPUGraphicsPipeline(device_, glassPipeline_);
+        glassPipeline_ = nullptr;
     }
 
     if (cubeVertexBuffer_) {

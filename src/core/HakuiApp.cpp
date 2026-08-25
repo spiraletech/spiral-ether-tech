@@ -158,7 +158,7 @@ hakui::EmbodimentProfileId embodimentProfile(
 
 bool HakuiApp::boot()
 {
-    SDL_Log("[HAKUI] booting native client v0.86-dev // SOCIAL CHAT + INTERACTION OVERHAUL");
+    SDL_Log("[HAKUI] booting native client v0.861-dev // SOCIAL BUBBLE VISUAL OVERHAUL");
 
     if (!initPlatform() || !initGPU()) {
         return false;
@@ -203,7 +203,7 @@ bool HakuiApp::boot()
     SDL_Log("[HAKUI] DATA GRUNGE // ACTIVE");
     SDL_Log("[HAKUI] SPIRAL CORE // ONLINE");
     SDL_Log("[HAKUI] avatar skeleton // %zu bones loaded", avatarSkeleton_.boneCount());
-    SDL_Log("[HAKUI] v0.86 social nervous system // text -> world event -> embodiment online");
+    SDL_Log("[HAKUI] v0.861 social glass // speech floats with the speaker");
     SDL_Log("[HAKUI] procedural locomotion // idle + walk + sprint + jump + seated online");
     SDL_Log("[HAKUI] BLACK ROOM // neon lounge + couch + fusion table + open void");
     SDL_Log("[HAKUI] controls // WASD move // SPACE jump // E interact/stand // SHIFT sprint");
@@ -219,6 +219,20 @@ bool HakuiApp::boot()
     SDL_Log("[HAKUI] combat foundation // unarmed playable // sword + bow extension seams dormant");
     SDL_Log("[HAKUI] social language // ENTER chat // ENTER send // ESC cancel");
     (void)chat_.postSystem("WORLD ONLINE", world_.elapsedSeconds);
+    if (const char* inputPreview = SDL_getenv("HAKUI_SOCIAL_PREVIEW_INPUT");
+        inputPreview && inputPreview[0] != '\0') {
+        (void)chat_.beginInput();
+        chat_.appendText(inputPreview);
+        socialPreviewCaptureDelay_ = 0.35f;
+        SDL_Log("[SOCIAL] developer-only input visual preview injected");
+    } else if (const char* preview = SDL_getenv("HAKUI_SOCIAL_PREVIEW_TEXT");
+               preview && preview[0] != '\0') {
+        (void)chat_.beginInput();
+        chat_.appendText(preview);
+        (void)chat_.commitLocal(1, world_.elapsedSeconds);
+        socialPreviewCaptureDelay_ = 0.35f;
+        SDL_Log("[SOCIAL] developer-only visual preview injected");
+    }
     recordObserverEvent("boot", "WORLD ONLINE // observer read-only boundary ready");
     return true;
 }
@@ -235,7 +249,7 @@ bool HakuiApp::initPlatform()
     }
 
     window_ = SDL_CreateWindow(
-        "SPIRAL OS: HAKUI ENGINE // v0.86-dev // SOCIAL CHAT + INTERACTION OVERHAUL",
+        "SPIRAL OS: HAKUI ENGINE // v0.861-dev // SOCIAL BUBBLE VISUAL OVERHAUL",
         1280,
         720,
         SDL_WINDOW_RESIZABLE | SDL_WINDOW_HIGH_PIXEL_DENSITY
@@ -314,7 +328,7 @@ void HakuiApp::initSpiralCore()
     bootSignal.source = "hakui.client";
     bootSignal.destination = "spiral.core";
     bootSignal.topic = "client.boot";
-    bootSignal.payload = "hakui-v0.86-dev";
+    bootSignal.payload = "hakui-v0.861-dev";
 
     // A small initial charge marks the native client's transition to live
     // operation. Steam is telemetry/energy state, not gameplay policy.
@@ -329,7 +343,7 @@ void HakuiApp::initSpiralCore()
     initialState.topic = "client.state.initial";
     initialState.statePatch = {
         {"client.status", std::string("online")},
-        {"client.version", std::string("0.86-dev")},
+        {"client.version", std::string("0.861-dev")},
         {"avatar.rig.bones", static_cast<std::int64_t>(avatarSkeleton_.boneCount())},
         {"player.locomotion", std::string("on_foot")}
     };
@@ -416,7 +430,7 @@ hakui::observer::CaptureContext HakuiApp::buildObserverContext() const
     namespace observer = hakui::observer;
 
     observer::CaptureContext context;
-    context.build.hakuiVersion = "0.86-dev";
+    context.build.hakuiVersion = "0.861-dev";
     context.build.configuration = HAKUI_BUILD_CONFIGURATION;
     context.build.gitCommit = HAKUI_GIT_SHA;
     context.build.gitBranch = HAKUI_GIT_BRANCH;
@@ -569,11 +583,46 @@ hakui::observer::CaptureContext HakuiApp::buildObserverContext() const
         embodimentProfile(player_, combat_);
     const hakui::AvatarGroundContactProfile& contactProfile =
         hakui::avatarGroundContactProfile(profileId);
+    const bool observerMounted =
+        (player_.locomotion == LocomotionMode::Skateboard ||
+         player_.locomotion == LocomotionMode::BMX) &&
+        player_.activity == PlayerActivity::Roaming;
+    const float observerRideCompression = observerMounted
+        ? rideable_.state().body.preloadPoseWeight * 0.20f +
+            rideable_.state().body.landingCompression * 0.24f
+        : 0.0f;
+    const float observerIdleBreath = 0.012f * std::sin(player_.idlePhase);
     context.social.bubbleAnchorPosition = {
         player_.x,
-        player_.y + contactProfile.visualRootAbovePlayerBase + 3.34f,
+        player_.y + contactProfile.visualRootAbovePlayerBase + 2.95f +
+            observerIdleBreath - observerRideCompression,
         player_.z
     };
+    const BubbleVisualTelemetry& bubbleVisual =
+        debugRenderer_.bubbleVisualTelemetry();
+    context.social.bubbleWorldPosition = {
+        bubbleVisual.worldX,
+        bubbleVisual.worldY,
+        bubbleVisual.worldZ
+    };
+    context.social.bubbleScreenPosition = {
+        bubbleVisual.screenX,
+        bubbleVisual.screenY,
+        0.0f
+    };
+    context.social.bubbleScale = bubbleVisual.scale;
+    context.social.bubbleAlpha = bubbleVisual.alpha;
+    context.social.bubbleWidth = bubbleVisual.width;
+    context.social.bubbleHeight = bubbleVisual.height;
+    context.social.bubbleLineCount = bubbleVisual.lineCount;
+    context.social.bubbleStyleProfile = std::string(
+        hakui::social::bubbleStyleProfileLabel(bubbleVisual.styleProfile)
+    );
+    context.social.bubbleLifePhase = std::string(
+        hakui::social::bubbleLifePhaseLabel(bubbleVisual.lifePhase)
+    );
+    context.social.bubbleDistanceToCamera = bubbleVisual.distanceToCamera;
+    context.social.bubbleAnchorError = bubbleVisual.anchorError;
     const std::string movementState = combat_.active()
         ? "combat"
         : player_.activity != PlayerActivity::Roaming
@@ -650,7 +699,7 @@ hakui::observer::CaptureContext HakuiApp::buildObserverContext() const
         {"PelvisAnchor", "player.1", {0.0f, 1.0f, 0.0f}},
         {"LeftFootAnchor", "player.1", {-0.18f, 0.0f, 0.0f}},
         {"RightFootAnchor", "player.1", {0.18f, 0.0f, 0.0f}},
-        {"ChatBubbleAnchor", "Head", {0.0f, 0.74f, 0.0f}}
+        {"ChatBubbleAnchor", "Head", {0.0f, 0.35f, 0.0f}}
     };
     context.entities.push_back(std::move(playerEntity));
 
@@ -1263,7 +1312,26 @@ void HakuiApp::openGamepad(SDL_JoystickID instanceId)
 
 void HakuiApp::beginChatInput()
 {
-    if (paused_ || !window_ || !chat_.beginInput()) {
+    if (paused_ || !window_) {
+        return;
+    }
+    const bool riding = player_.locomotion == LocomotionMode::Skateboard ||
+        player_.locomotion == LocomotionMode::BMX;
+    const hakui::RidePhase ridePhase = rideable_.state().phase;
+    const bool expressiveRideOwnsInput = riding &&
+        ridePhase != hakui::RidePhase::Grounded;
+    if (expressiveRideOwnsInput) {
+        showInputStatus(
+            "CHAT INPUT DEFERRED // COMPLETE RIDE MOVEMENT",
+            2.8f
+        );
+        recordObserverEvent(
+            "social.input",
+            "chat deferred while expressive ride owned controls"
+        );
+        return;
+    }
+    if (!chat_.beginInput()) {
         return;
     }
     (void)setCameraCapture(false);
@@ -1467,7 +1535,7 @@ void HakuiApp::updateHud()
         SDL_snprintf(
             title,
             sizeof(title),
-            "HAKUI v0.86 // CHAT INPUT // > %s_ // ENTER SEND // ESC CANCEL // %zu/%zu // INPUT ChatInput",
+            "HAKUI v0.861 // CHAT INPUT // %s_ // ENTER SEND // ESC CANCEL // %zu/%zu // INPUT ChatInput",
             chat_.inputBuffer().c_str(),
             chat_.inputCodepoints(),
             chat_.tuning().maximumMessageCodepoints
@@ -1476,7 +1544,7 @@ void HakuiApp::updateHud()
         SDL_snprintf(
             title,
             sizeof(title),
-            "HAKUI v0.86 // %s // INPUT %.*s",
+            "HAKUI v0.861 // %s // INPUT %.*s",
             inputStatus_.c_str(),
             static_cast<int>(device.size()), device.data()
         );
@@ -1484,7 +1552,7 @@ void HakuiApp::updateHud()
         SDL_snprintf(
             title,
             sizeof(title),
-            "HAKUI v0.86 // PAUSED // %.*s RESUME // LOOK %.4f // AUDIO %.0f%% // INPUT %.*s // MOUSE RELEASED",
+            "HAKUI v0.861 // PAUSED // %.*s RESUME // LOOK %.4f // AUDIO %.0f%% // INPUT %.*s // MOUSE RELEASED",
             static_cast<int>(pause.size()), pause.data(),
             debugRenderer_.lookSensitivity(),
             audio_.volume() * 100.0f,
@@ -1494,7 +1562,7 @@ void HakuiApp::updateHud()
         SDL_snprintf(
             title,
             sizeof(title),
-            "HAKUI v0.86 // SPAR %s // HP %.0f STA %.0f BAL %.0f // TARGET HP %.0f BAL %.0f // MOVE FOOTWORK // %.*s PRIMARY // %.*s SECONDARY // %.*s GUARD // %.*s RECOVER // %.*s LEAVE // %.*s",
+            "HAKUI v0.861 // SPAR %s // HP %.0f STA %.0f BAL %.0f // TARGET HP %.0f BAL %.0f // MOVE FOOTWORK // %.*s PRIMARY // %.*s SECONDARY // %.*s GUARD // %.*s RECOVER // %.*s LEAVE // %.*s",
             combatStateLabel(combat_.player().state),
             combat_.player().health,
             combat_.player().stamina,
@@ -1519,7 +1587,7 @@ void HakuiApp::updateHud()
         SDL_snprintf(
             title,
             sizeof(title),
-            "HAKUI v0.86 // FUSION TABLE // CREDITS %lld // HAND %d // %.*s %.*s // %.*s LEAVE // ENTER CHAT // %.*s",
+            "HAKUI v0.861 // FUSION TABLE // CREDITS %lld // HAND %d // %.*s %.*s // %.*s LEAVE // ENTER CHAT // %.*s",
             static_cast<long long>(terminal_->virtualCredits()),
             handValue,
             static_cast<int>(interact.size()), interact.data(),
@@ -1531,7 +1599,7 @@ void HakuiApp::updateHud()
         SDL_snprintf(
             title,
             sizeof(title),
-            "HAKUI v0.86 // VOID COUCH // SLOT %u // AUM %s // ENTER CHAT // %.*s STAND // %.*s ORBIT // %.*s PAUSE // %.*s",
+            "HAKUI v0.861 // VOID COUCH // SLOT %u // AUM %s // ENTER CHAT // %.*s STAND // %.*s ORBIT // %.*s PAUSE // %.*s",
             player_.activeSeatAnchorId,
             aumPhase,
             static_cast<int>(interact.size()), interact.data(),
@@ -1543,7 +1611,7 @@ void HakuiApp::updateHud()
         SDL_snprintf(
             title,
             sizeof(title),
-            "HAKUI v0.86 // BLACK SPACE FALL // DEPTH %.1f // RECOVERY ARMED // RESPAWNS %u // %.*s",
+            "HAKUI v0.861 // BLACK SPACE FALL // DEPTH %.1f // RECOVERY ARMED // RESPAWNS %u // %.*s",
             -player_.y,
             player_.voidRespawns,
             static_cast<int>(device.size()), device.data()
@@ -1588,7 +1656,7 @@ void HakuiApp::updateHud()
         SDL_snprintf(
             title,
             sizeof(title),
-            "HAKUI v0.86 // %s // %.*s // %.*s // SPD %.1f BAL %.0f // LAND %.*s // BODY %.*s/%.*s // COMBO %s // %.*s TAP POP / HOLD PRELOAD // THEN RS FLICK AIR TRICK // %.*s GRIND // %.*s BALANCE // %.*s DRIVE // %.*s/%.*s SPIN // %.*s STYLE // %.*s DISMOUNT // %.*s",
+            "HAKUI v0.861 // %s // %.*s // %.*s // SPD %.1f BAL %.0f // LAND %.*s // BODY %.*s/%.*s // COMBO %s // %.*s TAP POP / HOLD PRELOAD // THEN RS FLICK AIR TRICK // %.*s GRIND // %.*s BALANCE // %.*s DRIVE // %.*s/%.*s SPIN // %.*s STYLE // %.*s DISMOUNT // %.*s",
             locomotionLabel(player_.locomotion),
             static_cast<int>(phase.size()), phase.data(),
             static_cast<int>(trick.size()), trick.data(),
@@ -1614,7 +1682,7 @@ void HakuiApp::updateHud()
             SDL_snprintf(
                 title,
                 sizeof(title),
-                "HAKUI v0.86 // %.*s // %.*s USE // %.*s ORBIT // MODE %s // STAMINA %.0f // AUM %s // ENTER CHAT // %.*s",
+                "HAKUI v0.861 // %.*s // %.*s USE // %.*s ORBIT // MODE %s // STAMINA %.0f // AUM %s // ENTER CHAT // %.*s",
                 static_cast<int>(focus.prompt.size()),
                 focus.prompt.data(),
                 static_cast<int>(interact.size()), interact.data(),
@@ -1632,7 +1700,7 @@ void HakuiApp::updateHud()
             SDL_snprintf(
                 title,
                 sizeof(title),
-                "HAKUI v0.86 // SPARRING DATUM // %.*s ENTER // DUMMY VISIBLE // %.*s/%.*s ATTACK // %.*s GUARD // %.*s RECOVER // %.*s",
+                "HAKUI v0.861 // SPARRING DATUM // %.*s ENTER // DUMMY VISIBLE // %.*s/%.*s ATTACK // %.*s GUARD // %.*s RECOVER // %.*s",
                 static_cast<int>(cancel.size()), cancel.data(),
                 static_cast<int>(primary.size()), primary.data(),
                 static_cast<int>(secondary.size()), secondary.data(),
@@ -1644,7 +1712,7 @@ void HakuiApp::updateHud()
             SDL_snprintf(
                 title,
                 sizeof(title),
-                "HAKUI v0.86 // %s // X %.1f Y %.1f Z %.1f // STA %.0f // CAM %.2f/%.2f/%.1f // ORBIT %s // INTENT DEVICE %.*s // AUM %s // ENTER CHAT",
+                "HAKUI v0.861 // %s // X %.1f Y %.1f Z %.1f // STA %.0f // CAM %.2f/%.2f/%.1f // ORBIT %s // INTENT DEVICE %.*s // AUM %s // ENTER CHAT",
                 locomotionLabel(player_.locomotion),
                 player_.x,
                 player_.y,
@@ -1670,6 +1738,16 @@ void HakuiApp::update(float dt)
     inputFrame_ = inputBridge_.sample(gamepad_, dt, cameraDragging_);
     inputStatusTimer_ = std::max(0.0f, inputStatusTimer_ - dt);
     chat_.update(dt);
+    if (socialPreviewCaptureDelay_ > 0.0f) {
+        socialPreviewCaptureDelay_ -= dt;
+        if (socialPreviewCaptureDelay_ <= 0.0f) {
+            expertCaptureRequested_ = true;
+            recordObserverEvent(
+                "social.preview",
+                "developer-only bubble visual capture armed"
+            );
+        }
+    }
 
     if (inputFrame_.gamepadConnected) {
         showInputStatus("GAMEPAD SYNCHRONIZED // PROMPTS RECALIBRATED");
@@ -2083,6 +2161,7 @@ bool HakuiApp::render()
     scene.chatBubbleText = chat_.bubble().text;
     scene.chatBubbleRemaining = chat_.bubble().remainingSeconds;
     scene.chatBubbleTotal = chat_.bubble().totalSeconds;
+    scene.chatBubbleStyle = chat_.bubble().style;
     scene.speechIntent = chat_.bubble().speechIntent;
     scene.socialGesture = chat_.socialGesture();
     scene.socialGestureWeight = chat_.socialGestureWeight();

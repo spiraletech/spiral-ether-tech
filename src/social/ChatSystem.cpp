@@ -334,6 +334,7 @@ void ChatSystem::activateBubble(const ChatMessage& message)
     bubble_.speechIntent = message.speechIntent;
     bubble_.style.variant = ChatBubbleVariant::LocalSpeech;
     bubble_.style.environmentModifier = EnvironmentModifier::None;
+    bubble_.style.profile = BubbleStyleProfile::HumanLocal;
     bubble_.style.emphasis = message.speechIntent == SpeechIntent::Excited
         ? 1.0f : 0.0f;
     bubble_.remainingSeconds = duration;
@@ -396,6 +397,17 @@ std::string_view socialGestureLabel(SocialGesture gesture) noexcept
     case SocialGesture::DisagreementTilt: return "DisagreementTilt";
     }
     return "None";
+}
+
+std::string_view bubbleStyleProfileLabel(BubbleStyleProfile profile) noexcept
+{
+    switch (profile) {
+    case BubbleStyleProfile::HumanLocal: return "human.local.glass";
+    case BubbleStyleProfile::NpcLocal: return "npc.local.glass";
+    case BubbleStyleProfile::SaelisLocal: return "saelis.local.deferred";
+    case BubbleStyleProfile::SystemNotification: return "system.data-grunge";
+    }
+    return "human.local.glass";
 }
 
 } // namespace hakui::social

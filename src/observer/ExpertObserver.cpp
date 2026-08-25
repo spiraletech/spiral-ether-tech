@@ -417,6 +417,22 @@ std::string socialJson(const SocialObservation& social)
            << ",\n  \"bubble_remaining\": " << social.bubbleRemaining
            << ",\n  \"bubble_anchor_position\": "
            << vec3Json(social.bubbleAnchorPosition)
+           << ",\n  \"bubble_world_position\": "
+           << vec3Json(social.bubbleWorldPosition)
+           << ",\n  \"bubble_screen_position\": "
+           << vec3Json(social.bubbleScreenPosition)
+           << ",\n  \"bubble_scale\": " << social.bubbleScale
+           << ",\n  \"bubble_alpha\": " << social.bubbleAlpha
+           << ",\n  \"bubble_width\": " << social.bubbleWidth
+           << ",\n  \"bubble_height\": " << social.bubbleHeight
+           << ",\n  \"bubble_line_count\": " << social.bubbleLineCount
+           << ",\n  \"bubble_style_profile\": \""
+           << jsonEscape(social.bubbleStyleProfile)
+           << "\",\n  \"bubble_life_phase\": \""
+           << jsonEscape(social.bubbleLifePhase)
+           << "\",\n  \"bubble_distance_to_camera\": "
+           << social.bubbleDistanceToCamera
+           << ",\n  \"bubble_anchor_error\": " << social.bubbleAnchorError
            << ",\n  \"bubble_style\": \"" << jsonEscape(social.bubbleStyle)
            << "\",\n  \"environment_modifier\": \""
            << jsonEscape(social.environmentModifier)

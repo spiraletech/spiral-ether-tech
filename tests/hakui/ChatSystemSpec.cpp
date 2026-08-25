@@ -3,6 +3,7 @@
 #include <string>
 
 #include "social/ChatSystem.hpp"
+#include "social/ChatBubblePresentation.hpp"
 
 int main()
 {
@@ -82,6 +83,48 @@ int main()
     assert(ChatSystem::classifySpeechIntent("plain words") == SpeechIntent::Neutral);
     assert(messageSourceLabel(MessageSource::Saelis) == "Saelis");
     assert(inputOwnerLabel(InputOwner::ChatInput) == "ChatInput");
+
+    const ChatBubbleMaterial glass;
+    BubblePresentationTuning visualTuning;
+    visualTuning.maximumBubbleWidth = 2.8f;
+    visualTuning.maximumLines = 3;
+    const BubblePresentationLayout shortBubble =
+        ChatBubblePresentation::resolve(
+            "hey lol", 2.9f, 3.0f, 4.0f, glass, visualTuning
+        );
+    assert(shortBubble.visible);
+    assert(shortBubble.phase == BubbleLifePhase::FadeIn);
+    assert(shortBubble.lines.size() == 1);
+    assert(shortBubble.lines[0] == "hey lol");
+    assert(shortBubble.width < visualTuning.maximumBubbleWidth);
+    assert(shortBubble.alpha > 0.0f && shortBubble.alpha < 1.0f);
+
+    const BubblePresentationLayout heldBubble =
+        ChatBubblePresentation::resolve(
+            "This is a longer sentence that must wrap inside a social bubble "
+            "without spanning the entire screen.",
+            2.0f,
+            4.0f,
+            9.0f,
+            glass,
+            visualTuning
+        );
+    assert(heldBubble.phase == BubbleLifePhase::Hold);
+    assert(heldBubble.lines.size() > 1);
+    assert(heldBubble.lines.size() <= visualTuning.maximumLines);
+    assert(heldBubble.width <= visualTuning.maximumBubbleWidth);
+    assert(heldBubble.scale >= visualTuning.minimumScale);
+    assert(heldBubble.scale <= visualTuning.maximumScale);
+
+    const BubblePresentationLayout fadingBubble =
+        ChatBubblePresentation::resolve(
+            "bye", 0.20f, 3.0f, 30.0f, glass, visualTuning
+        );
+    assert(fadingBubble.phase == BubbleLifePhase::FadeOut);
+    assert(fadingBubble.alpha > 0.0f && fadingBubble.alpha < 1.0f);
+    assert(fadingBubble.scale == visualTuning.maximumScale);
+    assert(bubbleStyleProfileLabel(BubbleStyleProfile::HumanLocal) ==
+           "human.local.glass");
 
     return 0;
 }

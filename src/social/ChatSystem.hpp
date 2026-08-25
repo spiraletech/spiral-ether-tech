@@ -53,7 +53,7 @@ enum class ChatBubbleVariant : std::uint8_t {
     SystemNotice
 };
 
-// Dormant extension seam for world-driven presentation. v0.86 always emits
+// Dormant extension seam for world-driven presentation. v0.861 always emits
 // None: weather/expression systems do not belong in the chat simulation.
 enum class EnvironmentModifier : std::uint8_t {
     None,
@@ -64,9 +64,35 @@ enum class EnvironmentModifier : std::uint8_t {
     DataGrungeAnomaly
 };
 
+struct ChatBubbleMaterial {
+    float backgroundAlpha = 0.40f;
+    float borderAlpha = 0.50f;
+    float cornerRadius = 0.20f;
+    float padding = 0.15f;
+    float textScale = 0.040f;
+    float glowStrength = 0.06f;
+    float tailSize = 0.16f;
+};
+
+enum class BubbleStyleProfile : std::uint8_t {
+    HumanLocal,
+    NpcLocal,
+    SaelisLocal,
+    SystemNotification
+};
+
+// Presentation-only identity seam. v0.861 resolves HumanLocal; future speaker
+// systems may select a profile without changing message or bubble lifetime.
+struct SpeakerProfile {
+    BubbleStyleProfile bubbleStyleProfile = BubbleStyleProfile::HumanLocal;
+    std::string_view expressionProfile = "human.default";
+};
+
 struct ChatBubbleStyle {
     ChatBubbleVariant variant = ChatBubbleVariant::LocalSpeech;
     EnvironmentModifier environmentModifier = EnvironmentModifier::None;
+    BubbleStyleProfile profile = BubbleStyleProfile::HumanLocal;
+    ChatBubbleMaterial material{};
     float emphasis = 0.0f;
 };
 
@@ -154,5 +180,6 @@ std::string_view chatChannelLabel(ChatChannel channel) noexcept;
 std::string_view messageSourceLabel(MessageSource source) noexcept;
 std::string_view speechIntentLabel(SpeechIntent intent) noexcept;
 std::string_view socialGestureLabel(SocialGesture gesture) noexcept;
+std::string_view bubbleStyleProfileLabel(BubbleStyleProfile profile) noexcept;
 
 } // namespace hakui::social

@@ -1,6 +1,6 @@
 # Hakui Product Requirements
 
-Status: working specification through the local v0.86 social-chat and interaction-overhaul pass.
+Status: working specification through the local v0.861 social-bubble visual-quality pass.
 
 Each requirement has a stable identifier so code, tests, issues, and release notes can refer to the same contract. A requirement is complete only when its acceptance criteria are automated or explicitly marked as a manual visual/audio check.
 
@@ -340,6 +340,34 @@ Acceptance criteria:
 Automated in part by: `hakui.social`, `hakui.gameplay_movement`, and
 `hakui.observer`. SDL text entry and bubble legibility remain native smoke checks.
 
+### HK-EXP-019 — Social-avatar bubble presentation
+
+Local human speech shall read as an in-world avatar event rather than opaque
+debug/subtitle UI.
+
+Acceptance criteria:
+
+- The primary presentation is attached to `Head → ChatBubbleAnchor`, billboards
+  toward the gameplay camera, follows moving/seated/riding avatars, and does not
+  alter combat or ride pose authority.
+- A reusable semantic glass material controls background/border alpha, corner
+  radius, padding, text scale, glow strength, and tail size.
+- The surface is genuinely destination-color blended, lightweight, bounded,
+  stepped-rounded, and includes a tapered tail that identifies the speaker.
+- Human text preserves capitalization, uses proportional spacing, wraps words,
+  clamps width/line count, and retains the existing 180-codepoint limit.
+- Near/far scale is centrally clamped; fade-in, hold, fade-out, and optional
+  reduced-motion emergence are deterministic and GPU independent.
+- The text-entry surface is compact and translucent rather than a full opaque
+  bottom-screen slab. System notifications remain distinct from player speech.
+- WeatherDX, Saelis, NPC, and SystemAI remain explicit style-profile seams only.
+- Observer output includes bubble world/screen position, scale, alpha, width,
+  height, line count, style, phase, camera distance, and anchor error.
+
+Automated in part by: `hakui.social` and `hakui.observer`. Billboard appearance,
+transparency, tail attachment, and seated/moving readability remain native
+visual acceptance checks.
+
 ## Engine requirements
 
 ### HK-ENG-001 — Dependency firewall
@@ -428,6 +456,7 @@ Before a public v1.0 release, the repository shall include an owner-selected lic
 | HK-EXP-016 | Implemented locally | Deterministic trick physics/landing/bail, hierarchical ride anchors, observer diagnostics |
 | HK-EXP-017 | Implemented locally | Deterministic body-pose vocabulary, articulated renderer, reservable furniture seat slots, observer diagnostics |
 | HK-EXP-018 | Implemented locally | `ChatSystem`, exclusive native text context, avatar bubbles/gestures, social and couch observer diagnostics |
+| HK-EXP-019 | Implemented locally | Deterministic bubble resolver, native social-glass pipeline, rounded/tail presentation, visual telemetry |
 | HK-ENG-001–005 | Implemented, awaiting CI | Firewall and Spiral specs |
 | HK-ENG-006 | Implemented locally | Semantic affordances and dependency-free combat/gameplay targets |
 | HK-QLT-001–003 | Implemented, awaiting CI | CMake, workflow, dependency manifest |

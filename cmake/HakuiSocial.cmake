@@ -9,10 +9,13 @@ hakui_enforce_first_party_firewall(
     "Hakui Social"
     ${CMAKE_CURRENT_LIST_DIR}/../src/social/ChatSystem.hpp
     ${CMAKE_CURRENT_LIST_DIR}/../src/social/ChatSystem.cpp
+    ${CMAKE_CURRENT_LIST_DIR}/../src/social/ChatBubblePresentation.hpp
+    ${CMAKE_CURRENT_LIST_DIR}/../src/social/ChatBubblePresentation.cpp
 )
 
 add_library(hakui_social STATIC
     ${CMAKE_CURRENT_LIST_DIR}/../src/social/ChatSystem.cpp
+    ${CMAKE_CURRENT_LIST_DIR}/../src/social/ChatBubblePresentation.cpp
 )
 
 target_include_directories(hakui_social

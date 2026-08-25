@@ -1,5 +1,6 @@
 #pragma once
 
+#include <cstddef>
 #include <span>
 #include <string_view>
 
@@ -10,6 +11,7 @@
 #include "player/PlayerState.hpp"
 #include "player/RideableMovementController.hpp"
 #include "social/ChatSystem.hpp"
+#include "social/ChatBubblePresentation.hpp"
 #include "world/WorldGeometry.hpp"
 
 enum class CameraRole {
@@ -57,12 +59,33 @@ struct HakuiSceneState {
     std::string_view chatBubbleText{};
     float chatBubbleRemaining = 0.0f;
     float chatBubbleTotal = 0.0f;
+    hakui::social::ChatBubbleStyle chatBubbleStyle{};
     hakui::social::SpeechIntent speechIntent =
         hakui::social::SpeechIntent::Neutral;
     hakui::social::SocialGesture socialGesture =
         hakui::social::SocialGesture::None;
     float socialGestureWeight = 0.0f;
     hakui::RideableState rideable{};
+};
+
+struct BubbleVisualTelemetry {
+    bool active = false;
+    float worldX = 0.0f;
+    float worldY = 0.0f;
+    float worldZ = 0.0f;
+    float screenX = 0.0f;
+    float screenY = 0.0f;
+    float scale = 0.0f;
+    float alpha = 0.0f;
+    float width = 0.0f;
+    float height = 0.0f;
+    std::size_t lineCount = 0;
+    hakui::social::BubbleStyleProfile styleProfile =
+        hakui::social::BubbleStyleProfile::HumanLocal;
+    hakui::social::BubbleLifePhase lifePhase =
+        hakui::social::BubbleLifePhase::Hidden;
+    float distanceToCamera = 0.0f;
+    float anchorError = 0.0f;
 };
 
 class DebugWorldRenderer {
@@ -101,6 +124,7 @@ public:
     float cameraTargetY() const noexcept;
     float cameraTargetZ() const noexcept;
     float fieldOfViewDegrees() const noexcept;
+    const BubbleVisualTelemetry& bubbleVisualTelemetry() const noexcept;
     void setCameraRole(CameraRole role);
     void frameInteraction(InteractionFrame frame);
     void setCombatTarget(float x, float y, float z) noexcept;
@@ -119,6 +143,7 @@ private:
     SDL_Window* window_ = nullptr;
     SDL_GPUBuffer* cubeVertexBuffer_ = nullptr;
     SDL_GPUGraphicsPipeline* pipeline_ = nullptr;
+    SDL_GPUGraphicsPipeline* glassPipeline_ = nullptr;
     SDL_GPUTexture* depthTexture_ = nullptr;
     Uint32 depthWidth_ = 0;
     Uint32 depthHeight_ = 0;
@@ -139,4 +164,5 @@ private:
     float combatTargetY_ = 1.25f;
     float combatTargetZ_ = 0.0f;
     bool cameraInitialized_ = false;
+    BubbleVisualTelemetry bubbleVisualTelemetry_{};
 };

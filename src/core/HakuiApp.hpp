@@ -77,6 +77,7 @@ private:
     float opponentHitPulse_ = 0.0f;
     bool opponentCrossNext_ = false;
     bool expertCaptureRequested_ = false;
+    float socialPreviewCaptureDelay_ = -1.0f;
     std::filesystem::path lastObserverBundle_;
 
     // Spiral is the client's orchestration spine. It remains independent from

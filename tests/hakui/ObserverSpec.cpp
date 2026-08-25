@@ -51,7 +51,7 @@ int main()
 
     CaptureContext context;
     context.build = {
-        "0.86-dev", "spec", "abc123", "codex/social-chat-interaction-v0.86",
+        "0.861-dev", "spec", "abc123", "codex/social-bubble-visual-v0.861",
         "2026-08-23", "test", "none"
     };
     context.geometry = geometry;
@@ -135,6 +135,17 @@ int main()
     context.social.bubbleActive = true;
     context.social.bubbleRemaining = 2.75f;
     context.social.bubbleAnchorPosition = {0.0f, 3.34f, 2.0f};
+    context.social.bubbleWorldPosition = {0.0f, 4.15f, 2.0f};
+    context.social.bubbleScreenPosition = {640.0f, 180.0f, 0.0f};
+    context.social.bubbleScale = 1.02f;
+    context.social.bubbleAlpha = 0.46f;
+    context.social.bubbleWidth = 2.40f;
+    context.social.bubbleHeight = 0.92f;
+    context.social.bubbleLineCount = 2;
+    context.social.bubbleStyleProfile = "human.local.glass";
+    context.social.bubbleLifePhase = "Hold";
+    context.social.bubbleDistanceToCamera = 8.5f;
+    context.social.bubbleAnchorError = 0.0f;
     context.social.currentSocialGesture = "HeadTilt";
     context.social.lastChannel = "Local";
     context.social.lastMessageSource = "HumanPlayer";
@@ -231,6 +242,19 @@ int main()
     assert(social.find("\"speech_intent\": \"Question\"") !=
            std::string::npos);
     assert(social.find("\"bubble_active\": true") != std::string::npos);
+    assert(social.find("\"bubble_world_position\": {\"x\":0.0000,\"y\":4.1500") !=
+           std::string::npos);
+    assert(social.find("\"bubble_screen_position\": {\"x\":640.0000") !=
+           std::string::npos);
+    assert(social.find("\"bubble_scale\": 1.0200") != std::string::npos);
+    assert(social.find("\"bubble_alpha\": 0.4600") != std::string::npos);
+    assert(social.find("\"bubble_line_count\": 2") != std::string::npos);
+    assert(social.find("\"bubble_style_profile\": \"human.local.glass\"") !=
+           std::string::npos);
+    assert(social.find("\"bubble_distance_to_camera\": 8.5000") !=
+           std::string::npos);
+    assert(social.find("\"bubble_anchor_error\": 0.0000") !=
+           std::string::npos);
     assert(social.find("\"current_social_gesture\": \"HeadTilt\"") !=
            std::string::npos);
     assert(map.find("<svg") != std::string::npos);

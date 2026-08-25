@@ -1,4 +1,4 @@
-# PROJECT HAKUI — Native Client v0.86-dev
+# PROJECT HAKUI — Native Client v0.861-dev
 
 [![Hakui Build and Test](https://github.com/spiraletech/spiral-ether-tech/actions/workflows/native-build.yml/badge.svg)](https://github.com/spiraletech/spiral-ether-tech/actions/workflows/native-build.yml)
 [![C++20](https://img.shields.io/badge/C%2B%2B-20-00599C.svg)](https://en.cppreference.com/w/cpp/20)
@@ -36,6 +36,28 @@ cmake --build build --config Release --target hakui --parallel
 ```
 
 The resulting executable is `hakui` (`hakui.exe` on Windows). Run it from the selected build-configuration directory used by your generator.
+
+## v0.861 social bubble visual overhaul
+
+v0.861 keeps the v0.86 message, history, intent, lifetime, and input-ownership
+architecture intact while replacing its provisional chat presentation. Local
+speech is now primarily a world-space, camera-facing bubble rooted at the
+avatar's `Head → ChatBubbleAnchor`; movement, seating, riding, and combat do not
+detach or own the bubble state.
+
+The reusable `ChatBubbleMaterial` and deterministic presentation resolver own
+glass opacity, subtle edge strength, stepped-rounded silhouette, padding, text
+scale, tapered speaker tail, word wrapping, maximum lines, distance scale, and
+FadeIn/Hold/FadeOut phases. Human text preserves capitalization and uses
+proportional sentence-case glyph spacing. The former opaque bottom slab is gone;
+active text entry uses a small translucent capsule, while system notifications
+remain semantically separate.
+
+Expert Observer social snapshots now expose bubble world/screen position,
+scale, surface alpha, dimensions, line count, style profile, lifetime phase,
+camera distance, and anchor error. WeatherDX and Saelis remain dormant style
+profiles, not implemented effects. This is a local visual-quality patch;
+remote publication remains separate.
 
 ## v0.86 social chat + interaction overhaul
 

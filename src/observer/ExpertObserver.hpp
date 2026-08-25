@@ -21,7 +21,7 @@ struct Vec3 {
 };
 
 struct BuildObservation {
-    std::string hakuiVersion = "0.86-dev";
+    std::string hakuiVersion = "0.861-dev";
     std::string configuration = "unknown";
     std::string gitCommit = "unknown";
     std::string gitBranch = "unknown";
@@ -163,6 +163,17 @@ struct SocialObservation {
     bool bubbleActive = false;
     float bubbleRemaining = 0.0f;
     Vec3 bubbleAnchorPosition{};
+    Vec3 bubbleWorldPosition{};
+    Vec3 bubbleScreenPosition{};
+    float bubbleScale = 0.0f;
+    float bubbleAlpha = 0.0f;
+    float bubbleWidth = 0.0f;
+    float bubbleHeight = 0.0f;
+    std::size_t bubbleLineCount = 0;
+    std::string bubbleStyleProfile = "human.local.glass";
+    std::string bubbleLifePhase = "Hidden";
+    float bubbleDistanceToCamera = 0.0f;
+    float bubbleAnchorError = 0.0f;
     std::string currentSocialGesture = "None";
     std::string lastChannel = "System";
     std::string lastMessageSource = "SystemAI";
@@ -172,7 +183,7 @@ struct SocialObservation {
 
 struct CaptureContext {
     BuildObservation build;
-    std::string worldVersion = "black-room.v0.86";
+    std::string worldVersion = "black-room.v0.861";
     std::string environmentId = "data-grunge.black-room";
     std::span<const WorldPrimitive> geometry;
     std::span<const WorldAffordanceVolume> affordances;

@@ -292,6 +292,28 @@ avatar, local speech becomes an avatar-attached world event, system text remains
 distinct, both couch slots survive repeated cycles, and all v0.85 systems retain
 authority.
 
+## M4.861 — v0.861 social bubble visual overhaul
+
+- Keep the v0.86 social simulation and input-ownership boundaries unchanged.
+- Make active human speech a world-space `ChatBubbleAnchor` presentation rather
+  than a dominant opaque screen-space slab.
+- Add reusable glass material, rounded primitive silhouette, tapered tail,
+  proportional sentence-case glyphs, word wrapping, line/width bounds,
+  distance scaling, and phased fade/motion rules.
+- Replace text entry with a compact translucent capsule and keep system
+  notifications distinct from avatar speech.
+- Export rendered bubble world/screen position, scale, alpha, dimensions, line
+  count, style/phase, camera distance, and anchor error through Expert Observer.
+- Retain WeatherDX, Saelis, NPC, and SystemAI profile seams without implementing
+  weather, AI dialogue, networking, or speaker-specific effects.
+
+Current state: implemented locally on `codex/social-bubble-visual-v0.861`;
+deterministic presentation tests and the native glass pipeline compile locally.
+Remote operations remain unauthorized.
+
+Exit signal: `hey lol` reads as lightweight speech floating with the avatar,
+not as a black debug subtitle covering the world.
+
 ## M5 — World persistence and replay
 
 - Define a versioned StateStore snapshot schema.
