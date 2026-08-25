@@ -34,6 +34,9 @@ jobs:
       - name: Apply v0.868 IMVU social stack
         run: python tools/apply_imvu_social_v0868.py
 
+      - name: Apply v1.01 skate embodiment pass
+        run: python tools/apply_skate_embodiment_v101.py
+
       - name: Configure dependency-free targets
         run: >-
           cmake -S . -B build
@@ -63,6 +66,9 @@ jobs:
 
       - name: Apply v0.868 IMVU social stack
         run: python tools/apply_imvu_social_v0868.py
+
+      - name: Apply v1.01 skate embodiment pass
+        run: python tools/apply_skate_embodiment_v101.py
 
       - name: Configure native client
         run: >-
