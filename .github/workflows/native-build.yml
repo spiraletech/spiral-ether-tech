@@ -49,6 +49,9 @@ jobs:
       - name: Apply Female Mannequin Lab v0.1
         run: python tools/apply_female_mannequin_lab_v01.py
 
+      - name: Apply HAKUI female player copy v1.01
+        run: python tools/apply_hakui_female_player_v101.py
+
       - name: Configure dependency-free targets
         run: >-
           cmake -S . -B build
@@ -94,6 +97,9 @@ jobs:
       - name: Apply Female Mannequin Lab v0.1
         run: python tools/apply_female_mannequin_lab_v01.py
 
+      - name: Apply HAKUI female player copy v1.01
+        run: python tools/apply_hakui_female_player_v101.py
+
       - name: Configure native clients
         run: >-
           cmake -S . -B build
@@ -103,6 +109,9 @@ jobs:
 
       - name: Build HAKUI v1.01
         run: cmake --build build --config Release --target hakui --parallel 2
+
+      - name: Build HAKUI Female v1.01
+        run: cmake --build build --config Release --target hakui_female --parallel 2
 
       - name: Build Male Mannequin Lab v0.13
         run: cmake --build build --config Release --target hakui_mannequin_lab --parallel 2
@@ -114,6 +123,13 @@ jobs:
         shell: pwsh
         run: >-
           ./packaging/windows/package.ps1
+          -BuildDirectory ./build
+          -OutputDirectory ./dist
+
+      - name: Build HAKUI Female Windows pack
+        shell: pwsh
+        run: >-
+          ./packaging/windows/package_hakui_female.ps1
           -BuildDirectory ./build
           -OutputDirectory ./dist
 
@@ -136,6 +152,14 @@ jobs:
         with:
           name: spiral-os-hakui-engine-windows-x64
           path: dist/spiral-os-hakui-engine-windows-x64.zip
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Upload HAKUI Female Windows pack
+        uses: actions/upload-artifact@v4
+        with:
+          name: spiral-os-hakui-female-v1.01-windows-x64
+          path: dist/SPIRAL-OS-HAKUI-FEMALE-v1.01-windows-x64.zip
           if-no-files-found: error
           retention-days: 30
 
