@@ -46,6 +46,9 @@ jobs:
       - name: Apply Mannequin Lab v0.13 silhouette pass
         run: python tools/apply_mannequin_silhouette_v013.py
 
+      - name: Apply Female Mannequin Lab v0.1
+        run: python tools/apply_female_mannequin_lab_v01.py
+
       - name: Configure dependency-free targets
         run: >-
           cmake -S . -B build
@@ -88,6 +91,9 @@ jobs:
       - name: Apply Mannequin Lab v0.13 silhouette pass
         run: python tools/apply_mannequin_silhouette_v013.py
 
+      - name: Apply Female Mannequin Lab v0.1
+        run: python tools/apply_female_mannequin_lab_v01.py
+
       - name: Configure native clients
         run: >-
           cmake -S . -B build
@@ -98,8 +104,11 @@ jobs:
       - name: Build HAKUI v1.01
         run: cmake --build build --config Release --target hakui --parallel 2
 
-      - name: Build Mannequin Lab
+      - name: Build Male Mannequin Lab v0.13
         run: cmake --build build --config Release --target hakui_mannequin_lab --parallel 2
+
+      - name: Build Female Mannequin Lab v0.1
+        run: cmake --build build --config Release --target hakui_female_mannequin_lab --parallel 2
 
       - name: Build HAKUI Windows startup pack
         shell: pwsh
@@ -108,10 +117,17 @@ jobs:
           -BuildDirectory ./build
           -OutputDirectory ./dist
 
-      - name: Build Mannequin Lab Windows pack
+      - name: Build Male Mannequin Lab Windows pack
         shell: pwsh
         run: >-
           ./packaging/windows/package_mannequin_lab.ps1
+          -BuildDirectory ./build
+          -OutputDirectory ./dist
+
+      - name: Build Female Mannequin Lab Windows pack
+        shell: pwsh
+        run: >-
+          ./packaging/windows/package_female_mannequin_lab.ps1
           -BuildDirectory ./build
           -OutputDirectory ./dist
 
@@ -123,11 +139,19 @@ jobs:
           if-no-files-found: error
           retention-days: 30
 
-      - name: Upload Mannequin Lab Windows pack
+      - name: Upload Male Mannequin Lab Windows pack
         uses: actions/upload-artifact@v4
         with:
           name: hakui-mannequin-lab-v0.13-silhouette-pass-windows-x64
           path: dist/HAKUI-MANNEQUIN-LAB-v0.13-SILHOUETTE-PASS-windows-x64.zip
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Upload Female Mannequin Lab Windows pack
+        uses: actions/upload-artifact@v4
+        with:
+          name: hakui-female-mannequin-lab-v0.1-windows-x64
+          path: dist/HAKUI-FEMALE-MANNEQUIN-LAB-v0.1-windows-x64.zip
           if-no-files-found: error
           retention-days: 30
 
