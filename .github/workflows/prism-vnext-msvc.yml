@@ -1,4 +1,4 @@
-name: PRISM Hover dB MSVC Build
+name: PRISM Orb Modes MSVC Build
 
 on:
   pull_request:
@@ -47,6 +47,10 @@ jobs:
         shell: pwsh
         run: git apply -p0 --unsafe-paths prism_build/hover_db.patch
 
+      - name: Apply polished orb modes patch
+        shell: pwsh
+        run: git apply -p0 --unsafe-paths prism_build/orb_modes.patch
+
       - uses: ilammy/msvc-dev-cmd@v1
         with:
           arch: x64
@@ -58,16 +62,16 @@ jobs:
           prism_build\prism.cpp
           /link /SUBSYSTEM:WINDOWS /DYNAMICBASE /NXCOMPAT /HIGHENTROPYVA
           user32.lib gdi32.lib ole32.lib winmm.lib kernel32.lib
-          /OUT:PRISM_LAB_HOVER_DB.exe
+          /OUT:PRISM_LAB_ORBMODES.exe
 
       - name: Inspect and hash
         shell: pwsh
         run: |
-          Get-Item .\PRISM_LAB_HOVER_DB.exe | Format-List Name,Length,LastWriteTime
-          Get-FileHash .\PRISM_LAB_HOVER_DB.exe -Algorithm SHA256 | Format-List
+          Get-Item .\PRISM_LAB_ORBMODES.exe | Format-List Name,Length,LastWriteTime
+          Get-FileHash .\PRISM_LAB_ORBMODES.exe -Algorithm SHA256 | Format-List
 
       - uses: actions/upload-artifact@v4
         with:
-          name: PRISM_LAB_HOVER_DB_MSVC
-          path: PRISM_LAB_HOVER_DB.exe
+          name: PRISM_LAB_ORBMODES_MSVC
+          path: PRISM_LAB_ORBMODES.exe
           if-no-files-found: error
