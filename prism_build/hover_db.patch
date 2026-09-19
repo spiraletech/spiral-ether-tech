@@ -1,0 +1,60 @@
+--- prism_build/prism.cpp
++++ prism_build/prism.cpp
+@@ -133,6 +133,9 @@
+ DLLIMPORT void WINAPI PostQuitMessage(i32);
+ DLLIMPORT BOOL WINAPI DestroyWindow(HWND);
+ DLLIMPORT BOOL WINAPI GetClientRect(HWND,RECT*);
++DLLIMPORT BOOL WINAPI GetCursorPos(POINT*);
++DLLIMPORT BOOL WINAPI ScreenToClient(HWND,POINT*);
++DLLIMPORT u32 WINAPI SetBkColor(HDC,u32);
+ DLLIMPORT BOOL WINAPI GetWindowRect(HWND,RECT*);
+ DLLIMPORT i32 WINAPI GetSystemMetrics(i32);
+ DLLIMPORT i32 WINAPI SetWindowLongA(HWND,i32,i32);
+@@ -171,7 +174,7 @@
+ static const DWORD AUDCLNT_BUFFERFLAGS_SILENT=0x2;
+ static const i32 AUDCLNT_SHAREMODE_SHARED=0, eRender=0, eConsole=0;
+ static const u16 WAVE_FORMAT_IEEE_FLOAT=3, WAVE_FORMAT_EXTENSIBLE=0xFFFE;
+-static const i32 TRANSPARENT=1, DEFAULT_GUI_FONT=17;
++static const i32 TRANSPARENT=1, OPAQUE=2, DEFAULT_GUI_FONT=17;
+ 
+ static const GUID CLSID_MMDeviceEnumerator={0xBCDE0395,0xE52F,0x467C,{0x8E,0x3D,0xC4,0x57,0x92,0x91,0x69,0x2E}};
+ static const GUID IID_IMMDeviceEnumerator={0xA95664D2,0x9614,0x4F35,{0xA7,0x46,0xDE,0x8D,0xB6,0x36,0x17,0xE6}};
+@@ -911,6 +914,29 @@
+     txtReset(b,n);txtStr(b,n,"HYDRO-CYMATIC ");txtF1(b,n,g_domHz);txtStr(b,n," Hz");TextOutA(dc,525*w/FBW,108*h/FBH,b,n);
+     txtReset(b,n);txtStr(b,n,"PHASE ");txtF1(b,n,g_stereoCorr);txtStr(b,n,"  M/S ");txtPct(b,n,g_sideRatio);TextOutA(dc,260*w/FBW,108*h/FBH,b,n);
+ }
++static void drawDbHover(HDC dc,i32 w,i32 h){
++    POINT pt; if(!GetCursorPos(&pt))return; if(!ScreenToClient(g_hwnd,&pt))return;
++    if(pt.x<0||pt.y<0||pt.x>=w||pt.y>=h)return;
++    i32 fx=(i32)((i64)pt.x*FBW/(w?w:1)), fy=(i32)((i64)pt.y*FBH/(h?h:1));
++    if(fx<FIELD_X0||fx>FIELD_X1||fy<FIELD_TOP||fy>FIELD_BASE)return;
++
++    f32 db=DB_FLOOR;
++    if(g_displayMode==1 && g_tfCount>0){
++        i32 f=(fx-FIELD_X0)*HEAT_FREQ/(FIELD_X1-FIELD_X0); if(f<0)f=0;if(f>=HEAT_FREQ)f=HEAT_FREQ-1;
++        i32 age=(FIELD_BASE-fy)*g_tfCount/(FIELD_BASE-FIELD_TOP); if(age<0)age=0;if(age>=g_tfCount)age=g_tfCount-1;
++        i32 idx=(g_tfWrite-1-age+HEAT_TIME)%HEAT_TIME;
++        f32 v=clamp01(g_tfHistory[idx*HEAT_FREQ+f]);
++        db=g_displayFloor+v*(0.0f-g_displayFloor);
++    }else{
++        i32 b=(fx-FIELD_X0)*VIS_BANDS/(FIELD_X1-FIELD_X0); if(b<0)b=0;if(b>=VIS_BANDS)b=VIS_BANDS-1;
++        db=g_dbBand[b];
++    }
++
++    char btxt[32];i32 n=0;txtReset(btxt,n);txtF1(btxt,n,db);txtStr(btxt,n," dBFS");
++    i32 tx=pt.x+13,ty=pt.y-21; if(tx+72>w)tx=pt.x-76;if(ty<2)ty=pt.y+13;
++    SetBkMode(dc,OPAQUE);SetBkColor(dc,0x00000000u);SetTextColor(dc,0x00FFFFFFu);SelectObject(dc,GetStockObject(DEFAULT_GUI_FONT));
++    TextOutA(dc,tx,ty,btxt,n);SetBkMode(dc,TRANSPARENT);
++}
+ static void present(){
+     RECT rc;GetClientRect(g_hwnd,&rc);i32 w=rc.right-rc.left,h=rc.bottom-rc.top;if(w<=0||h<=0)return; HDC dc=GetDC(g_hwnd); if(!dc)return;
+     BITMAPINFO bi; bi.bmiHeader.biSize=sizeof(BITMAPINFOHEADER);bi.bmiHeader.biWidth=FBW;bi.bmiHeader.biHeight=-FBH;bi.bmiHeader.biPlanes=1;bi.bmiHeader.biBitCount=32;bi.bmiHeader.biCompression=0;bi.bmiHeader.biSizeImage=FBW*FBH*4;bi.bmiHeader.biXPelsPerMeter=bi.bmiHeader.biYPelsPerMeter=0;bi.bmiHeader.biClrUsed=bi.bmiHeader.biClrImportant=0;
+@@ -918,7 +944,7 @@
+     SetBkMode(dc,TRANSPARENT); SetTextColor(dc,0x00FFFFFFu); SelectObject(dc,GetStockObject(DEFAULT_GUI_FONT));
+     const char* name="PRISM LAB"; TextOutA(dc,18,h-48,name,str_len(name));
+     const char* st=g_audioOK?"SYSTEM AUDIO // LIVE SPECTRAL LAB ONLINE":"AUDIO IDLE // PLAY SOUND OR CHECK DEFAULT OUTPUT"; SetTextColor(dc,g_audioOK?0x00B8FFD8u:0x008080FFu); TextOutA(dc,18,h-28,st,str_len(st));
+-    drawFrequencyAxis(dc,w,h);drawHUD(dc,w,h);ReleaseDC(g_hwnd,dc);
++    drawFrequencyAxis(dc,w,h);drawHUD(dc,w,h);drawDbHover(dc,w,h);ReleaseDC(g_hwnd,dc);
+ }
+ 
+ int WINAPI WinMain(HINSTANCE hi,HINSTANCE,char*,i32){
