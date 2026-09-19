@@ -45,15 +45,7 @@ jobs:
 
       - name: Apply dB hover patch
         shell: pwsh
-        run: |
-          $p64 = (Get-Content "prism_build/hover_db.patch.gz.b64" -Raw).Trim()
-          [IO.File]::WriteAllBytes("prism_build/hover_db.patch.gz", [Convert]::FromBase64String($p64))
-          $input = [IO.File]::OpenRead("prism_build/hover_db.patch.gz")
-          $gzip = [IO.Compression.GzipStream]::new($input, [IO.Compression.CompressionMode]::Decompress)
-          $output = [IO.File]::Create("prism_build/hover_db.patch")
-          $gzip.CopyTo($output)
-          $output.Dispose(); $gzip.Dispose(); $input.Dispose()
-          git apply --unsafe-paths prism_build/hover_db.patch
+        run: git apply -p0 --unsafe-paths prism_build/hover_db.patch
 
       - uses: ilammy/msvc-dev-cmd@v1
         with:
