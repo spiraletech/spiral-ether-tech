@@ -1,0 +1,109 @@
+--- prism_build/prism.cpp
++++ prism_build/prism.cpp
+@@ -239,6 +239,9 @@
+ static f32 g_rmsDb=-120.0f,g_peakDb=-120.0f,g_midRms=0,g_sideRms=0,g_midDb=-120.0f,g_sideDb=-120.0f,g_sideRatio=0,g_balance=0;
+ static u32 g_clipCount=0;
+ static f32 g_cymHarm[8]={0};
++// Semantic orb modes: 0 CYMATIC, 1 MANDALA, 2 LOTUS. Lotus is the polished default.
++static i32 g_orbMode=2;
++static f32 g_orbFlashUntil=0.0f;
+ // Dedicated physical low-end model for the Bass/Sub Bouncer. These are measured
+ // from literal FFT ranges rather than the legacy 64-band summary.
+ static f32 g_subEnergy=0, g_bassBody=0, g_lowPunch=0, g_bassKick=0, g_bassSustain=0, g_prevLowCore=0;
+@@ -750,6 +753,79 @@
+     i32 px=0,py=0;bool first=true;for(i32 i=0;i<=128;i++){f32 a=6.2831853f*(f32)i/128.0f;f32 wob=(fast_sin(a*(f32)angular)*pc+fast_cos(a*(f32)angular)*ps)*(1.2f+3.0f*loud)*coh;f32 rr=(f32)rad+wob;i32 x=cx+(i32)(fast_cos(a)*rr),y=cy+(i32)(fast_sin(a)*rr);if(!first)line(px,py,x,y,0xBDEFFF,.08f+.22f*coh);first=false;px=x;py=y;}
+     softDot(cx,cy,2+(i32)(coh*2.0f),0xFFFFFF,.12f+.20f*coh);
+ }
++
++static const char* orbModeName(){ return g_orbMode==0?"CYMATIC":(g_orbMode==1?"MANDALA":"LOTUS"); }
++static void drawMandalaSphere(i32 cx,i32 cy){
++    // Audio-mandala: measurable spectral structure selects symmetry, rings and rotation.
++    const i32 rad=43;f32 loud=clamp01(g_loudness*1.15f),coh=clamp01(g_harmonicity),rough=clamp01(g_flux*.75f+(1.0f-coh)*.35f);
++    i32 petals=6+((i32)(g_domHz/47.0f)%7);f32 spin=g_time*(.08f+.22f*g_stereoWidth)+(g_stereoCorr<0?-.35f:.35f);
++    u32 base=lerpColor(0x24445B,0xD7F7FF,clamp01(.25f+.60f*coh));
++    circle(cx,cy,(f32)rad,0x5A7188,.09f,128);
++    // Harmonic halos: energy in real partials controls each concentric ring.
++    for(i32 h=0;h<6;h++){
++        f32 e=g_cymHarm[h];f32 rr=7.0f+(f32)h*5.3f+e*2.4f;
++        u32 c=lerpColor(0x315067,0xF5FEFF,clamp01(e*.9f+coh*.25f));
++        circle(cx,cy,rr,c,.025f+.14f*e+.05f*coh,96);
++    }
++    // Nested rose curves. Dominant Hz chooses symmetry; coherence cleans the geometry.
++    for(i32 layer=0;layer<3;layer++){
++        i32 seg=144,px=cx,py=cy;bool first=true;f32 phase=spin+(f32)layer*.5235988f;
++        for(i32 i=0;i<=seg;i++){
++            f32 a=6.2831853f*(f32)i/(f32)seg;
++            f32 pet=f_abs(fast_sin((f32)petals*a*.5f+phase));
++            f32 rr=9.0f+(f32)layer*8.0f+pet*(10.0f+(f32)layer*3.0f)*(0.55f+.45f*coh);
++            rr+=fast_sin(a*(f32)(petals+2)+g_time*1.7f)*rough*1.7f;
++            i32 x=cx+(i32)(fast_cos(a)*rr),y=cy+(i32)(fast_sin(a)*rr);
++            if(!first)line(px,py,x,y,base,.045f+.09f*loud+.08f*coh);first=false;px=x;py=y;
++        }
++    }
++    // Radial spokes are weighted by the strongest chroma memory rather than arbitrary decoration.
++    for(i32 p=0;p<petals;p++){
++        f32 a=6.2831853f*(f32)p/(f32)petals+spin*.20f;f32 w=.035f+.10f*coh+.06f*g_chromaMemory[p%12];
++        i32 x=cx+(i32)(fast_cos(a)*(rad-4)),y=cy+(i32)(fast_sin(a)*(rad-4));line(cx,cy,x,y,0xBDEFFF,w);
++    }
++    softDot(cx,cy,3+(i32)(loud*2.0f),0xFFFFFF,.10f+.20f*coh);
++}
++static void drawLotusSphere(i32 cx,i32 cy){
++    // Signal-driven lotus: sustained/harmonic sound blooms; transients flutter the petals.
++    const i32 rad=43;f32 loud=clamp01(g_loudness*1.2f),coh=clamp01(g_harmonicity),sustain=clamp01(.55f*g_melodyStability+.45f*g_bassSustain);
++    f32 bloom=clamp01(.22f+.46f*sustain+.22f*coh+.16f*loud);f32 flutter=clamp01(g_flux*.85f+g_melodyVibrato*.35f);
++    i32 petals=8+2*((i32)(g_domHz/120.0f)%4);f32 phase=g_time*(.04f+.12f*g_stereoWidth);
++    circle(cx,cy,(f32)rad,0x5E7488,.075f,128);
++    // Root / seed pressure is tied to actual sub and bass energy.
++    f32 root=clamp01(.62f*g_subEnergy+.38f*g_bassBody);softDot(cx,cy,4+(i32)(root*5.0f),0xF4FDFF,.08f+.24f*root);
++    // Three petal whorls. Each uses a polar lotus curve with harmonic modulation.
++    for(i32 layer=0;layer<3;layer++){
++        i32 seg=192,px=cx,py=cy;bool first=true;f32 off=(f32)layer*3.14159265f/(f32)petals;
++        for(i32 i=0;i<=seg;i++){
++            f32 a=6.2831853f*(f32)i/(f32)seg+off;
++            f32 lobe=.5f+.5f*fast_cos((f32)petals*a+phase*(layer+1));
++            lobe=lobe*lobe;
++            f32 rr=7.0f+(f32)layer*7.0f+lobe*(8.0f+(f32)layer*4.2f)*(.55f+.55f*bloom);
++            f32 h=g_cymHarm[(layer*2+i/32)&7];rr+=fast_sin(a*(f32)(petals/2+layer+1)+g_time*1.25f)*flutter*(.6f+1.4f*h);
++            i32 x=cx+(i32)(fast_cos(a)*rr),y=cy+(i32)(fast_sin(a)*rr);
++            u32 c=lerpColor(layer==0?0x315A67:(layer==1?0x56818C:0x8FB8BD),0xF8FFFF,clamp01(coh*.55f+loud*.30f));
++            if(!first)line(px,py,x,y,c,.045f+.08f*bloom+.07f*coh);first=false;px=x;py=y;
++        }
++    }
++    // Outer open petals: width follows stereo, tip length follows harmonic strength.
++    f32 spread=.18f+.22f*g_stereoWidth;
++    for(i32 p=0;p<petals;p++){
++        f32 a=6.2831853f*(f32)p/(f32)petals+phase*.15f;f32 e=g_cymHarm[p&7];f32 len=25.0f+9.0f*bloom+4.0f*e;
++        i32 x0=cx+(i32)(fast_cos(a-spread)*10.0f),y0=cy+(i32)(fast_sin(a-spread)*10.0f);
++        i32 xt=cx+(i32)(fast_cos(a)*len),yt=cy+(i32)(fast_sin(a)*len);
++        i32 x1=cx+(i32)(fast_cos(a+spread)*10.0f),y1=cy+(i32)(fast_sin(a+spread)*10.0f);
++        u32 c=lerpColor(0x5A8793,0xF6FFFF,clamp01(.35f+e*.45f+coh*.30f));
++        line(x0,y0,xt,yt,c,.05f+.10f*bloom);line(xt,yt,x1,y1,c,.05f+.10f*bloom);
++    }
++    // Gentle halo and center bloom keep the lotus readable at low levels.
++    circle(cx,cy,34.0f+3.0f*bloom,0xB5DDE2,.035f+.06f*coh,112);softDot(cx,cy,2+(i32)(coh*2.0f),0xFFFFFF,.14f+.18f*coh);
++}
++static void drawSemanticOrb(i32 cx,i32 cy){
++    if(g_orbMode==0)drawCymaticsSphere(cx,cy);
++    else if(g_orbMode==1)drawMandalaSphere(cx,cy);
++    else drawLotusSphere(cx,cy);
++}
+ static void drawPhaseScope(i32 cx,i32 cy,i32 rad){
+@@ -831,7 +907,7 @@
+-    drawPhaseScope(305,64,41);drawBassBouncer(440,64);drawCymaticsSphere(570,64);drawPhaseMeter(260,115,105);
++    drawPhaseScope(305,64,41);drawBassBouncer(440,64);drawSemanticOrb(570,64);drawPhaseMeter(260,115,105);
+@@ -880,9 +956,10 @@
+     txtReset(b,n);txtStr(b,n,"FREQ DOM ");txtF1(b,n,g_domHz);txtStr(b,n,"Hz ");txtStr(b,n,g_noteName);txtU(b,n,(u32)(g_noteOct<0?0:g_noteOct));txtStr(b,n," CENT ");txtU(b,n,(u32)g_centroidHz);txtStr(b,n," ROLL ");txtU(b,n,(u32)g_rolloffHz);txtStr(b,n," HARM ");txtPct(b,n,g_harmonicity);TextOutA(dc,12,y,b,n);y+=17;
+     txtReset(b,n);txtStr(b,n,"RESON ");txtStr(b,n,g_anchorLabel[0]);txtChar(b,n,' ');txtPct(b,n,g_anchorScore[0]);txtStr(b,n," PULSE ");if(g_pulseConfidence>.12f){txtF1(b,n,g_pulseHz);txtStr(b,n,"Hz");}else txtStr(b,n,"--");txtStr(b,n," BIN ");if(g_binauralConfidence>.12f){txtF1(b,n,g_binauralHz);txtStr(b,n,"Hz");}else txtStr(b,n,"--");TextOutA(dc,12,y,b,n);y+=17;
+     txtReset(b,n);txtStr(b,n,"VIEW ");txtStr(b,n,displayModeName());txtStr(b,n," SRC ");txtStr(b,n,heatSourceName());txtStr(b,n," FLOOR ");txtF1(b,n,g_displayFloor);txtStr(b,n," TILT ");txtF1(b,n,g_displayTilt);TextOutA(dc,12,y,b,n);
++    if(g_time<g_orbFlashUntil){y+=17;SetTextColor(dc,0x00D9FFFFu);txtReset(b,n);txtStr(b,n,"ORB // ");txtStr(b,n,orbModeName());TextOutA(dc,12,y,b,n);}
+ }
+ static void updateTitle(){
+-    SetWindowTextA(g_hwnd,"PRISM LAB // TRUE PHASE + FL-STYLE HEATMAP + HYDRO-CYMATIC ORB // T:DISPLAY I:SOURCE D:RANGE Y:TILT L:MELODY H:HUD");
++    SetWindowTextA(g_hwnd,"PRISM LAB // TRUE PHASE + TRUE HEATMAP + SEMANTIC ORB // O:ORB T:DISPLAY I:SOURCE D:RANGE Y:TILT L:MELODY H:HUD");
+ }
+@@ -893,7 +970,7 @@
+-        if(k=='T'){g_displayMode=(g_displayMode+1)%3;return 0;} if(k=='I'){g_heatSource=(g_heatSource+1)%5;g_tfWrite=g_tfCount=0;return 0;} if(k=='D'){if(g_displayFloor<-100)g_displayFloor=-60;else if(g_displayFloor<-75)g_displayFloor=-90;else g_displayFloor=-120;return 0;} if(k=='Y'){if(g_displayTilt<1)g_displayTilt=3.0f;else if(g_displayTilt<4)g_displayTilt=4.5f;else if(g_displayTilt<5.5f)g_displayTilt=6.0f;else g_displayTilt=0.0f;return 0;} if(k=='L'){g_melodyRail=!g_melodyRail;return 0;} if(k=='H'){g_hud=!g_hud;return 0;} if(k=='F'){g_freeze=!g_freeze;return 0;}
++        if(k=='T'){g_displayMode=(g_displayMode+1)%3;return 0;} if(k=='I'){g_heatSource=(g_heatSource+1)%5;g_tfWrite=g_tfCount=0;return 0;} if(k=='D'){if(g_displayFloor<-100)g_displayFloor=-60;else if(g_displayFloor<-75)g_displayFloor=-90;else g_displayFloor=-120;return 0;} if(k=='Y'){if(g_displayTilt<1)g_displayTilt=3.0f;else if(g_displayTilt<4)g_displayTilt=4.5f;else if(g_displayTilt<5.5f)g_displayTilt=6.0f;else g_displayTilt=0.0f;return 0;} if(k=='O'){g_orbMode=(g_orbMode+1)%3;g_orbFlashUntil=g_time+1.25f;return 0;} if(k=='L'){g_melodyRail=!g_melodyRail;return 0;} if(k=='H'){g_hud=!g_hud;return 0;} if(k=='F'){g_freeze=!g_freeze;return 0;}
+@@ -911,7 +988,7 @@
+-    txtReset(b,n);txtStr(b,n,"HYDRO-CYMATIC ");txtF1(b,n,g_domHz);txtStr(b,n," Hz");TextOutA(dc,525*w/FBW,108*h/FBH,b,n);
++    txtReset(b,n);txtStr(b,n,"ORB ");txtStr(b,n,orbModeName());txtChar(b,n,' ');txtF1(b,n,g_domHz);txtStr(b,n," Hz");TextOutA(dc,510*w/FBW,108*h/FBH,b,n);
