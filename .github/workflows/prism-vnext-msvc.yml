@@ -41,7 +41,7 @@ jobs:
           $output = [IO.File]::Create("prism_build/vnext.patch")
           $gzip.CopyTo($output)
           $output.Dispose(); $gzip.Dispose(); $input.Dispose()
-          git apply --unsafe-paths prism_build/vnext.patch
+          git apply -p0 --unsafe-paths prism_build/vnext.patch
           if ((Get-Item "prism_build/prism.cpp").Length -ne 65073) { throw "Patched source size mismatch" }
 
       - uses: ilammy/msvc-dev-cmd@v1
