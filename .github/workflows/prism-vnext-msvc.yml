@@ -1,4 +1,4 @@
-name: PRISM vNext MSVC Build
+name: PRISM Hover dB MSVC Build
 
 on:
   pull_request:
@@ -31,7 +31,7 @@ jobs:
           $gzip.CopyTo($output)
           $output.Dispose(); $gzip.Dispose(); $input.Dispose()
 
-      - name: Apply PRISM vNext patch
+      - name: Apply PRISM true-analyzer patch
         shell: pwsh
         run: |
           $p64 = ((Get-Content "prism_build/vnext_patch_00.b64" -Raw).Trim() + (Get-Content "prism_build/vnext_patch_01.b64" -Raw).Trim())
@@ -42,7 +42,18 @@ jobs:
           $gzip.CopyTo($output)
           $output.Dispose(); $gzip.Dispose(); $input.Dispose()
           git apply -p0 --unsafe-paths prism_build/vnext.patch
-          Write-Host "patched bytes:" (Get-Item "prism_build/prism.cpp").Length
+
+      - name: Apply dB hover patch
+        shell: pwsh
+        run: |
+          $p64 = (Get-Content "prism_build/hover_db.patch.gz.b64" -Raw).Trim()
+          [IO.File]::WriteAllBytes("prism_build/hover_db.patch.gz", [Convert]::FromBase64String($p64))
+          $input = [IO.File]::OpenRead("prism_build/hover_db.patch.gz")
+          $gzip = [IO.Compression.GzipStream]::new($input, [IO.Compression.CompressionMode]::Decompress)
+          $output = [IO.File]::Create("prism_build/hover_db.patch")
+          $gzip.CopyTo($output)
+          $output.Dispose(); $gzip.Dispose(); $input.Dispose()
+          git apply --unsafe-paths prism_build/hover_db.patch
 
       - uses: ilammy/msvc-dev-cmd@v1
         with:
@@ -55,16 +66,16 @@ jobs:
           prism_build\prism.cpp
           /link /SUBSYSTEM:WINDOWS /DYNAMICBASE /NXCOMPAT /HIGHENTROPYVA
           user32.lib gdi32.lib ole32.lib winmm.lib kernel32.lib
-          /OUT:PRISM_LAB_TRUE.exe
+          /OUT:PRISM_LAB_HOVER_DB.exe
 
       - name: Inspect and hash
         shell: pwsh
         run: |
-          Get-Item .\PRISM_LAB_TRUE.exe | Format-List Name,Length,LastWriteTime
-          Get-FileHash .\PRISM_LAB_TRUE.exe -Algorithm SHA256 | Format-List
+          Get-Item .\PRISM_LAB_HOVER_DB.exe | Format-List Name,Length,LastWriteTime
+          Get-FileHash .\PRISM_LAB_HOVER_DB.exe -Algorithm SHA256 | Format-List
 
       - uses: actions/upload-artifact@v4
         with:
-          name: PRISM_LAB_TRUE_MSVC
-          path: PRISM_LAB_TRUE.exe
+          name: PRISM_LAB_HOVER_DB_MSVC
+          path: PRISM_LAB_HOVER_DB.exe
           if-no-files-found: error
