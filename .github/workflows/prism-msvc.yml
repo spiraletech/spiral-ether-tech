@@ -1,0 +1,49 @@
+name: PRISM MSVC Build
+
+on:
+  pull_request:
+    branches: [main]
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Decode PRISM C++ source
+        shell: pwsh
+        run: |
+          $b64 = (Get-Content "prism_build/prism.cpp.gz.b64" -Raw).Trim()
+          $gzPath = "prism_build/prism.cpp.gz"
+          $cppPath = "prism_build/prism.cpp"
+          [IO.File]::WriteAllBytes($gzPath, [Convert]::FromBase64String($b64))
+          $input = [IO.File]::OpenRead($gzPath)
+          $gzip = [IO.Compression.GzipStream]::new($input, [IO.Compression.CompressionMode]::Decompress)
+          $output = [IO.File]::Create($cppPath)
+          $gzip.CopyTo($output)
+          $output.Dispose()
+          $gzip.Dispose()
+          $input.Dispose()
+
+      - uses: ilammy/msvc-dev-cmd@v1
+        with:
+          arch: x64
+
+      - name: Compile native C++ Windows executable
+        shell: cmd
+        run: >
+          cl /nologo /O2 /W3 /EHsc /std:c++17 /MT
+          prism_build\prism.cpp
+          /link /SUBSYSTEM:WINDOWS /DYNAMICBASE /NXCOMPAT /HIGHENTROPYVA
+          user32.lib gdi32.lib ole32.lib winmm.lib kernel32.lib
+          /OUT:PRISM_LAB_20K.exe
+
+      - name: Hash executable
+        shell: pwsh
+        run: Get-FileHash .\PRISM_LAB_20K.exe -Algorithm SHA256 | Format-List
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: PRISM_LAB_20K_MSVC
+          path: PRISM_LAB_20K.exe
+          if-no-files-found: error
