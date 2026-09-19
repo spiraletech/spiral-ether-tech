@@ -1,0 +1,70 @@
+name: PRISM vNext MSVC Build
+
+on:
+  pull_request:
+    branches: [main]
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Reassemble baseline PRISM source
+        shell: pwsh
+        run: |
+          $parts = @(
+            "prism_build/parts/00.b64",
+            "prism_build/parts/01.b64",
+            "prism_build/parts/02.b64",
+            "prism_build/parts/03a.b64",
+            "prism_build/parts/03b.b64",
+            "prism_build/parts/03c.b64",
+            "prism_build/parts/03d.b64",
+            "prism_build/parts/04.b64"
+          )
+          $b64 = ($parts | ForEach-Object { (Get-Content $_ -Raw).Trim() }) -join ""
+          [IO.File]::WriteAllBytes("prism_build/prism.cpp.gz", [Convert]::FromBase64String($b64))
+          $input = [IO.File]::OpenRead("prism_build/prism.cpp.gz")
+          $gzip = [IO.Compression.GzipStream]::new($input, [IO.Compression.CompressionMode]::Decompress)
+          $output = [IO.File]::Create("prism_build/prism.cpp")
+          $gzip.CopyTo($output)
+          $output.Dispose(); $gzip.Dispose(); $input.Dispose()
+
+      - name: Apply PRISM vNext patch
+        shell: pwsh
+        run: |
+          $p64 = ((Get-Content "prism_build/vnext_patch_00.b64" -Raw).Trim() + (Get-Content "prism_build/vnext_patch_01.b64" -Raw).Trim())
+          [IO.File]::WriteAllBytes("prism_build/vnext.patch.gz", [Convert]::FromBase64String($p64))
+          $input = [IO.File]::OpenRead("prism_build/vnext.patch.gz")
+          $gzip = [IO.Compression.GzipStream]::new($input, [IO.Compression.CompressionMode]::Decompress)
+          $output = [IO.File]::Create("prism_build/vnext.patch")
+          $gzip.CopyTo($output)
+          $output.Dispose(); $gzip.Dispose(); $input.Dispose()
+          git apply --unsafe-paths prism_build/vnext.patch
+          if ((Get-Item "prism_build/prism.cpp").Length -ne 65073) { throw "Patched source size mismatch" }
+
+      - uses: ilammy/msvc-dev-cmd@v1
+        with:
+          arch: x64
+
+      - name: Compile native C++ executable
+        shell: cmd
+        run: >
+          cl /nologo /O2 /W3 /EHsc /std:c++17 /MT
+          prism_build\prism.cpp
+          /link /SUBSYSTEM:WINDOWS /DYNAMICBASE /NXCOMPAT /HIGHENTROPYVA
+          user32.lib gdi32.lib ole32.lib winmm.lib kernel32.lib
+          /OUT:PRISM_LAB_TRUE.exe
+
+      - name: Inspect and hash
+        shell: pwsh
+        run: |
+          Get-Item .\PRISM_LAB_TRUE.exe | Format-List Name,Length,LastWriteTime
+          Get-FileHash .\PRISM_LAB_TRUE.exe -Algorithm SHA256 | Format-List
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: PRISM_LAB_TRUE_MSVC
+          path: PRISM_LAB_TRUE.exe
+          if-no-files-found: error
