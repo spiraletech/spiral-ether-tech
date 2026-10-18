@@ -24,6 +24,9 @@ include(cmake/SpiralCore.cmake)
 # No skeletal runtime implementation is allowed inside this target.
 include(cmake/HakuiAvatarRig.cmake)
 
+# M4A: bounded native GLB mesh/skin importer (renderer-independent).
+include(cmake/HakuiGlbImport.cmake)
+
 # Hakui-owned world interaction semantics over the Spiral bus/state layer.
 include(cmake/HakuiInteraction.cmake)
 
