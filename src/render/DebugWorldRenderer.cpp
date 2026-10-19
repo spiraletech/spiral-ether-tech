@@ -9,6 +9,7 @@
 #include <vector>
 
 #include "render/Math3D.hpp"
+#include "render/RenderStyle.hpp"
 
 // Temporary bootstrap shaders from SDL's own GPU test suite.
 // They are fetched with SDL 3.4.14 and covered by SDL's zlib license.
@@ -107,15 +108,22 @@ Uint32 paletteFor(hakui::MaterialRole material)
     return Shell;
 }
 
-constexpr std::array<std::array<float, 3>, PaletteCount> kPalettes{{
-    {{0.82f, 0.84f, 0.90f}},
-    {{0.09f, 0.12f, 0.20f}},
-    {{0.06f, 0.92f, 1.00f}},
-    {{0.96f, 0.08f, 0.66f}},
-    {{1.00f, 0.62f, 0.10f}},
-    {{0.012f, 0.014f, 0.024f}},
-    {{0.22f, 1.00f, 0.48f}},
-    {{1.00f, 0.12f, 0.18f}}
+// The presentation palette is now derived from semantic material roles by
+// the native INOKUI G1 renderer-independent style module.
+constexpr std::array<hakui::MaterialRole, PaletteCount> kPaletteMaterials{{
+    hakui::MaterialRole::PowderConcrete,
+    hakui::MaterialRole::IndustrialDark,
+    hakui::MaterialRole::CrtCyan,
+    hakui::MaterialRole::SignalMagenta,
+    hakui::MaterialRole::SodiumAmber,
+    hakui::MaterialRole::VoidBlack,
+    hakui::MaterialRole::TerminalGreen,
+    hakui::MaterialRole::HazardRed
+}};
+// kCubeVertices holds six triangles per face (front/left/top/right/back/bottom).
+constexpr std::array<hakui::graphics::Color3, 6> kCubeFaceNormals{{
+    {0.f, 0.f, -1.f}, {-1.f, 0.f, 0.f}, {0.f, 1.f, 0.f},
+    {1.f, 0.f, 0.f}, {0.f, 0.f, 1.f}, {0.f, -1.f, 0.f}
 }};
 
 constexpr Uint32 kCubeVertexCount = static_cast<Uint32>(std::size(kCubeVertices));
@@ -328,16 +336,14 @@ bool DebugWorldRenderer::createCubeBuffer()
 {
     std::vector<Vertex> vertices;
     vertices.reserve(static_cast<std::size_t>(kCubeVertexCount) * PaletteCount);
-    for (const auto& palette : kPalettes) {
-        for (const Vertex& source : kCubeVertices) {
-            const float shade = source.r;
+    for (const auto role : kPaletteMaterials) {
+        for (std::size_t i = 0; i < std::size(kCubeVertices); ++i) {
+            const Vertex& source = kCubeVertices[i];
+            const auto lit = hakui::graphics::shadeDebugSurface(
+                role, kCubeFaceNormals[i / 6]
+            );
             vertices.push_back({
-                source.x,
-                source.y,
-                source.z,
-                palette[0] * shade,
-                palette[1] * shade,
-                palette[2] * shade
+                source.x, source.y, source.z, lit.r, lit.g, lit.b
             });
         }
     }
@@ -521,9 +527,10 @@ bool DebugWorldRenderer::render(
 
     SDL_GPUColorTargetInfo colorTarget{};
     colorTarget.texture = swapchain;
-    colorTarget.clear_color = scene.paused
-        ? SDL_FColor{0.006f, 0.006f, 0.010f, 1.0f}
-        : SDL_FColor{0.002f, 0.003f, 0.008f, 1.0f};
+    const auto environment = hakui::graphics::clearColor(scene.paused);
+    colorTarget.clear_color = SDL_FColor{
+        environment.r, environment.g, environment.b, 1.0f
+    };
     colorTarget.load_op = SDL_GPU_LOADOP_CLEAR;
     colorTarget.store_op = SDL_GPU_STOREOP_STORE;
 
