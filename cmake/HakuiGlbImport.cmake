@@ -1,0 +1,22 @@
+# M4A: standalone native glTF 2.0 binary/skin importer; no graphics dependencies.
+add_library(hakui_glb_import STATIC
+    ${CMAKE_CURRENT_LIST_DIR}/../src/avatar/import/GlbMeshLoader.cpp
+)
+target_include_directories(hakui_glb_import PUBLIC ${CMAKE_CURRENT_LIST_DIR}/../src)
+target_compile_features(hakui_glb_import PUBLIC cxx_std_20)
+if(MSVC)
+    target_compile_options(hakui_glb_import PRIVATE /W4 /permissive-)
+else()
+    target_compile_options(hakui_glb_import PRIVATE -Wall -Wextra -Wpedantic)
+endif()
+if(BUILD_TESTING)
+    add_executable(hakui_glb_import_spec ${CMAKE_CURRENT_LIST_DIR}/../tests/hakui/GlbImportSpec.cpp)
+    target_link_libraries(hakui_glb_import_spec PRIVATE hakui_glb_import)
+    target_compile_features(hakui_glb_import_spec PRIVATE cxx_std_20)
+    if(MSVC)
+        target_compile_options(hakui_glb_import_spec PRIVATE /UNDEBUG)
+    else()
+        target_compile_options(hakui_glb_import_spec PRIVATE -UNDEBUG)
+    endif()
+    add_test(NAME hakui.glb_import COMMAND hakui_glb_import_spec)
+endif()
