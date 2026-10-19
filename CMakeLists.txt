@@ -24,6 +24,9 @@ include(cmake/SpiralCore.cmake)
 # No skeletal runtime implementation is allowed inside this target.
 include(cmake/HakuiAvatarRig.cmake)
 
+# INOKUI G1: native material/lighting/graphics-quality contracts.
+include(cmake/HakuiRenderStyle.cmake)
+
 # Hakui-owned world interaction semantics over the Spiral bus/state layer.
 include(cmake/HakuiInteraction.cmake)
 
@@ -114,6 +117,7 @@ if(HAKUI_BUILD_NATIVE_CLIENT)
             hakui_camera
             hakui_combat
             hakui_tabletop
+            hakui_render_style
     )
 
     # Deliberate boundary:
